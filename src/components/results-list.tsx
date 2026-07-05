@@ -12,27 +12,35 @@ interface Props {
   streamContents: {
     [key: number]: string;
   };
+  onToggle?: (index: number) => void;
 }
 
-export function ResultsList({ results, expandedIndex, streamContents }: Props) {
+export function ResultsList({ results, expandedIndex, streamContents, onToggle }: Props) {
   const t = useTranslations("SpeedTest");
   const tRank = useTranslations("rank");
 
   return (
     <>
-      <h2 className="text-xl text-center font-bold mb-4">
+      <h2 className="w-full text-xl text-center font-bold mb-4">
         {t("results.title")}
       </h2>
       <div className="space-y-6">
         {results.map((result, index) => (
           <div
             key={index}
+            onClick={() => {
+              if (result.status !== 'pending' && onToggle) {
+                onToggle(index)
+              }
+            }}
             className={`p-4 rounded-lg ${
-              result.status === "running"
-                ? "bg-blue-50"
-                : result.status === "completed"
-                ? "bg-gray-200"
-                : "bg-gray-100"
+              result.status === "pending"
+                ? "bg-gray-100"
+                : "cursor-pointer " + (
+                    result.status === "running"
+                      ? "bg-blue-50"
+                      : "bg-gray-200"
+                  )
             }`}
           >
             <div className="flex justify-between items-center">
@@ -89,10 +97,18 @@ export function ResultsList({ results, expandedIndex, streamContents }: Props) {
                   {tRank("table.avgTokens")}
                 </p>
                 <p className="text-gray-700">
-                  {result.status === "completed" || expandedIndex === index
-                    ? `${result.tokensPerSecond.toFixed(2)} t/s (${
-                        result.outputToken
-                      }/${(result.outputTime / 1000).toFixed(2)}s)`
+                  {result.status !== "pending"
+                    ? `${result.tokensPerSecond.toFixed(2)} t/s`
+                    : "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-600 text-sm">
+                  {t("results.metrics.outputToken")}
+                </p>
+                <p className="text-gray-700">
+                  {result.status !== "pending"
+                    ? `${result.outputToken} (${(result.outputTime / 1000).toFixed(2)}s)`
                     : "-"}
                 </p>
               </div>
@@ -104,9 +120,21 @@ export function ResultsList({ results, expandedIndex, streamContents }: Props) {
                 expandedIndex === index ? "block" : "hidden"
               }`}
             >
-              <h4 className="text-gray-700 font-medium mb-2">
-                {t("results.output.title")}:
-              </h4>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-gray-700 font-medium">
+                  {t("results.output.title")}:
+                </h4>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const text = streamContents[index]
+                    if (text) navigator.clipboard.writeText(text)
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                >
+                  {t("results.output.copy")}
+                </button>
+              </div>
               <div className="whitespace-pre-wrap font-mono text-sm">
                 {streamContents[index] ||
                   (result.status === "pending"

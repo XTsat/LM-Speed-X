@@ -99,12 +99,21 @@ export function SpeedTestForm() {
 	const {
 		register,
 		handleSubmit,
+		watch,
 		formState: { errors },
 		getValues,
 		setValue,
 	} = useForm<SpeedTestInput>({
 		resolver: zodResolver(speedTestSchema),
 	})
+
+	// Sync form values to localStorage on change so StabilityTest block always has latest config
+	const watchBaseUrl = watch('baseUrl')
+	const watchApiKey = watch('apiKey')
+	const watchModelId = watch('modelId')
+	useEffect(() => { if (watchBaseUrl) localStorage.setItem('speedtest_baseUrl', watchBaseUrl) }, [watchBaseUrl])
+	useEffect(() => { if (watchApiKey) localStorage.setItem('speedtest_apiKey', watchApiKey) }, [watchApiKey])
+	useEffect(() => { if (watchModelId) localStorage.setItem('speedtest_modelId', watchModelId) }, [watchModelId])
 
 	const [rememberApiKey, setRememberApiKey] = useState(true)
 
@@ -391,8 +400,20 @@ export function SpeedTestForm() {
 		
 		if (urlParams.modelId) {
 			setValue('modelId', urlParams.modelId);
+			setModels(prev => {
+				if (!prev.some(m => m.id === urlParams.modelId)) {
+					return [...prev, { id: urlParams.modelId! }];
+				}
+				return prev;
+			});
 		} else if (savedModelId) {
 			setValue('modelId', savedModelId);
+			setModels(prev => {
+				if (!prev.some(m => m.id === savedModelId)) {
+					return [...prev, { id: savedModelId }];
+				}
+				return prev;
+			});
 		}
 		
 		if (urlParams.apiKey) {
@@ -405,14 +426,6 @@ export function SpeedTestForm() {
 		
 		// If all three parameters are present in URL, start speed test automatically
 		if (urlParams.baseUrl && urlParams.apiKey && urlParams.modelId) {
-			// Add the model to the models list if not already present
-			setModels(prev => {
-				if (!prev.some(model => model.id === urlParams.modelId)) {
-					return [...prev, { id: urlParams.modelId! }];
-				}
-				return prev;
-			});
-			
 			// Trigger the form submission after a short delay to ensure form is ready
 			setTimeout(() => {
 				handleSubmit(onSubmit)();
@@ -841,6 +854,7 @@ export function SpeedTestForm() {
 							results={results}
 							streamContents={streamContents}
 							expandedIndex={expandedIndex}
+							onToggle={(index) => setExpandedIndex(expandedIndex === index ? null : index)}
 						/>
 					</div>
 				</>

@@ -85,7 +85,7 @@ export function RecentTests(params: Props) {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-xl text-center font-semibold mb-4">
+      <h2 className="w-full text-xl text-center font-semibold mb-4">
         {t("recentTests")}
       </h2>
       <div className="bg-white shadow overflow-hidden rounded-lg">

@@ -50,6 +50,60 @@
     "recentTests": "Recent Test Results",
     "noTests": "No test records"
   },
+  "StabilityTest": {
+    "title": "Stability Test",
+    "submit": "Run Stability Test (est. 1000 tokens per run)",
+    "running": "Running...",
+    "complete": "Stability test completed",
+    "prompt": {
+      "label": "Test Prompt",
+      "placeholder": "Enter test prompt"
+    },
+    "count": {
+      "label": "Iterations",
+      "hint": "Minimum 3, maximum 50"
+    },
+    "connection": {
+      "baseUrl": "API Base URL",
+      "apiKey": "API Key",
+      "modelId": "Model ID"
+    },
+    "summary": {
+      "title": "Stability Test Summary",
+      "iterations": "Iterations",
+      "prompt": "Output Length",
+      "metric": "Metric",
+      "avg": "Average",
+      "stdDev": "Std Dev",
+      "min": "Min",
+      "max": "Max",
+      "median": "Median",
+      "firstTokenLatency": "First Token Latency",
+      "tokensPerSecond": "Tokens/s",
+      "totalTime": "Total Time",
+      "outputToken": "Output Tokens",
+      "stdDevHint": "Lower standard deviation indicates more stable API performance. High standard deviation may indicate API service fluctuations."
+    },
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed"
+    },
+    "details": {
+      "title": "Individual Runs",
+      "firstTokenLatency": "First Token",
+      "tokensPerSecond": "Speed (t/s)",
+      "totalTime": "Total Time",
+      "outputToken": "Tokens",
+      "toggleContent": "View output",
+      "loading": "Loading...",
+      "waiting": "Waiting..."
+    },
+    "errors": {
+      "noConfig": "Please configure API connection in the speed test form first",
+      "unknown": "Unknown error, please try again"
+    }
+  },
   "SpeedTest": {
     "form": {
       "apiKey": {
@@ -66,7 +120,7 @@
         "placeholder": "Fetch model ID first, then select"
       },
       "submit": {
-        "default": "Run Speed Test (5 rounds, Est. 6000 tokens)",
+        "default": "Run Speed Test (5 rounds of standard testing, est. 6000 tokens)",
         "running": "Running test..."
       },
       "exportConfig": "Export Config",
@@ -84,13 +138,15 @@
       "metrics": {
         "firstTokenLatency": "First Token",
         "tokensPerSecond": "Tokens/Second",
-        "totalTime": "Total Time"
+        "totalTime": "Total Time",
+        "outputToken": "Output Tokens"
       },
       "model": "Model",
       "output": {
         "loading": "Loading...",
         "title": "AI Output",
-        "waiting": "Waiting..."
+        "waiting": "Waiting...",
+        "copy": "Copy"
       },
       "prompt": "Prompt",
       "status": {

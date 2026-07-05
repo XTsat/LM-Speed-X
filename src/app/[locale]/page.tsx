@@ -3,6 +3,7 @@
 import { SpeedTestForm } from '@/components/speed-test-form'
 import { ProductFeatures } from '@/components/home/product-features'
 import { RecentTests } from '@/components/recent-tests'
+import { StabilityTest } from '@/components/stability-test'
 import { FAQ } from '@/components/home/faq'
 import { useTranslations } from 'next-intl'
 
@@ -21,6 +22,9 @@ export default function Home() {
 						{t('subtitle2')}
 					</p>
 					<SpeedTestForm />
+				</div>
+				<div className="max-w-4xl mx-auto">
+					<StabilityTest />
 				</div>
 				<RecentTests />
 				<ProductFeatures />

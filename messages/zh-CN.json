@@ -50,6 +50,61 @@
     "recentTests": "最近测试记录",
     "noTests": "暂无测试记录"
   },
+  "StabilityTest": {
+    "title": "稳定性测试",
+    "submit": "运行稳定性测试（预计一次消耗 1000 token）",
+    "running": "正在运行...",
+    "complete": "稳定性测试完成",
+    "prompt": {
+      "label": "测试提示词",
+      "placeholder": "输入测试提示词"
+    },
+    "count": {
+      "label": "测试次数",
+      "hint": "最少 3 次，最多 50 次"
+    },
+    "connection": {
+      "baseUrl": "API 地址",
+      "apiKey": "API 密钥",
+      "modelId": "模型 ID"
+    },
+    "summary": {
+      "title": "稳定性测试汇总",
+      "iterations": "测试次数",
+      "prompt": "输出长度",
+      "metric": "指标",
+      "avg": "平均值",
+      "stdDev": "标准差",
+      "min": "最小值",
+      "max": "最大值",
+      "median": "中位数",
+      "firstTokenLatency": "首字延迟",
+      "tokensPerSecond": "输出速度",
+      "totalTime": "总耗时",
+      "outputToken": "输出 Token",
+      "stdDevHint": "标准差越小，说明 API 性能越稳定。标准差过大可能意味着 API 服务存在波动。"
+    },
+    "status": {
+      "pending": "等待中",
+      "running": "运行中",
+      "completed": "已完成"
+    },
+    "details": {
+      "title": "详细运行记录",
+      "iteration": "第",
+      "firstTokenLatency": "首字延迟",
+      "tokensPerSecond": "速度 (t/s)",
+      "totalTime": "总耗时",
+      "outputToken": "Token 数",
+      "toggleContent": "查看输出内容",
+      "loading": "加载中...",
+      "waiting": "等待中..."
+    },
+    "errors": {
+      "noConfig": "请先在速度测试中配置 API 连接信息",
+      "unknown": "未知错误，请重试"
+    }
+  },
   "SpeedTest": {
     "form": {
       "apiKey": {
@@ -66,7 +121,7 @@
         "placeholder": "先抓取模型 ID，然后选择"
       },
       "submit": {
-        "default": "运行速度测试（5 轮对话，预计 6000 token）",
+        "default": "运行速度测试（进行 5 轮标准测试流程，预计消耗 6000 token）",
         "running": "正在运行测试..."
       },
       "exportConfig": "导出配置",
@@ -84,13 +139,15 @@
       "metrics": {
         "firstTokenLatency": "首字",
         "tokensPerSecond": "每秒令牌数",
-        "totalTime": "总时间"
+        "totalTime": "总时间",
+        "outputToken": "输出令牌"
       },
       "model": "模型",
       "output": {
         "loading": "加载中...",
         "title": "AI 输出",
-        "waiting": "等待中..."
+        "waiting": "等待中...",
+        "copy": "复制"
       },
       "prompt": "提示词",
       "status": {
