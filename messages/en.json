@@ -74,7 +74,11 @@
       "configCopied": "Config copied to clipboard",
       "configImported": "Config imported",
       "configImportError": "Failed to import config, please check format",
-      "add": "Add"
+      "add": "Add",
+      "customHeaders": {
+        "label": "Custom Headers",
+        "help": "JSON format, e.g.: '{'\"Header-Name\": \"value\"'}'"
+      }
     },
     "results": {
       "metrics": {

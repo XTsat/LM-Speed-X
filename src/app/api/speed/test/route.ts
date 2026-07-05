@@ -26,10 +26,22 @@ export async function POST(request: Request) {
     // Validate input
     const validatedData = speedTestSchema.parse(body);
     
-    // Create OpenAI client
+    // Create OpenAI client with optional custom headers
+    // Filter out 'Authorization' and 'authorization' to avoid overriding the API key
+    const safeCustomHeaders = validatedData.customHeaders
+      ? Object.fromEntries(
+          Object.entries(validatedData.customHeaders).filter(
+            ([key]) => key.toLowerCase() !== 'authorization'
+          )
+        )
+      : undefined;
+    
     const openai = new OpenAI({
       apiKey: validatedData.apiKey,
       baseURL: validatedData.baseUrl,
+      ...(safeCustomHeaders && Object.keys(safeCustomHeaders).length > 0 ? {
+        defaultHeaders: safeCustomHeaders,
+      } : {}),
     });
 
     // Create a TransformStream for streaming the results
@@ -173,7 +185,11 @@ export async function POST(request: Request) {
         await writer.close();
       } catch (error) {
         console.error('Error in stream:', error);
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        // 尝试获取更详细的错误信息
+        let errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        if (error && typeof error === 'object' && 'status' in error) {
+          errorMsg = `HTTP ${(error as any).status}: ${errorMsg}`;
+        }
         await writer.write(encoder.encode(JSON.stringify({ type: 'error', error: errorMsg }) + '\n'));
         await writer.close();
       }

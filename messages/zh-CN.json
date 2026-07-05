@@ -74,7 +74,11 @@
       "configCopied": "配置已复制到剪贴板",
       "configImported": "配置已导入",
       "configImportError": "配置导入失败，请检查格式",
-      "add": "添加"
+      "add": "添加",
+      "customHeaders": {
+        "label": "自定义请求头",
+        "help": "JSON 格式，例如：'{'\"Header-Name\": \"value\"'}'"
+      }
     },
     "results": {
       "metrics": {

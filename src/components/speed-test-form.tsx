@@ -14,7 +14,7 @@ import { ResultsList } from './results-list'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Input } from './ui/input'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 
@@ -36,6 +36,9 @@ export function SpeedTestForm() {
 	const [isFechingModel, setIsFechingModel] = useState(false)
 	const [baseUrlOpen, setBaseUrlOpen] = useState(false)
 	const [configRefreshKey, setConfigRefreshKey] = useState(0)
+	// 自定义请求头状态 - 使用JSON字符串格式
+	const [customHeadersJson, setCustomHeadersJson] = useState('')
+	const [showCustomHeaders, setShowCustomHeaders] = useState(false)
 	const [commonBaseUrls, setCommonBaseUrls] = useState([
 	// ==================== 国际服务商 ====================
 	{ id: 'https://api.openai.com/v1', name: 'OpenAI' },
@@ -139,10 +142,13 @@ export function SpeedTestForm() {
 
 			const data = await response.json()
 			if (data.models) {
-				// 合并在线模型和自定义模型，避免重复
+				// 去重（API 可能返回重复的模型 ID）
+				const uniqueModels = data.models.filter(
+					(m: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === m.id) === i
+				)
 				setModels(prev => {
 					const existingIds = new Set(prev.map(m => m.id))
-					const newModels = data.models.filter((m: any) => !existingIds.has(m.id))
+					const newModels = uniqueModels.filter((m: any) => !existingIds.has(m.id))
 					return [...prev, ...newModels]
 				})
 			}
@@ -181,34 +187,50 @@ export function SpeedTestForm() {
 			setResults(initialResults)
 			setProgress(0)
 			setStreamContents({})
-			data.baseUrl = data.baseUrl.trim()
-			localStorage.setItem('speedtest_baseUrl', data.baseUrl)
-			localStorage.setItem('speedtest_modelId', data.modelId)
-			if (rememberApiKey) {
-				localStorage.setItem('speedtest_apiKey', data.apiKey)
-			} else {
-				localStorage.removeItem('speedtest_apiKey')
+		data.baseUrl = data.baseUrl.trim()
+		localStorage.setItem('speedtest_baseUrl', data.baseUrl)
+		localStorage.setItem('speedtest_modelId', data.modelId)
+		if (rememberApiKey) {
+			localStorage.setItem('speedtest_apiKey', data.apiKey)
+		} else {
+			localStorage.removeItem('speedtest_apiKey')
+		}
+
+		// 解析自定义请求头
+		let customHeaders: Record<string, string> | undefined
+		if (customHeadersJson.trim()) {
+			try {
+				customHeaders = JSON.parse(customHeadersJson)
+			} catch (e) {
+				toast.error('自定义请求头 JSON 格式错误')
+				return
 			}
+		}
 
-			const response = await fetch('/api/speed/test', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(data),
-			})
+		const requestData = {
+			...data,
+			...(customHeaders && Object.keys(customHeaders).length > 0 ? { customHeaders } : {})
+		}
 
-			// 添加更详细的错误处理
-			if (!response.ok) {
-				let errorMsg = `Failed to perform speed test (${response.status})`;
-				try {
-					const errorData = await response.json();
-					if (errorData?.error) {
-						errorMsg = errorData.error;
-					}
-				} catch (e) {
-					// 如果无法解析 JSON，使用默认错误消息
+		const response = await fetch('/api/speed/test', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(requestData),
+		})
+
+		// 添加更详细的错误处理
+		if (!response.ok) {
+			let errorMsg = `Failed to perform speed test (${response.status})`;
+			try {
+				const errorData = await response.json();
+				if (errorData?.error) {
+					errorMsg = errorData.error;
 				}
-				throw new Error(errorMsg);
+			} catch (e) {
+				// 如果无法解析 JSON，使用默认错误消息
 			}
+			throw new Error(errorMsg);
+		}
 
 			if (!response.body) {
 				throw new Error('No response body from server');
@@ -536,7 +558,7 @@ export function SpeedTestForm() {
 											<CommandList>
 												<CommandEmpty>No framework found.</CommandEmpty>
 												<CommandGroup>
-													{models.map((model) => (
+													{Array.from(new Map(models.map(m => [m.id, m])).values()).map((model) => (
 														<CommandItem
 															key={model.id}
 															value={model.id}
@@ -581,18 +603,46 @@ export function SpeedTestForm() {
 						{errors.modelId && <p className="text-rose-400 text-sm">{errors.modelId.message}</p>}
 					</div>
 
+					{/* 自定义请求头区域 */}
+					<div className="space-y-2">
+						<div className="flex items-center justify-between">
+							<label className="text-sm text-gray-600">{t('form.customHeaders.label') || '自定义请求头'}</label>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								className="h-6 px-2 text-xs"
+								onClick={() => setShowCustomHeaders(!showCustomHeaders)}
+							>
+								{showCustomHeaders ? '收起' : '展开'}
+							</Button>
+						</div>
+						{showCustomHeaders && (
+							<div className="space-y-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+								<textarea
+									value={customHeadersJson}
+									onChange={(e) => setCustomHeadersJson(e.target.value)}
+									placeholder={`{\"X-Custom-Auth\": \"your-token\"}`}
+									className="w-full h-24 p-2 text-sm font-mono border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+								/>
+								<p className="text-xs text-gray-400">{t('form.customHeaders.help') || 'JSON 格式，例如：{\"Header-Name\": \"value\"}'}</p>
+							</div>
+						)}
+					</div>
+
 					<div className="flex gap-2">
 						<Button
 							type="button"
 							variant="outline"
 							className="flex-1"
 							onClick={async () => {
-								const config = {
-									baseUrl: getValues('baseUrl'),
-									apiKey: getValues('apiKey'),
-									modelId: getValues('modelId'),
-									rememberApiKey,
-								};
+							const config = {
+										baseUrl: getValues('baseUrl'),
+										apiKey: getValues('apiKey'),
+										modelId: getValues('modelId'),
+										rememberApiKey,
+										customHeadersJson,
+									};
 								await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 								toast.success(t('form.configCopied'));
 							}}
@@ -623,10 +673,13 @@ export function SpeedTestForm() {
 										}
 									}
 									if (typeof config.rememberApiKey === 'boolean') {
-										setRememberApiKey(config.rememberApiKey);
-									}
-									// 强制刷新UI显示
-									setConfigRefreshKey(prev => prev + 1);
+											setRememberApiKey(config.rememberApiKey);
+										}
+										if (config.customHeadersJson !== undefined) {
+											setCustomHeadersJson(config.customHeadersJson);
+										}
+										// 强制刷新UI显示
+										setConfigRefreshKey(prev => prev + 1);
 									toast.success(t('form.configImported'));
 								} catch (err) {
 									toast.error(t('form.configImportError'));
