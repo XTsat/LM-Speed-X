@@ -50,6 +50,9 @@ importers:
       cmdk:
         specifier: 1.1.1
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      dom-to-image-more:
+        specifier: ^3.10.0
+        version: 3.10.0
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -2160,6 +2163,9 @@ packages:
   doctrine@2.1.0:
     resolution: {integrity: sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw==}
     engines: {node: '>=0.10.0'}
+
+  dom-to-image-more@3.10.0:
+    resolution: {integrity: sha512-APrFEimSmH4phJKs8DlURuSr3BFwDqNi62l14bx73Wrhx0OhE4dd0qzZR+4E3sH8PnHxvax1LOrosC9oXRFA5A==}
 
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
@@ -5279,6 +5285,8 @@ snapshots:
   doctrine@2.1.0:
     dependencies:
       esutils: 2.0.3
+
+  dom-to-image-more@3.10.0: {}
 
   dotenv@17.4.2: {}
 
