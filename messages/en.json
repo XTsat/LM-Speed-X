@@ -104,6 +104,71 @@
       "unknown": "Unknown error, please try again"
     }
   },
+  "ConcurrencyTest": {
+    "title": "Concurrency Test",
+    "submit": "Run Concurrency Test (parallel requests, ~1000 tokens per request)",
+    "running": "Running...",
+    "complete": "Concurrency test completed",
+    "prompt": {
+      "label": "Test Prompt",
+      "placeholder": "Enter test prompt"
+    },
+    "concurrencyLevels": {
+      "label": "Concurrency Levels",
+      "placeholder": "1, 5, 10, 20",
+      "hint": "Comma-separated concurrency levels to test (each level 1-200); each level runs its requests concurrently, levels run sequentially"
+    },
+    "connection": {
+      "baseUrl": "API Base URL",
+      "apiKey": "API Key",
+      "modelId": "Model ID"
+    },
+    "benchmark": {
+      "concurrency": "Concurrency",
+      "rps": "RPS",
+      "avgLatency": "Avg Total Time (s)",
+      "p99Latency": "P99 Latency (s)",
+      "avgTps": "TPS",
+      "ttft": "Avg TTFT (s)",
+      "successTotal": "Success/Total",
+      "successRate": "Success Rate"
+    },
+    "best": {
+      "title": "Best Configuration",
+      "bestRps": "Highest RPS",
+      "bestLatency": "Lowest Latency",
+      "bestTps": "Highest Throughput"
+    },
+    "summary": {
+      "title": "Concurrency Test Summary",
+      "levels": "Levels",
+      "totalTokens": "Total Tokens",
+      "stdDevHint": "Under concurrent load, latency and TPS fluctuate more. Rows are colored by success rate: green >= 95%, yellow >= 80%, red < 80%. A sharp drop in RPS or success rate as concurrency rises signals the API has hit its throughput ceiling or rate limit."
+    },
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "details": {
+      "title": "Detailed Results",
+      "level": "Level",
+      "request": "Request",
+      "firstTokenLatency": "First Token",
+      "tokensPerSecond": "Speed (t/s)",
+      "totalTime": "Total Time",
+      "outputToken": "Tokens",
+      "toggleContent": "View output",
+      "loading": "Loading...",
+      "waiting": "Waiting..."
+    },
+    "errors": {
+      "noConfig": "Please configure API connection in the speed test form first",
+      "invalidLevels": "Please enter at least one valid concurrency level (1-200)",
+      "unknown": "Unknown error, please try again"
+    }
+  },
   "SpeedTest": {
     "form": {
       "apiKey": {

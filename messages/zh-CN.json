@@ -105,6 +105,71 @@
       "unknown": "未知错误，请重试"
     }
   },
+  "ConcurrencyTest": {
+    "title": "并发测试",
+    "submit": "运行并发测试（同时发起多个请求，预计每并发消耗 1000 token）",
+    "running": "正在运行...",
+    "complete": "并发测试完成",
+    "prompt": {
+      "label": "测试提示词",
+      "placeholder": "输入测试提示词"
+    },
+    "concurrencyLevels": {
+      "label": "并发档位",
+      "placeholder": "1, 5, 10, 20",
+      "hint": "逗号分隔的并发档位（每个档位 1-200）；每个档位内部并发执行，档位之间顺序执行"
+    },
+    "connection": {
+      "baseUrl": "API 地址",
+      "apiKey": "API 密钥",
+      "modelId": "模型 ID"
+    },
+    "benchmark": {
+      "concurrency": "并发数",
+      "rps": "RPS",
+      "avgLatency": "平均总耗时",
+      "p99Latency": "P99延迟(秒)",
+      "avgTps": "TPS",
+      "ttft": "平均首字延迟",
+      "successTotal": "成功/总请求",
+      "successRate": "成功率"
+    },
+    "best": {
+      "title": "性能最佳配置",
+      "bestRps": "最高 RPS",
+      "bestLatency": "最低延迟",
+      "bestTps": "最高吞吐量"
+    },
+    "summary": {
+      "title": "并发测试汇总",
+      "levels": "档位数",
+      "totalTokens": "总生成 Token 数",
+      "stdDevHint": "高并发下延迟和速度波动更大。表格行按成功率着色：绿色≥95%，黄色≥80%，红色<80%。当并发数上升而 RPS 或成功率出现明显下降，说明 API 已达吞吐上限或触发限流。"
+    },
+    "status": {
+      "pending": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "已失败"
+    },
+    "details": {
+      "title": "详细测试结果",
+      "level": "档位",
+      "request": "请求",
+      "firstTokenLatency": "首字延迟",
+      "tokensPerSecond": "速度 (t/s)",
+      "totalTime": "总耗时",
+      "outputToken": "Token 数",
+      "toggleContent": "查看输出内容",
+      "loading": "加载中...",
+      "waiting": "等待中..."
+    },
+    "errors": {
+      "noConfig": "请先在速度测试中配置 API 连接信息",
+      "invalidLevels": "请至少输入一个有效并发档位（1-200）",
+      "unknown": "未知错误，请重试"
+    }
+  },
   "SpeedTest": {
     "form": {
       "apiKey": {
