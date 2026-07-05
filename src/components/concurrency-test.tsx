@@ -91,7 +91,7 @@ const tRank = useTranslations('rank')
   // Live per-level request status cards
   const [activeLevel, setActiveLevel] = useState<number | null>(null)
   const [activeLevelRequests, setActiveLevelRequests] = useState<RequestStatus[]>([])
-  const [expandedRequest, setExpandedRequest] = useState<number | null>(null)
+  const [expandedRequest, setExpandedRequest] = useState<string | null>(null)
   const [streamContents, setStreamContents] = useState<{ [key: number]: string }>({})
   const contentRef = useRef<{ [key: number]: string }>({})
 
@@ -437,6 +437,7 @@ const tRank = useTranslations('rank')
               <div className="space-y-8">
                 {results.summaries.map((s, li) => {
                   const levelResults = results.details[li] || []
+                  const levelKey = (rid: number) => `${li}-${rid - 1}`
                   return (
                     <div key={s.level} className="space-y-4">
                       <div className="p-4 rounded-lg bg-gray-100 border-l-4 border-cyan-400">
@@ -462,7 +463,7 @@ const tRank = useTranslations('rank')
                         {levelResults.map((r) => (
                           <div
                             key={`${s.level}-${r.requestId}`}
-                            onClick={() => setExpandedRequest(expandedRequest === r.requestId - 1 ? null : r.requestId - 1)}
+                            onClick={() => setExpandedRequest(expandedRequest === levelKey(r.requestId) ? null : levelKey(r.requestId))}
                             className="p-4 rounded-lg bg-gray-200 cursor-pointer"
                           >
                             <div className="flex justify-between items-center">
@@ -499,7 +500,7 @@ const tRank = useTranslations('rank')
                               </div>
                             </div>
 
-                            <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedRequest === r.requestId - 1 ? 'block' : 'hidden'}`}>
+                            <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedRequest === levelKey(r.requestId) ? 'block' : 'hidden'}`}>
                               <div className="flex justify-between items-center mb-2">
                                 <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
                                 <button onClick={(e) => { e.stopPropagation(); if (r.content) navigator.clipboard.writeText(r.content) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
@@ -528,12 +529,14 @@ const tRank = useTranslations('rank')
             <span className="ml-3 text-gray-500 text-base">({progress.toFixed(0)}%)</span>
           </h3>
           <div className="space-y-4">
-            {activeLevelRequests.map((it, idx) => (
+            {activeLevelRequests.map((it, idx) => {
+              const activeKey = `active-${idx}`
+              return (
               <div
                 key={idx}
                 onClick={() => {
                   if (it.status !== 'pending') {
-                    setExpandedRequest(expandedRequest === idx ? null : idx)
+                    setExpandedRequest(expandedRequest === activeKey ? null : activeKey)
                   }
                 }}
                 className={`p-4 rounded-lg cursor-pointer ${
@@ -598,7 +601,7 @@ const tRank = useTranslations('rank')
                     </div>
                   </div>
 
-                <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedRequest === idx ? 'block' : 'hidden'}`}>
+                <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedRequest === activeKey ? 'block' : 'hidden'}`}>
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
                     <button onClick={(e) => { e.stopPropagation(); const text = streamContents[idx]; if (text) navigator.clipboard.writeText(text) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
@@ -608,7 +611,8 @@ const tRank = useTranslations('rank')
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

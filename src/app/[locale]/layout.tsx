@@ -10,9 +10,9 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { Metadata } from 'next'
 
-type Params = Promise<{ locale: string }>
+type Params = { locale: string }
 
-export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
 	const { locale } = await params
 	const t = await getTranslations({ locale, namespace: 'Metadata' })
 	return {

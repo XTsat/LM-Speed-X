@@ -11,7 +11,7 @@ export const speedTestSchema = z.object({
     .max(20, 'Maximum count is 100')
     .optional(),
   // 自定义请求头（用于绕过 CF 等验证）
-  customHeaders: z.record(z.string()).optional(),
+  customHeaders: z.record(z.string(), z.string()).optional(),
 });
 
 export const modelSchema = z.object({

@@ -12,7 +12,7 @@ const stabilityTestSchema = z.object({
     .min(3, 'Minimum count is 3')
     .max(50, 'Maximum count is 50')
     .default(10),
-  customHeaders: z.record(z.string()).optional(),
+  customHeaders: z.record(z.string(), z.string()).optional(),
 });
 
 function estimateTokens(text: string): number {
@@ -45,10 +45,10 @@ export async function POST(request: Request) {
 
     const safeCustomHeaders = validatedData.customHeaders
       ? Object.fromEntries(
-          Object.entries(validatedData.customHeaders).filter(
-            ([key]) => key.toLowerCase() !== 'authorization'
-          )
-        )
+          Object.entries(validatedData.customHeaders)
+            .filter(([key]) => key.toLowerCase() !== 'authorization')
+            .map(([key, value]) => [key, String(value)] as const)
+        ) as Record<string, string>
       : undefined;
 
     const openai = new OpenAI({

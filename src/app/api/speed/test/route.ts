@@ -30,10 +30,10 @@ export async function POST(request: Request) {
     // Filter out 'Authorization' and 'authorization' to avoid overriding the API key
     const safeCustomHeaders = validatedData.customHeaders
       ? Object.fromEntries(
-          Object.entries(validatedData.customHeaders).filter(
-            ([key]) => key.toLowerCase() !== 'authorization'
-          )
-        )
+          Object.entries(validatedData.customHeaders)
+            .filter(([key]) => key.toLowerCase() !== 'authorization')
+            .map(([key, value]) => [key, String(value)] as const)
+        ) as Record<string, string>
       : undefined;
     
     const openai = new OpenAI({

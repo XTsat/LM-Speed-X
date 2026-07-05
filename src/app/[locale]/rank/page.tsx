@@ -147,13 +147,11 @@ export default function RankPage() {
 	]
 
 	const handleChangeBadge = (index: number) => {
-		const badge = badges[index]
-		console.log(badge)
 		setBadgeIndex(index)
 		setFilters({
 			...filters,
 			searchModel: badges[index].searchModel || '',
-			listModel: (badge.listModel as string[] | undefined) || [],
+			listModel: [],
 		})
 	}
 
