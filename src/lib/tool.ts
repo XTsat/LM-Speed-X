@@ -1,4 +1,4 @@
-import { toPng } from "html-to-image";
+import { toPng } from "dom-to-image-more";
 import { toast } from "sonner";
 
 export const handleToImage = (id: string) => {
@@ -8,7 +8,22 @@ export const handleToImage = (id: string) => {
     return;
   }
 
-  toPng(node)
+  const options: Record<string, unknown> = {
+    quality: 1,
+    pixelRatio: 2,
+    width: node.scrollWidth,
+    height: node.scrollHeight,
+    style: {
+      transform: "scale(1)",
+      transformOrigin: "top left",
+    },
+  };
+
+  if (id === "result") {
+    options.bgcolor = "#ffffff";
+  }
+
+  toPng(node, options)
     .then(function (dataUrl) {
       const link = document.createElement("a");
       link.download = `lm-speed-test-${
