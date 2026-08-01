@@ -201,6 +201,8 @@
       "configImported": "配置已导入",
       "configImportError": "配置导入失败，请检查格式",
       "linkCopied": "链接已复制到剪贴板",
+      "linkCopiedAutoTest": "自动测速链接已复制到剪贴板（再次点击将生成不含自动测速的普通链接）",
+      "linkCopiedNormal": "普通链接已复制到剪贴板（再次点击将生成自动测速链接）",
       "apiKeyWarning": "⚠️ 警告：链接中包含了你的 API Key，请不要将含有 API Key 的链接分享给他人！",
       "add": "添加",
       "customHeaders": {
@@ -257,8 +259,20 @@
         "answer": "通过标准化的性能测试方案和排行榜功能，您可以直观地比较不同服务商 API 的性能表现。系统会自动分析并展示各项性能指标的对比数据，帮助您选择最适合的模型和服务商。"
       },
       "monitoring": {
-        "question": "你的数据如何存储？",
-        "answer": "使用浏览器 localstorage，可以自行进入 开发人员工具 - 应用程序 - 存储 - 本地存储 进行管理"
+        "question": "我的 API 密钥安全吗？",
+        "answer": "LM Speed X 不会将您的 API 密钥上传到服务器，所有测试均在您的浏览器本地发起请求。您的密钥仅存储在浏览器本地存储（localStorage）中，可随时清除。"
+      },
+      "dataStorage": {
+        "question": "测试数据存储在哪里？",
+        "answer": "所有测试结果和排行榜数据均存储在浏览器的 localStorage 中，可以通过 开发人员工具 → 应用程序 → 存储 → 本地存储 进行管理。数据仅保存在本地，清除浏览器数据会丢失测试记录。"
+      },
+      "urlParams": {
+        "question": "支持通过链接直接启动测试吗？",
+        "answer": "支持。填写 API 信息后，点击页面上的「生成链接」按钮即可获得包含所有配置的链接。生成的链接默认打开后自动运行速度测试，再次点击「生成链接」可获得不自动测试的普通链接。"
+      },
+      "providerSupport": {
+        "question": "支持哪些 API 服务商和模型？",
+        "answer": "任何兼容 OpenAI API 格式的服务商均支持，包括 DeepSeek、OpenAI、硅基流动、腾讯云、阿里云百炼等。您只需提供正确的 Base URL、API Key 和模型 ID，即可测试任何兼容 OpenAI 接口的模型。"
       }
     }
   },

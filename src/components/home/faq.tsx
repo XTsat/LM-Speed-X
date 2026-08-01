@@ -13,7 +13,7 @@ export function FAQ() {
 	const t = useTranslations('FAQ')
 	const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 
-	const faqKeys = ['performance', 'comparison', 'monitoring'] as const
+	const faqKeys = ['performance', 'comparison', 'monitoring', 'dataStorage', 'urlParams', 'providerSupport'] as const
 	const faqItems: FAQItem[] = faqKeys.map((key) => ({
 		question: t(`questions.${key}.question`),
 		answer: t(`questions.${key}.answer`),

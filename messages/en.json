@@ -200,6 +200,8 @@
       "configImported": "Config imported",
       "configImportError": "Failed to import config, please check format",
       "linkCopied": "Link copied to clipboard",
+      "linkCopiedAutoTest": "Auto-test link copied to clipboard (next click will generate a plain link instead)",
+      "linkCopiedNormal": "Plain link copied to clipboard (next click will generate an auto-test link)",
       "apiKeyWarning": "⚠️ Warning: The link contains your API key. Do NOT share the link with anyone!",
       "add": "Add",
       "customHeaders": {
@@ -256,8 +258,20 @@
         "answer": "Through standardized performance testing and ranking features, you can visually compare the performance of different providers' APIs. The system automatically analyzes and displays comparative data for various performance metrics, helping you choose the most suitable model and provider."
       },
       "monitoring": {
-        "question": "How is your data stored?",
-        "answer": "Uses browser localstorage. You can manage it in Developer Tools - Application - Storage - Local Storage"
+        "question": "Is my API key secure?",
+        "answer": "LM Speed X never uploads your API key to any server. All tests are initiated directly from your browser. Your key is only stored in browser localStorage and can be cleared at any time."
+      },
+      "dataStorage": {
+        "question": "Where are my test data stored?",
+        "answer": "All test results and ranking data are stored in your browser's localStorage. You can manage them via Developer Tools → Application → Storage → Local Storage. Data is stored locally only — clearing browser data will lose your test records."
+      },
+      "urlParams": {
+        "question": "Can I start a test automatically via a link?",
+        "answer": "Yes. Fill in your API details and click the \"Generate Link\" button to get a link with all your configuration. The link starts the test automatically on page load by default. Click \"Generate Link\" again for a plain link without auto-start."
+      },
+      "providerSupport": {
+        "question": "Which API providers and models are supported?",
+        "answer": "Any provider compatible with the OpenAI API format is supported, including OpenAI, DeepSeek, Silicon Flow, Tencent Cloud, Alibaba Cloud Bailian. Provide the correct Base URL, API Key, and Model ID to test any OpenAI-compatible model."
       }
     }
   },

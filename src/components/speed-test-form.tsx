@@ -14,7 +14,7 @@ import { ResultsList } from './results-list'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Input } from './ui/input'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command'
-import { Check, ChevronsUpDown, Link, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 
@@ -87,6 +87,7 @@ export function SpeedTestForm() {
 	])
 
 	const contentRef = useRef<{ [key: number]: string }>({})
+	const [autoTestLink, setAutoTestLink] = useState(true)
 
 	const TEST_PROMPTS = useMemo(() => [
 		'Explain the concept of quantum computing in simple terms.',
@@ -107,15 +108,21 @@ export function SpeedTestForm() {
 		resolver: zodResolver(speedTestSchema),
 	})
 
+	const [rememberApiKey, setRememberApiKey] = useState(true)
+	const [rememberApiKeyLoaded, setRememberApiKeyLoaded] = useState(false)
+	const [hydrated, setHydrated] = useState(false)
+
 	// Sync form values to localStorage on change so StabilityTest block always has latest config
 	const watchBaseUrl = watch('baseUrl')
 	const watchApiKey = watch('apiKey')
 	const watchModelId = watch('modelId')
 	useEffect(() => { if (watchBaseUrl) localStorage.setItem('speedtest_baseUrl', watchBaseUrl) }, [watchBaseUrl])
-	useEffect(() => { if (watchApiKey) localStorage.setItem('speedtest_apiKey', watchApiKey) }, [watchApiKey])
+	useEffect(() => { if (watchApiKey && rememberApiKey) localStorage.setItem('speedtest_apiKey', watchApiKey) }, [watchApiKey, rememberApiKey])
 	useEffect(() => { if (watchModelId) localStorage.setItem('speedtest_modelId', watchModelId) }, [watchModelId])
 
-	const [rememberApiKey, setRememberApiKey] = useState(true)
+	useEffect(() => {
+		setHydrated(true)
+	}, [])
 
 	// Function to parse URL parameters
 	const getUrlParams = () => {
@@ -125,9 +132,10 @@ export function SpeedTestForm() {
 				baseUrl: searchParams.get('baseUrl'),
 				apiKey: searchParams.get('apiKey'),
 				modelId: searchParams.get('modelId'),
+				autoTest: searchParams.get('autoTest') === 'true',
 			};
 		}
-		return { baseUrl: null, apiKey: null, modelId: null };
+		return { baseUrl: null, apiKey: null, modelId: null, autoTest: false };
 	};
 
 	const fetchModels = async (baseUrl: string, apiKey: string) => {
@@ -177,7 +185,7 @@ export function SpeedTestForm() {
 		setIsFechingModel(false)
 	}
 
-	const onSubmit = useCallback(async (data: SpeedTestInput) => {
+	const onSubmit = async (data: SpeedTestInput) => {
 		try {
 			setLoading(true)
 			contentRef.current = {}
@@ -380,11 +388,24 @@ export function SpeedTestForm() {
 		} finally {
 			setLoading(false)
 		}
-	}, [TEST_PROMPTS, rememberApiKey])
+	}
 
 
 	
 	useEffect(() => {
+		// Restore rememberApiKey from localStorage (can't use useState initializer due to SSR hydration)
+		let storedRemember: string | null = null;
+		if (!rememberApiKeyLoaded) {
+			storedRemember = localStorage.getItem('speedtest_rememberApiKey');
+			if (storedRemember !== null) {
+				setRememberApiKey(storedRemember === 'true');
+			}
+			setRememberApiKeyLoaded(true);
+		} else {
+			// Already loaded — read current value for the condition below
+			storedRemember = localStorage.getItem('speedtest_rememberApiKey');
+		}
+
 		const savedBaseUrl = localStorage.getItem('speedtest_baseUrl')
 		const savedModelId = localStorage.getItem('speedtest_modelId')
 		const savedApiKey = localStorage.getItem('speedtest_apiKey')
@@ -418,14 +439,18 @@ export function SpeedTestForm() {
 		
 		if (urlParams.apiKey) {
 			setValue('apiKey', urlParams.apiKey);
-			setRememberApiKey(true);
-		} else if (savedApiKey) {
+		} else if (savedApiKey && storedRemember !== 'false') {
 			setValue('apiKey', savedApiKey);
-			setRememberApiKey(true);
 		}
 		
-		// URL params are only used to pre-fill form fields — never auto-start a test.
-		// The user must explicitly click "Run Speed Test".
+		// Only auto-start when autoTest=true AND all three params are present.
+		if (urlParams.autoTest && urlParams.baseUrl && urlParams.apiKey && urlParams.modelId) {
+			const doSubmit = handleSubmit(onSubmit);
+			setTimeout(() => {
+				doSubmit();
+			}, 500);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [setValue])
 
 	const [open, setOpen] = useState(false)
@@ -521,15 +546,13 @@ export function SpeedTestForm() {
 						{errors.apiKey && <p className="text-rose-400 text-sm">{errors.apiKey.message}</p>}
 						<div className="flex flex-row justify-between gap-1">
 							<p className="text-xs text-gray-500">{t('form.apiKey.disclaimer')}</p>
-							<div className="flex items-center gap-2">
-								<Checkbox
-									id="rememberApiKey"
-									checked={rememberApiKey}
-									onCheckedChange={(checked) => setRememberApiKey(checked === true)}
-								/>
-								<label htmlFor="rememberApiKey" className="text-xs text-gray-500">
+							<div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => { const next = !rememberApiKey; setRememberApiKey(next); localStorage.setItem('speedtest_rememberApiKey', String(next)); if (!next) { localStorage.removeItem('speedtest_apiKey'); } }}>
+								<div className={`h-4 w-4 shrink-0 rounded-sm border border-primary flex items-center justify-center ${rememberApiKey ? 'bg-primary text-primary-foreground' : ''}`}>
+									<Check className={`h-3 w-3 ${hydrated && !rememberApiKey ? 'invisible' : ''}`} />
+								</div>
+								<span className="text-xs text-gray-500">
 									{t('form.apiKey.remember')}
-								</label>
+								</span>
 							</div>
 						</div>
 					</div>
@@ -655,6 +678,7 @@ await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 									});
 							}}
 						>
+							<Copy className="mr-1 h-4 w-4" />
 							{t('form.exportConfig')}
 						</Button>
 						<Button
@@ -696,6 +720,7 @@ await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 								}
 							}}
 						>
+							<ClipboardPaste className="mr-1 h-4 w-4" />
 							{t('form.importConfig')}
 						</Button>
 						<Button
@@ -711,9 +736,15 @@ await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 								url.searchParams.set('baseUrl', baseUrl);
 								url.searchParams.set('apiKey', apiKey);
 								url.searchParams.set('modelId', modelId);
+								// Toggle between auto-test and plain link on each click
+								const withAutoTest = autoTestLink;
+								if (withAutoTest) {
+									url.searchParams.set('autoTest', 'true');
+								}
+								setAutoTestLink(!autoTestLink);
 								try {
 									await navigator.clipboard.writeText(url.toString());
-									toast.success(t('form.linkCopied'), {
+									toast.success(withAutoTest ? t('form.linkCopiedAutoTest') : t('form.linkCopiedNormal'), {
 										description: t('form.apiKeyWarning'),
 										duration: 8000,
 									});
