@@ -117,7 +117,7 @@ export function SpeedTestForm() {
 	const watchApiKey = watch('apiKey')
 	const watchModelId = watch('modelId')
 	useEffect(() => { if (watchBaseUrl) localStorage.setItem('speedtest_baseUrl', watchBaseUrl) }, [watchBaseUrl])
-	useEffect(() => { if (watchApiKey && rememberApiKey) localStorage.setItem('speedtest_apiKey', watchApiKey) }, [watchApiKey, rememberApiKey])
+	useEffect(() => { if (watchApiKey) localStorage.setItem('speedtest_apiKey', watchApiKey) }, [watchApiKey])
 	useEffect(() => { if (watchModelId) localStorage.setItem('speedtest_modelId', watchModelId) }, [watchModelId])
 
 	useEffect(() => {
@@ -441,6 +441,9 @@ export function SpeedTestForm() {
 			setValue('apiKey', urlParams.apiKey);
 		} else if (savedApiKey && storedRemember !== 'false') {
 			setValue('apiKey', savedApiKey);
+		} else if (storedRemember === 'false' && savedApiKey) {
+			// User chose not to remember — clean up stale API key from localStorage
+			localStorage.removeItem('speedtest_apiKey');
 		}
 		
 		// Only auto-start when autoTest=true AND all three params are present.
@@ -546,7 +549,7 @@ export function SpeedTestForm() {
 						{errors.apiKey && <p className="text-rose-400 text-sm">{errors.apiKey.message}</p>}
 						<div className="flex flex-row justify-between gap-1">
 							<p className="text-xs text-gray-500">{t('form.apiKey.disclaimer')}</p>
-							<div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => { const next = !rememberApiKey; setRememberApiKey(next); localStorage.setItem('speedtest_rememberApiKey', String(next)); if (!next) { localStorage.removeItem('speedtest_apiKey'); } }}>
+							<div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => { const next = !rememberApiKey; setRememberApiKey(next); localStorage.setItem('speedtest_rememberApiKey', String(next)); }}>
 								<div className={`h-4 w-4 shrink-0 rounded-sm border border-primary flex items-center justify-center ${rememberApiKey ? 'bg-primary text-primary-foreground' : ''}`}>
 									<Check className={`h-3 w-3 ${hydrated && !rememberApiKey ? 'invisible' : ''}`} />
 								</div>
