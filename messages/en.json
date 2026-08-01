@@ -167,6 +167,11 @@
       "noConfig": "Please configure API connection in the speed test form first",
       "invalidLevels": "Please enter at least one valid concurrency level (1-200)",
       "unknown": "Unknown error, please try again"
+    },
+    "maxFirstTokenLatency": {
+      "label": "Max First Token Latency (ms)",
+      "placeholder": "e.g. 5000",
+      "hint": "Optional. Abort the request if no first token within this threshold. Helps detect if the API serializes concurrent requests (each waits for the previous to finish before starting). Leave empty to disable."
     }
   },
   "SpeedTest": {
@@ -190,9 +195,12 @@
       },
       "exportConfig": "Export Config",
       "importConfig": "Import Config",
+      "generateLink": "Generate Link",
       "configCopied": "Config copied to clipboard",
       "configImported": "Config imported",
       "configImportError": "Failed to import config, please check format",
+      "linkCopied": "Link copied to clipboard",
+      "apiKeyWarning": "⚠️ Warning: The link contains your API key. Do NOT share the link with anyone!",
       "add": "Add",
       "customHeaders": {
         "label": "Custom Headers",

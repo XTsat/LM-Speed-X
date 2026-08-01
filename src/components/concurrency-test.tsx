@@ -87,6 +87,7 @@ const tRank = useTranslations('rank')
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [modelId, setModelId] = useState('')
+  const [maxFirstTokenLatency, setMaxFirstTokenLatency] = useState<number | ''>('')
 
   // Live per-level request status cards
   const [activeLevel, setActiveLevel] = useState<number | null>(null)
@@ -155,11 +156,14 @@ const tRank = useTranslations('rank')
       setExpandedRequest(null)
       setStreamContents({})
 
-      const response = await fetch('/api/speed/concurrency', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ baseUrl: liveBaseUrl, apiKey: liveApiKey, modelId: liveModelId, prompt, concurrencyLevels: levels }),
-      })
+const response = await fetch('/api/speed/concurrency', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+            baseUrl: liveBaseUrl, apiKey: liveApiKey, modelId: liveModelId, prompt, concurrencyLevels: levels,
+            ...(maxFirstTokenLatency !== '' && maxFirstTokenLatency > 0 ? { maxFirstTokenLatency } : {}),
+            }),
+          })
 
       if (!response.ok) {
         let errorMsg = `Failed to run concurrency test (${response.status})`
@@ -322,8 +326,28 @@ const tRank = useTranslations('rank')
               placeholder={t('concurrencyLevels.placeholder')}
               className="w-full p-2 border-2 rounded-md bg-transparent text-gray-700"
             />
-            <p className="text-xs text-gray-400">{t('concurrencyLevels.hint')}</p>
-          </div>
+<p className="text-xs text-gray-400">{t('concurrencyLevels.hint')}</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm text-gray-600">{t('maxFirstTokenLatency.label')}</label>
+                <Input
+                  type="text"
+                  value={maxFirstTokenLatency}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (v === '') {
+                      setMaxFirstTokenLatency('')
+                      return
+                    }
+                    const n = parseInt(v, 10)
+                    if (!isNaN(n) && n >= 1 && n <= 120000) setMaxFirstTokenLatency(n)
+                  }}
+                  placeholder={t('maxFirstTokenLatency.placeholder')}
+                  className="w-full p-2 border-2 rounded-md bg-transparent text-gray-700"
+                />
+                <p className="text-xs text-gray-400">{t('maxFirstTokenLatency.hint')}</p>
+              </div>
 
           {/* Connection info (read-only) */}
           {(baseUrl || modelId) && (

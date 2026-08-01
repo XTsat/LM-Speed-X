@@ -15,6 +15,11 @@ const concurrencyTestSchema = z.object({
     .max(200, 'Maximum concurrency is 200')
     .default(5),
   customHeaders: z.record(z.string(), z.string()).optional(),
+  maxFirstTokenLatency: z.number()
+    .int('maxFirstTokenLatency must be an integer')
+    .min(1, 'Minimum maxFirstTokenLatency is 1ms')
+    .max(120000, 'Maximum maxFirstTokenLatency is 120000ms')
+    .optional(),
 });
 
 function estimateTokens(text: string): number {
@@ -58,6 +63,45 @@ interface RequestResult {
   error?: string;
 }
 
+// Heuristics to detect "empty" or "error-like" outputs that stream-completed without throwing.
+// Many providers will finish the stream successfully but emit an error message as content
+// (e.g. "error: rate limit exceeded", "该令牌已过期", "Internal Server Error"), or simply
+// return an empty string. We treat both as failures so the success rate reflects real output.
+const ERROR_MARKERS = [
+  // English API error patterns
+  'rate limit', 'rate_limit', 'too many requests', 'quota exceeded', 'insufficient_quota',
+  'unauthorized', 'invalid api key', 'invalid_api_key', 'authentication', 'forbidden',
+  'internal server error', 'service unavailable', 'bad gateway', 'gateway timeout',
+  'overloaded', 'capacity', 'temporarily unavailable', 'please try again',
+  'context length', 'maximum context', 'context window',
+  // Common error prefixes
+  'error:', 'error -', 'err:', 'failed:', 'failure:',
+  // Chinese error patterns
+  '请求失败', '请求超时', '请求错误', '请求异常', '接口错误', '服务繁忙',
+  '当前负载', '负载过高', '暂时不可用', '稍后重试', '内部错误', '系统繁忙',
+  '限流', '触发限流', '速率限制', '频率限制', '配额不足', '配额已用尽',
+  '令牌已过期', '令牌无效', '密钥无效', '认证失败', '无权访问', '权限不足',
+  '超出上下文', '上下文长度', '上下文过长',
+];
+
+function classifyContent(content: string): { valid: boolean; reason?: string } {
+  const trimmed = content.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, reason: 'Empty response content' };
+  }
+  // "Just a short error sentence" — not real model output. Most genuine LLM completions
+  // areParagraph-length; a sub-120-char stream that matches an error marker is an error,
+  // not a completion.
+  const lower = trimmed.toLowerCase();
+  for (const marker of ERROR_MARKERS) {
+    if (lower.includes(marker)) {
+      return { valid: false, reason: `Error-like output detected: ${trimmed.slice(0, 120)}` };
+    }
+  }
+  return { valid: true };
+}
+
+
 // Run a single concurrency level (N parallel streaming requests) and emit progress via writer.
 async function runConcurrencyLevel(
   openai: OpenAI,
@@ -68,6 +112,7 @@ async function runConcurrencyLevel(
   encoder: TextEncoder,
   levelIndex: number,
   totalLevels: number,
+  maxFirstTokenLatency?: number,
 ): Promise<RequestResult[]> {
   // Emit level start
   await writer.write(encoder.encode(JSON.stringify({
@@ -89,21 +134,43 @@ async function runConcurrencyLevel(
 
   const levelStartTime = performance.now();
 
+  // Watchdog error string for fast identification of serialized API endpoints
+  const TTFT_TIMEOUT_REASON = 'MaxFirstTokenLatencyExceeded';
+
   const concurrentTasks = Array.from({ length: level }, (_, i) => (async () => {
     const requestId = i + 1;
     const startTime = performance.now();
     let firstTokenTime = 0;
     let content = '';
+    let ttftTimedOut = false;
+
+    // ── First-token timeout watchdog ──────────────────────────────
+    // Some API endpoints serialize requests (one must finish before
+    // the next begins generating tokens). This watchdog aborts the
+    // request if the first token doesn't arrive within the configured
+    // threshold, so we don't silently inflate TTFT metrics with
+    // queued/sequential delays.
+    const abortCtrl = new AbortController();
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    if (maxFirstTokenLatency !== undefined && maxFirstTokenLatency > 0) {
+      watchdog = setTimeout(() => {
+        abortCtrl.abort();
+      }, maxFirstTokenLatency);
+    }
 
     try {
       const completion = await openai.chat.completions.create({
         model: modelId,
         messages: [{ role: "user", content: prompt }],
         stream: true,
+      }, {
+        signal: abortCtrl.signal,
       });
 
       for await (const chunk of completion) {
         if (content.length === 0) {
+          // Clear the watchdog now that the first token arrived.
+          if (watchdog !== undefined) clearTimeout(watchdog);
           firstTokenTime = performance.now() - startTime;
         }
         if (chunk.choices[0]?.delta?.content) {
@@ -134,12 +201,36 @@ async function runConcurrencyLevel(
         }
       }
 
+      // Safety: clear watchdog if the chunk stream completed before
+      // the watchdog fired (e.g. maxFirstTokenLatency set high, stream
+      // is fast, or watchdog did fire but AbortError was somehow handled).
+      if (watchdog !== undefined) clearTimeout(watchdog);
+
       const totalTokens = estimateTokens(content);
       const endTime = performance.now();
       const totalTime = endTime - startTime;
       const outputTime = totalTime - firstTokenTime;
       const tps = outputTime > 0 ? (totalTokens / outputTime) * 1000 : 0;
       const tpsTotal = totalTime > 0 ? (totalTokens / totalTime) * 1000 : 0;
+
+      // Validate the streamed content: empty or error-like outputs are treated as failures
+      // even when the HTTP stream completed without throwing.
+      const { valid, reason } = classifyContent(content);
+      if (!valid) {
+        results[i] = {
+          requestId,
+          firstTokenLatency: firstTokenTime,
+          tokensPerSecond: 0,
+          tokensPerSecondTotal: 0,
+          outputToken: 0,
+          totalTime,
+          outputTime,
+          content,
+          success: false,
+          error: reason,
+        };
+        return;
+      }
 
       const result: RequestResult = {
         requestId,
@@ -155,22 +246,57 @@ async function runConcurrencyLevel(
 
       results[i] = result;
     } catch (err) {
+      // Clean up the watchdog timer so it doesn't fire after the
+      // stream has already been cancelled/errored.
+      if (watchdog !== undefined) clearTimeout(watchdog);
+
       const endTime = performance.now();
       const totalTime = endTime - startTime;
+
+      // Determine whether the error is a first-token timeout (watchdog).
+      const isTtftTimeout = abortCtrl.signal.aborted;
+
+      if (isTtftTimeout) {
+        // First-token timeout — the endpoint was serializing or the
+        // model failed to start generating within the threshold.
+        ttftTimedOut = true;
+        results[i] = {
+          requestId,
+          firstTokenLatency: totalTime, // whole request spent waiting for the token
+          tokensPerSecond: 0,
+          tokensPerSecondTotal: 0,
+          outputToken: 0,
+          totalTime,
+          outputTime: 0,
+          content: '',
+          success: false,
+          error: TTFT_TIMEOUT_REASON,
+        };
+      return;
+      }
+
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
+
+      // Also classify any partial content captured before the throw — prefer a meaningful
+      // error reason over the raw exception when the content itself signals the failure.
+      const { valid, reason } = classifyContent(content);
+      const finalError = !valid && reason ? reason : errMsg;
 
       results[i] = {
         requestId,
         firstTokenLatency: firstTokenTime,
         tokensPerSecond: 0,
         tokensPerSecondTotal: 0,
-        outputToken: estimateTokens(content),
+        outputToken: 0,
         totalTime,
         outputTime: totalTime - firstTokenTime,
         content,
         success: false,
-        error: errMsg,
+        error: finalError,
       };
+    } finally {
+      // Always call cleanup of the watchdog.
+      if (watchdog !== undefined) clearTimeout(watchdog);
     }
   })());
 
@@ -294,6 +420,7 @@ export async function POST(request: Request) {
             encoder,
             li,
             levels.length,
+            validatedData.maxFirstTokenLatency,
           );
           allLevelDetails.push(results);
 

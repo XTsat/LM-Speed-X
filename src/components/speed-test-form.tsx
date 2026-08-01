@@ -14,7 +14,7 @@ import { ResultsList } from './results-list'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Input } from './ui/input'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command'
-import { Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronsUpDown, Link, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 
@@ -424,16 +424,9 @@ export function SpeedTestForm() {
 			setRememberApiKey(true);
 		}
 		
-		// If all three parameters are present in URL, start speed test automatically
-		if (urlParams.baseUrl && urlParams.apiKey && urlParams.modelId) {
-			// Trigger the form submission after a short delay to ensure form is ready
-			setTimeout(() => {
-				handleSubmit(onSubmit)();
-			}, 500);
-		} else if (savedBaseUrl && savedApiKey) {
-			//   fetchModels(savedBaseUrl, savedApiKey);
-		}
-	}, [setValue, handleSubmit, onSubmit])
+		// URL params are only used to pre-fill form fields — never auto-start a test.
+		// The user must explicitly click "Run Speed Test".
+	}, [setValue])
 
 	const [open, setOpen] = useState(false)
 
@@ -656,8 +649,10 @@ export function SpeedTestForm() {
 										rememberApiKey,
 										customHeadersJson,
 									};
-								await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
-								toast.success(t('form.configCopied'));
+await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+									toast.success(t('form.configCopied'), {
+										description: t('form.apiKeyWarning'),
+									});
 							}}
 						>
 							{t('form.exportConfig')}
@@ -693,13 +688,42 @@ export function SpeedTestForm() {
 										}
 										// 强制刷新UI显示
 										setConfigRefreshKey(prev => prev + 1);
-									toast.success(t('form.configImported'));
+									toast.success(t('form.configImported'), {
+										description: t('form.apiKeyWarning'),
+									});
 								} catch (err) {
 									toast.error(t('form.configImportError'));
 								}
 							}}
 						>
 							{t('form.importConfig')}
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							className="flex-1"
+							onClick={async () => {
+								const baseUrl = getValues('baseUrl') || '';
+								const apiKey = getValues('apiKey') || '';
+								const modelId = getValues('modelId') || '';
+								const origin = typeof window !== 'undefined' ? window.location.origin : 'https://lm-speed-x.xtsat.cc.cd';
+								const url = new URL(origin);
+								url.searchParams.set('baseUrl', baseUrl);
+								url.searchParams.set('apiKey', apiKey);
+								url.searchParams.set('modelId', modelId);
+								try {
+									await navigator.clipboard.writeText(url.toString());
+									toast.success(t('form.linkCopied'), {
+										description: t('form.apiKeyWarning'),
+										duration: 8000,
+									});
+								} catch {
+									toast.error(t('form.configImportError'));
+								}
+							}}
+						>
+							<Link className="mr-1 h-4 w-4" />
+							{t('form.generateLink')}
 						</Button>
 					</div>
 

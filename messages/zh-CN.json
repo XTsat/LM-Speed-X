@@ -168,6 +168,11 @@
       "noConfig": "请先在速度测试中配置 API 连接信息",
       "invalidLevels": "请至少输入一个有效并发档位（1-200）",
       "unknown": "未知错误，请重试"
+    },
+    "maxFirstTokenLatency": {
+      "label": "最大首字延迟 (ms)",
+      "placeholder": "例如 5000",
+      "hint": "可选——若在此时间内未收到首字 Token，则中止该请求。用于检测 API 端点是否存在串行化行为（每个请求等上一个完成后才开始生成）。留空则不启用。"
     }
   },
   "SpeedTest": {
@@ -191,9 +196,12 @@
       },
       "exportConfig": "导出配置",
       "importConfig": "导入配置",
+      "generateLink": "生成链接",
       "configCopied": "配置已复制到剪贴板",
       "configImported": "配置已导入",
       "configImportError": "配置导入失败，请检查格式",
+      "linkCopied": "链接已复制到剪贴板",
+      "apiKeyWarning": "⚠️ 警告：链接中包含了你的 API Key，请不要将含有 API Key 的链接分享给他人！",
       "add": "添加",
       "customHeaders": {
         "label": "自定义请求头",
