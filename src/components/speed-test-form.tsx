@@ -17,6 +17,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
+import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat, saveResultsToServer } from '@/lib/browser-llm'
 
 type SpeedTestResultCard = SpeedTestResult & {
 	status?: 'pending' | 'running' | 'completed'
@@ -39,6 +40,7 @@ export function SpeedTestForm() {
 	// 自定义请求头状态 - 使用JSON字符串格式
 	const [customHeadersJson, setCustomHeadersJson] = useState('')
 	const [showCustomHeaders, setShowCustomHeaders] = useState(false)
+	const [useBrowserDirect, setUseBrowserDirect] = useState(false)
 	const [commonBaseUrls, setCommonBaseUrls] = useState([
 	// ==================== 国际服务商 ====================
 	{ id: 'https://api.openai.com/v1', name: 'OpenAI' },
@@ -147,6 +149,19 @@ export function SpeedTestForm() {
 			}
 			modelSchema.parse({ baseUrl, apiKey })
 			localStorage.setItem('speedtest_baseUrl', baseUrl)
+			if (useBrowserDirect) {
+				const directModels = await fetchModelsDirect(baseUrl, apiKey)
+				const uniqueModels = directModels.filter(
+					(m: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === m.id) === i
+				)
+				setModels(prev => {
+					const existingIds = new Set(prev.map(m => m.id))
+					const newModels = uniqueModels.filter((m: any) => !existingIds.has(m.id))
+					return [...prev, ...newModels]
+				})
+				setIsFechingModel(false)
+				return
+			}
 			const response = await fetch('/api/model', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -210,10 +225,127 @@ export function SpeedTestForm() {
 		if (rememberApiKey) {
 			localStorage.setItem('speedtest_apiKey', data.apiKey)
 		} else {
-			localStorage.removeItem('speedtest_apiKey')
-		}
+		localStorage.removeItem('speedtest_apiKey')
+			}
 
-		// 解析自定义请求头
+			if (useBrowserDirect) {
+				// Parse custom headers
+				let customHeaders: Record<string, string> | undefined
+				if (customHeadersJson.trim()) {
+					try {
+						customHeaders = JSON.parse(customHeadersJson)
+					} catch (e) {
+						toast.error('自定义请求头 JSON 格式错误')
+						return
+					}
+				}
+
+				// Use existing startPeriodicUpdate
+				let updateTimer: number | null = null
+				const startPeriodicUpdate = () => {
+					updateTimer = window.setInterval(() => {
+						setStreamContents({ ...contentRef.current })
+					}, 16) as unknown as number
+				}
+				startPeriodicUpdate()
+
+				try {
+					const allResults: Array<{
+						prompt: string; model: string; firstTokenLatency: number;
+						tokensPerSecond: number; tokensPerSecondTotal: number;
+						outputToken: number; outputTime: number; totalTime: number;
+						content: string; index: number;
+					}> = []
+
+					for (let i = 0; i < TEST_PROMPTS.length; i++) {
+						const prompt = TEST_PROMPTS[i]
+						
+						// Emit start (mimic server SSE format)
+						setResults((prev) => {
+							if (!prev) return prev
+							const newResults = [...prev]
+							newResults[i] = { ...newResults[i], status: 'running' as const }
+							return newResults
+						})
+						setExpandedIndex(i)
+						contentRef.current[i] = ''
+						setTimeout(() => {
+							document.querySelector(`#content-${i}`)?.scrollIntoView({
+								behavior: 'smooth', block: 'center',
+							})
+						}, 300)
+
+						const result = await runBrowserStreamedChat(
+							data.baseUrl,
+							data.apiKey,
+							data.modelId,
+							[{ role: 'user', content: prompt }],
+							i,
+							prompt,
+							{
+								onContent: (contentData) => {
+									contentRef.current[i] = (contentRef.current[i] || '') + contentData.content
+									setResults((prev) => {
+										if (!prev) return prev
+										const newResults = [...prev]
+										newResults[i] = {
+											...newResults[i],
+											tokensPerSecond: contentData.currentSpeed,
+											tokensPerSecondTotal: contentData.currentTotalSpeed,
+											outputToken: contentData.currentTokens,
+											outputTime: contentData.elapsedTime,
+										}
+										return newResults
+									})
+								},
+							}
+						)
+
+						allResults.push(result)
+
+						setResults((prev) => {
+							if (!prev) return prev
+							const newResults = [...prev]
+							newResults[i] = { ...result, status: 'completed' as const }
+							return newResults
+						})
+						setProgress(((i + 1) / TEST_PROMPTS.length) * 100)
+					}
+
+					// Save results
+					saveResultsToServer(data.baseUrl, allResults)
+					// Also save to localStorage
+					const testResultToSave = {
+						id: Date.now().toString(),
+						timestamp: new Date().toISOString(),
+						baseUrl: data.baseUrl,
+						results: allResults.map((r, index) => ({
+							prompt: r.prompt, model: r.model,
+							firstTokenLatency: r.firstTokenLatency,
+							tokensPerSecond: r.tokensPerSecond,
+							tokensPerSecondTotal: r.tokensPerSecondTotal,
+							outputToken: r.outputToken, totalTime: r.totalTime,
+							outputTime: r.outputTime,
+							content: contentRef.current[index] || '',
+						})),
+					}
+					saveTestResult(testResultToSave)
+					toast.success('测试结果已保存')
+					window.dispatchEvent(new Event('lm-speed-test-completed'))
+					setTimeout(() => setExpandedIndex(null), 1000)
+					setTimeout(() => {
+						document.querySelector('#summary')?.scrollIntoView({
+							behavior: 'smooth', block: 'center',
+						})
+					}, 300)
+				} catch (error) {
+					console.error('Browser direct test error:', error)
+					toast.error(error instanceof Error ? error.message : 'An error occurred', { duration: 30000 })
+				} finally {
+					if (updateTimer !== null) clearInterval(updateTimer)
+				}
+			} else {
+			// 解析自定义请求头
 		let customHeaders: Record<string, string> | undefined
 		if (customHeadersJson.trim()) {
 			try {
@@ -382,8 +514,9 @@ export function SpeedTestForm() {
 					clearInterval(updateTimer)
 				}
 			}
-		} catch (error) {
-			console.error('Error:', error)
+			}
+			} catch (error) {
+				console.error('Error:', error)
 			toast.error(error instanceof Error ? error.message : 'An error occurred', { duration: 30000 })
 		} finally {
 			setLoading(false)
@@ -454,7 +587,16 @@ export function SpeedTestForm() {
 			}, 500);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [setValue])
+		}, [setValue])
+
+		// Auto-detect local/private IP base URLs and enable browser-direct mode
+		useEffect(() => {
+			if (watchBaseUrl) {
+				setUseBrowserDirect(isLocalUrl(watchBaseUrl))
+			} else {
+				setUseBrowserDirect(false)
+			}
+		}, [watchBaseUrl])
 
 	const [open, setOpen] = useState(false)
 
@@ -650,8 +792,18 @@ export function SpeedTestForm() {
 							</Button>
 						</div>
 						{showCustomHeaders && (
-							<div className="space-y-2 p-3 bg-gray-50 rounded-md border border-gray-200">
-								<textarea
+								<div className="space-y-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+									<div className="flex items-center gap-2 mb-3">
+										<Checkbox
+											id="browser-direct"
+											checked={useBrowserDirect}
+											onCheckedChange={(checked) => setUseBrowserDirect(!!checked)}
+										/>
+										<label htmlFor="browser-direct" className="text-sm text-gray-600 cursor-pointer select-none">
+											{t('form.browserDirect.label')}
+										</label>
+									</div>
+									<textarea
 									value={customHeadersJson}
 									onChange={(e) => setCustomHeadersJson(e.target.value)}
 									placeholder={`{\"X-Custom-Auth\": \"your-token\"}`}

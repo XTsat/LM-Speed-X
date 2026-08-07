@@ -18,6 +18,22 @@ const recentQuerySchema = z.object({
   host: z.string().optional(),
 });
 
+const saveResultSchema = z.object({
+  timestamp: z.string(),
+  baseUrl: z.string(),
+  results: z.array(z.object({
+    prompt: z.string(),
+    model: z.string(),
+    firstTokenLatency: z.number(),
+    tokensPerSecond: z.number(),
+    tokensPerSecondTotal: z.number(),
+    outputToken: z.number(),
+    totalTime: z.number(),
+    outputTime: z.number(),
+    content: z.string(),
+  })),
+})
+
 export async function GET(request: Request) {
   try {
     // 如果数据库不可用，返回空数组
@@ -67,5 +83,45 @@ export async function GET(request: Request) {
       { error: "Failed to fetch recent tests" },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    if (!db) {
+      return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 })
+    }
+
+    const body = await request.json()
+    const validated = saveResultSchema.parse(body)
+
+    const [speedTest] = await db.insert(speedTestsTable)
+      .values({
+        timestamp: new Date(validated.timestamp),
+        baseUrl: validated.baseUrl,
+      })
+      .returning()
+
+    await db.insert(speedTestResultsTable)
+      .values(validated.results.map((r) => ({
+        speedTestId: speedTest.id,
+        prompt: r.prompt,
+        model: r.model,
+        firstTokenLatency: r.firstTokenLatency,
+        tokensPerSecond: r.tokensPerSecond,
+        tokensPerSecondTotal: r.tokensPerSecondTotal,
+        outputToken: r.outputToken,
+        totalTime: r.totalTime,
+        outputTime: r.outputTime,
+        content: r.content,
+      })))
+
+    return NextResponse.json({ success: true, id: speedTest.id })
+  } catch (error) {
+    console.error('Error saving test result:', error)
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    )
   }
 }

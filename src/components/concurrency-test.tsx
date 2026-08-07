@@ -5,6 +5,7 @@ import { Input } from './ui/input'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, BarChart3, TrendingUp, Zap } from 'lucide-react'
+import { isLocalUrl, runBrowserStreamedChat } from '@/lib/browser-llm'
 
 // ── Types ──
 
@@ -88,6 +89,7 @@ const tRank = useTranslations('rank')
   const [apiKey, setApiKey] = useState('')
   const [modelId, setModelId] = useState('')
   const [maxFirstTokenLatency, setMaxFirstTokenLatency] = useState<number | ''>('')
+  const [useBrowserDirect, setUseBrowserDirect] = useState(false)
 
   // Live per-level request status cards
   const [activeLevel, setActiveLevel] = useState<number | null>(null)
@@ -101,6 +103,14 @@ const tRank = useTranslations('rank')
     setBaseUrl(localStorage.getItem('speedtest_baseUrl') || '')
     setApiKey(localStorage.getItem('speedtest_apiKey') || '')
     setModelId(localStorage.getItem('speedtest_modelId') || '')
+    const storedBrowserDirect = localStorage.getItem('speedtest_browserDirect')
+    const baseUrl = localStorage.getItem('speedtest_baseUrl') || ''
+    if (storedBrowserDirect !== null) {
+      setUseBrowserDirect(storedBrowserDirect === 'true')
+    } else if (baseUrl && isLocalUrl(baseUrl)) {
+      setUseBrowserDirect(true)
+      localStorage.setItem('speedtest_browserDirect', 'true')
+    }
   }, [])
 
   // Re-sync when SpeedTestForm saves new values
@@ -109,6 +119,8 @@ const tRank = useTranslations('rank')
       setBaseUrl(localStorage.getItem('speedtest_baseUrl') || '')
       setApiKey(localStorage.getItem('speedtest_apiKey') || '')
       setModelId(localStorage.getItem('speedtest_modelId') || '')
+      const bd = localStorage.getItem('speedtest_browserDirect')
+      if (bd !== null) setUseBrowserDirect(bd === 'true')
     }
     window.addEventListener('storage', handleStorage)
     const interval = setInterval(handleStorage, 500)
@@ -199,7 +211,145 @@ const response = await fetch('/api/speed/concurrency', {
           const lines = buffer.split('\n').filter(Boolean)
 
           for (const line of lines) {
-            try {
+    if (useBrowserDirect) {
+      setLoading(true)
+      setProgress(0)
+      setResults(null)
+      contentRef.current = {}
+      setActiveLevel(null)
+      setActiveLevelRequests([])
+      setExpandedRequest(null)
+      setStreamContents({})
+
+      const allSummaries: LevelSummary[] = []
+      const allDetails: RequestResult[][] = []
+
+      const startPeriodicUpdate = () => {
+        const timer = window.setInterval(() => setStreamContents({ ...contentRef.current }), 50)
+        return timer
+      }
+      const timer = startPeriodicUpdate()
+
+      try {
+        for (let li = 0; li < levels.length; li++) {
+          const level = levels[li]
+          setActiveLevel(level)
+          const init: RequestStatus[] = Array.from({ length: level }, (_, i) => ({
+            requestId: i + 1, status: 'running' as const,
+            firstTokenLatency: 0, tokensPerSecond: 0, tokensPerSecondTotal: 0,
+            outputToken: 0, totalTime: 0, outputTime: 0, content: '', success: false,
+          }))
+          setActiveLevelRequests(init)
+          contentRef.current = {}
+          setStreamContents({})
+          setExpandedRequest(null)
+
+          const levelStartTime = performance.now()
+          const tasks = Array.from({ length: level }, (_, i) =>
+            runBrowserStreamedChat(liveBaseUrl, liveApiKey, liveModelId,
+              [{ role: 'user' as const, content: prompt }], i, prompt,
+              {
+                onContent: (cd) => {
+                  contentRef.current[cd.index] = (contentRef.current[cd.index] || '') + cd.content
+                  setActiveLevelRequests(prev => {
+                    const next = [...prev]
+                    if (next[cd.index]) {
+                      next[cd.index] = { ...next[cd.index],
+                        tokensPerSecond: cd.currentSpeed, tokensPerSecondTotal: cd.currentTotalSpeed,
+                        outputToken: cd.currentTokens, outputTime: cd.elapsedTime }
+                    }
+                    return next
+                  })
+                },
+              }
+            ).then(r => {
+              setActiveLevelRequests(prev => {
+                const next = [...prev]
+                const ri = r.index ?? i
+                next[ri] = { ...r, status: 'completed' as const, success: true }
+                return next
+              })
+              return r
+            }).catch(err => {
+              setActiveLevelRequests(prev => {
+                const next = [...prev]
+                next[i] = { ...next[i], status: 'failed' as const, success: false, error: err instanceof Error ? err.message : String(err) }
+                return next
+              })
+              return { requestId: i + 1, firstTokenLatency: 0, tokensPerSecond: 0, tokensPerSecondTotal: 0, outputToken: 0, totalTime: 0, outputTime: 0, content: '', success: false, error: err instanceof Error ? err.message : String(err), index: i, prompt, model: liveModelId } as unknown as RequestResult
+            })
+          )
+
+          const results = await Promise.all(tasks)
+          allDetails.push(results)
+
+          const levelEndTime = performance.now()
+          const levelTotalTimeSec = (levelEndTime - levelStartTime) / 1000
+          const successResults = results.filter(r => r.success)
+          const successCount = successResults.length
+          const failureCount = level - successCount
+          const successRate = level > 0 ? (successCount / level) * 100 : 0
+          const rps = levelTotalTimeSec > 0 ? successCount / levelTotalTimeSec : 0
+
+          function calcStats(vals: number[]) {
+            if (vals.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0, variance: 0, median: 0, p99: 0 }
+            const sorted = [...vals].sort((a, b) => a - b)
+            const sum = sorted.reduce((a, v) => a + v, 0)
+            const mean = sum / vals.length
+            const median = vals.length % 2 === 0 ? (sorted[vals.length / 2 - 1] + sorted[vals.length / 2]) / 2 : sorted[Math.floor(vals.length / 2)]
+            const variance = sorted.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length
+            const stdDev = Math.sqrt(variance)
+            const p99 = vals.length >= 2 ? sorted[Math.min(vals.length - 1, Math.max(0, Math.ceil(0.99 * vals.length) - 1))] : sorted[vals.length - 1]
+            return { mean, stdDev, min: sorted[0], max: sorted[vals.length - 1], variance, median, p99 }
+          }
+
+          const latenciesMs = successResults.map(r => r.totalTime)
+          const tpsVals = successResults.map(r => r.tokensPerSecond)
+          const ttftsMs = successResults.map(r => r.firstTokenLatency)
+          const latencyStats = calcStats(latenciesMs)
+          const ttftStats = calcStats(ttftsMs)
+          const tpsStats = calcStats(tpsVals)
+
+          const summary: LevelSummary = {
+            level, levelIndex: li, totalRequests: level,
+            successCount, failureCount, successRate, rps,
+            avgLatencySec: latencyStats.mean / 1000, p99LatencySec: latencyStats.p99 / 1000,
+            avgTps: tpsStats.mean, avgTtftSec: ttftStats.mean / 1000,
+            levelTotalTimeSec, totalOutputTokens: successResults.reduce((a, r) => a + r.outputToken, 0),
+          }
+          allSummaries.push(summary)
+          setProgress(((li + 1) / levels.length) * 100)
+        }
+
+        // Compute best config
+        let bestRpsIdx = 0, bestLatencyIdx = 0, bestTpsIdx = 0
+        for (let i = 1; i < allSummaries.length; i++) {
+          if (allSummaries[i].rps > allSummaries[bestRpsIdx].rps) bestRpsIdx = i
+          if (allSummaries[i].avgLatencySec < allSummaries[bestLatencyIdx].avgLatencySec) bestLatencyIdx = i
+          if (allSummaries[i].avgTps > allSummaries[bestTpsIdx].avgTps) bestTpsIdx = i
+        }
+        const best: BestConfig = {
+          bestRps: { level: allSummaries[bestRpsIdx].level, value: allSummaries[bestRpsIdx].rps },
+          bestLatency: { level: allSummaries[bestLatencyIdx].level, value: allSummaries[bestLatencyIdx].avgLatencySec },
+          bestTps: { level: allSummaries[bestTpsIdx].level, value: allSummaries[bestTpsIdx].avgTps },
+        }
+
+        setResults({ summaries: allSummaries, details: allDetails, best })
+        setProgress(100)
+        setActiveLevel(null)
+        toast.success(t('complete'))
+      } catch (error) {
+        console.error('Browser direct concurrency error:', error)
+        toast.error(error instanceof Error ? error.message : t('errors.unknown'), { duration: 30000 })
+      } finally {
+        clearInterval(timer)
+        setLoading(false)
+      }
+      return
+    }
+
+    // ── Server proxy SSE path ──
+    try {
               const message = JSON.parse(line)
 
               switch (message.type) {
@@ -352,6 +502,22 @@ const response = await fetch('/api/speed/concurrency', {
           {/* Connection info (read-only) */}
           {(baseUrl || modelId) && (
             <div className="text-xs text-gray-400 space-y-1 p-3 bg-white rounded-md border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="concurrency-browser-direct"
+                  checked={useBrowserDirect}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setUseBrowserDirect(checked)
+                    localStorage.setItem('speedtest_browserDirect', String(checked))
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="concurrency-browser-direct" className="text-xs text-gray-500 cursor-pointer select-none">
+                  {tSpeed('form.browserDirect.label')}
+                </label>
+              </div>
               <p><span className="text-gray-500">{t('connection.baseUrl')}:</span> <span className="text-gray-700">{baseUrl || '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.apiKey')}:</span> <span className="text-gray-700">{apiKey ? '••••••' + apiKey.slice(-4) : '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.modelId')}:</span> <span className="text-gray-700">{modelId || '-'}</span></p>

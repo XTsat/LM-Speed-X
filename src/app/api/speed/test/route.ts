@@ -39,6 +39,8 @@ export async function POST(request: Request) {
     const openai = new OpenAI({
       apiKey: validatedData.apiKey,
       baseURL: validatedData.baseUrl,
+      timeout: 60 * 1000, // 60s per-request timeout for speed tests
+      maxRetries: 1,
       ...(safeCustomHeaders && Object.keys(safeCustomHeaders).length > 0 ? {
         defaultHeaders: safeCustomHeaders,
       } : {}),
@@ -187,7 +189,7 @@ export async function POST(request: Request) {
         console.error('Error in stream:', error);
         // 尝试获取更详细的错误信息
         let errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        if (error && typeof error === 'object' && 'status' in error) {
+        if (error && typeof error === 'object' && typeof (error as any).status === 'number') {
           errorMsg = `HTTP ${(error as any).status}: ${errorMsg}`;
         }
         await writer.write(encoder.encode(JSON.stringify({ type: 'error', error: errorMsg }) + '\n'));

@@ -207,6 +207,10 @@
       "customHeaders": {
         "label": "Custom Headers",
         "help": "JSON format, e.g.: '{'\"Header-Name\": \"value\"'}'"
+      },
+      "browserDirect": {
+        "label": "Browser Direct Mode (Local/Intranet API)",
+        "description": "Auto-enabled when the API address is a local or intranet IP. The browser connects directly, bypassing the server proxy."
       }
     },
     "results": {

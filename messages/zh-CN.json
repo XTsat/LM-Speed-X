@@ -208,6 +208,10 @@
       "customHeaders": {
         "label": "自定义请求头",
         "help": "JSON 格式，例如：'{'\"Header-Name\": \"value\"'}'"
+      },
+      "browserDirect": {
+        "label": "浏览器直连模式（本地/内网 API）",
+        "description": "当 API 地址为本地或内网 IP 时自动启用，浏览器直接连接 API 绕过服务器代理"
       }
     },
     "results": {

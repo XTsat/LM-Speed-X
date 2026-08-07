@@ -5,6 +5,7 @@ import { Input } from './ui/input'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, BarChart3, TrendingUp, Activity } from 'lucide-react'
+import { isLocalUrl, runBrowserStreamedChat } from '@/lib/browser-llm'
 
 // ── Types ──
 
@@ -56,6 +57,7 @@ const tRank = useTranslations('rank')
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [modelId, setModelId] = useState('')
+  const [useBrowserDirect, setUseBrowserDirect] = useState(false)
 
   // Live iteration status cards
   const [iterations, setIterations] = useState<IterationStatus[]>([])
@@ -68,6 +70,14 @@ const tRank = useTranslations('rank')
     setBaseUrl(localStorage.getItem('speedtest_baseUrl') || '')
     setApiKey(localStorage.getItem('speedtest_apiKey') || '')
     setModelId(localStorage.getItem('speedtest_modelId') || '')
+    const storedBrowserDirect = localStorage.getItem('speedtest_browserDirect')
+    const baseUrlFromStorage = localStorage.getItem('speedtest_baseUrl') || ''
+    if (storedBrowserDirect !== null) {
+      setUseBrowserDirect(storedBrowserDirect === 'true')
+    } else if (baseUrlFromStorage && isLocalUrl(baseUrlFromStorage)) {
+      setUseBrowserDirect(true)
+      localStorage.setItem('speedtest_browserDirect', 'true')
+    }
   }, [])
 
   // Re-sync when SpeedTestForm saves new values
@@ -76,6 +86,8 @@ const tRank = useTranslations('rank')
       setBaseUrl(localStorage.getItem('speedtest_baseUrl') || '')
       setApiKey(localStorage.getItem('speedtest_apiKey') || '')
       setModelId(localStorage.getItem('speedtest_modelId') || '')
+      const bd = localStorage.getItem('speedtest_browserDirect')
+      if (bd !== null) setUseBrowserDirect(bd === 'true')
     }
     window.addEventListener('storage', handleStorage)
     const interval = setInterval(handleStorage, 500)
@@ -95,6 +107,98 @@ const tRank = useTranslations('rank')
 
     if (!liveBaseUrl || !liveApiKey || !liveModelId) {
       toast.error(t('errors.noConfig'))
+      return
+    }
+
+    if (useBrowserDirect) {
+      setLoading(true); setProgress(0); setResults(null)
+      contentRef.current = {}
+
+      const initIterations: IterationStatus[] = Array.from({ length: count }, (_, i) => ({
+        iteration: i + 1, status: 'pending' as const,
+        firstTokenLatency: 0, tokensPerSecond: 0, tokensPerSecondTotal: 0,
+        outputToken: 0, totalTime: 0, outputTime: 0, content: '',
+      }))
+      setIterations(initIterations); setStreamContents({})
+
+      const timer = window.setInterval(() => setStreamContents({ ...contentRef.current }), 50)
+
+      try {
+        const iterationResults: IterationResult[] = []
+
+        for (let i = 0; i < count; i++) {
+          setProgress((i / count) * 100)
+          setIterations(prev => { const next = [...prev]; if (next[i]) next[i] = { ...next[i], status: 'running' as const }; return next })
+          setExpandedIteration(i)
+          contentRef.current[i] = ''
+
+          const result = await runBrowserStreamedChat(
+            liveBaseUrl, liveApiKey, liveModelId,
+            [{ role: 'user', content: prompt }],
+            i, prompt,
+            { onContent: (cd) => {
+              contentRef.current[i] = (contentRef.current[i] || '') + cd.content
+              setIterations(prev => {
+                const next = [...prev]
+                if (next[i]) {
+                  next[i] = { ...next[i],
+                    tokensPerSecond: cd.currentSpeed, tokensPerSecondTotal: cd.currentTotalSpeed,
+                    outputToken: cd.currentTokens, outputTime: cd.elapsedTime }
+                }
+                return next
+              })
+            }}
+          )
+
+          const iterResult: IterationResult = {
+            iteration: i + 1,
+            firstTokenLatency: result.firstTokenLatency,
+            tokensPerSecond: result.tokensPerSecond,
+            tokensPerSecondTotal: result.tokensPerSecondTotal,
+            outputToken: result.outputToken,
+            totalTime: result.totalTime,
+            outputTime: result.outputTime,
+            content: result.content,
+          }
+          iterationResults.push(iterResult)
+
+          setProgress(((i + 1) / count) * 100)
+          setIterations(prev => {
+            const next = [...prev]
+            if (next[i]) next[i] = { ...iterResult, status: 'completed' as const }
+            return next
+          })
+          setTimeout(() => setExpandedIteration(null), 800)
+        }
+
+        function calcStats(vals: number[]) {
+          if (vals.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0, variance: 0, median: 0 }
+          const sorted = [...vals].sort((a, b) => a - b)
+          const sum = sorted.reduce((a, v) => a + v, 0)
+          const mean = sum / vals.length
+          const median = vals.length % 2 === 0 ? (sorted[vals.length/2-1] + sorted[vals.length/2]) / 2 : sorted[Math.floor(vals.length/2)]
+          const variance = sorted.reduce((a, v) => a + (v-mean)**2, 0) / vals.length
+          const stdDev = Math.sqrt(variance)
+          return { mean, stdDev, min: sorted[0], max: sorted[vals.length-1], variance, median }
+        }
+
+        const stats = {
+          firstTokenLatency: calcStats(iterationResults.map(r => r.firstTokenLatency)),
+          tokensPerSecond: calcStats(iterationResults.map(r => r.tokensPerSecond)),
+          totalTime: calcStats(iterationResults.map(r => r.totalTime)),
+          outputToken: calcStats(iterationResults.map(r => r.outputToken)),
+        }
+
+        setResults({ results: iterationResults, stats })
+        setProgress(100)
+        toast.success(t('complete'))
+      } catch (error) {
+        console.error('Browser direct stability error:', error)
+        toast.error(error instanceof Error ? error.message : t('errors.unknown'), { duration: 30000 })
+      } finally {
+        clearInterval(timer)
+        setLoading(false)
+      }
       return
     }
 
@@ -275,6 +379,22 @@ const tRank = useTranslations('rank')
           {/* Connection info (read-only) */}
           {(baseUrl || modelId) && (
             <div className="text-xs text-gray-400 space-y-1 p-3 bg-white rounded-md border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="stability-browser-direct"
+                  checked={useBrowserDirect}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setUseBrowserDirect(checked)
+                    localStorage.setItem('speedtest_browserDirect', String(checked))
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="stability-browser-direct" className="text-xs text-gray-500 cursor-pointer select-none">
+                  {tSpeed('form.browserDirect.label')}
+                </label>
+              </div>
               <p><span className="text-gray-500">{t('connection.baseUrl')}:</span> <span className="text-gray-700">{baseUrl || '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.apiKey')}:</span> <span className="text-gray-700">{apiKey ? '••••••' + apiKey.slice(-4) : '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.modelId')}:</span> <span className="text-gray-700">{modelId || '-'}</span></p>

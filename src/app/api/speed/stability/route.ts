@@ -54,6 +54,8 @@ export async function POST(request: Request) {
     const openai = new OpenAI({
       apiKey: validatedData.apiKey,
       baseURL: validatedData.baseUrl,
+      timeout: 60 * 1000, // 60s per-request timeout for stability tests
+      maxRetries: 1,
       ...(safeCustomHeaders && Object.keys(safeCustomHeaders).length > 0 ? {
         defaultHeaders: safeCustomHeaders,
       } : {}),
@@ -172,7 +174,7 @@ export async function POST(request: Request) {
       } catch (error) {
         console.error('Error in stability test stream:', error);
         let errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        if (error && typeof error === 'object' && 'status' in error) {
+        if (error && typeof error === 'object' && typeof (error as any).status === 'number') {
           errorMsg = `HTTP ${(error as any).status}: ${errorMsg}`;
         }
         await writer.write(encoder.encode(JSON.stringify({ type: 'error', error: errorMsg }) + '\n'));
