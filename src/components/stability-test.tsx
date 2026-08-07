@@ -379,22 +379,6 @@ const tRank = useTranslations('rank')
           {/* Connection info (read-only) */}
           {(baseUrl || modelId) && (
             <div className="text-xs text-gray-400 space-y-1 p-3 bg-white rounded-md border border-gray-200">
-              <div className="flex items-center gap-2 mb-2">
-                <input
-                  type="checkbox"
-                  id="stability-browser-direct"
-                  checked={useBrowserDirect}
-                  onChange={(e) => {
-                    const checked = e.target.checked
-                    setUseBrowserDirect(checked)
-                    localStorage.setItem('speedtest_browserDirect', String(checked))
-                  }}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="stability-browser-direct" className="text-xs text-gray-500 cursor-pointer select-none">
-                  {tSpeed('form.browserDirect.label')}
-                </label>
-              </div>
               <p><span className="text-gray-500">{t('connection.baseUrl')}:</span> <span className="text-gray-700">{baseUrl || '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.apiKey')}:</span> <span className="text-gray-700">{apiKey ? '••••••' + apiKey.slice(-4) : '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.modelId')}:</span> <span className="text-gray-700">{modelId || '-'}</span></p>
