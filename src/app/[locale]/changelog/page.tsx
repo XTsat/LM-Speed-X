@@ -21,7 +21,7 @@ export default function ChangelogPage() {
       version: '0.6.0',
       date: '2026-08-09',
       types: ['improvement', 'feature'],
-      commit: '06fa5d3b12aac9c33b1046f38dfa7ba29f76e738',
+      commit: 'f4bd9c285bd9e88fbe96a71047ced1e6da2311d9',
       changes: [
         t('entries.v0_6_0.uiOptimization'),
         t('entries.v0_6_0.summaryPanel'),
