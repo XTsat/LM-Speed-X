@@ -269,7 +269,7 @@ const response = await fetch('/api/speed/concurrency', {
                 next[ri] = { ...r, status: 'completed' as const, success: true }
                 return next
               })
-              return r
+              return { ...r, success: true } as RequestResult
             }).catch(err => {
               setActiveLevelRequests(prev => {
                 const next = [...prev]
