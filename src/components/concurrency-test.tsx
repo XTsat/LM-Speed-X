@@ -451,7 +451,7 @@ const response = await fetch('/api/speed/concurrency', {
       {/* ── Form ── */}
       <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <Zap className="w-5 h-5" />
+          <BarChart3 className="w-5 h-5" />
           {t('title')}
         </h2>
 
@@ -522,18 +522,23 @@ const response = await fetch('/api/speed/concurrency', {
 
       {/* ── Summary (shown on top after completion) - llm-benchmark style comparison table ── */}
       {results && (
-        <div className="mt-8 mb-6">
-          <div id="concurrency-summary" className="p-6 bg-[#17181C] rounded-lg">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <div className="mb-8">
+          <div id="concurrency-summary" className="pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
-              {t('summary.title')}
+              <span>LM Speed X {t('summary.title')}</span>
             </h3>
 
-            {/* Basic info row (mirrors llm-benchmark basic_info block) */}
-            <div className="text-sm text-gray-400 mb-4 space-x-6 flex flex-wrap">
-              <span>{t('connection.modelId')}: <span className="text-gray-200">{modelId || '-'}</span></span>
-              <span>{t('summary.levels')}: <span className="text-gray-200">{results.summaries.length}</span></span>
-              <span>{t('summary.totalTokens')}: <span className="text-gray-200">{results.summaries.reduce((acc, s) => acc + s.totalOutputTokens, 0).toLocaleString()}</span></span>
+            {/* Basic info row — Model + Base URL fixed at positions 1/2 */}
+            <div className="text-sm font-normal mb-4 space-x-6 flex flex-wrap">
+              <span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
+              <span className="text-white mr-8">{modelId || '-'}</span>
+              <span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
+              <span className="text-white mr-8">{(() => { try { return new URL(baseUrl).host } catch { return baseUrl || '-' } })()}</span>
+              <span className="text-gray-400 mr-2">{t('summary.levels')}:</span>
+              <span className="text-white mr-8">{results.summaries.length}</span>
+              <span className="text-gray-400 mr-2">{t('summary.totalTokens')}:</span>
+              <span className="text-white">{results.summaries.reduce((acc, s) => acc + s.totalOutputTokens, 0).toLocaleString()}</span>
             </div>
 
             {/* Comparison table (columns aligned with the requested benchmark format) */}
@@ -573,7 +578,7 @@ const response = await fetch('/api/speed/concurrency', {
             </div>
 
             {/* Best-config block (mirrors llm-benchmark "性能最佳配置") */}
-            <div className="mt-6 pt-4 border-t border-gray-800">
+            <div className="mt-4 pt-4 border-t border-gray-800">
               <h4 className="text-base font-semibold text-white mb-3">{t('best.title')}</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="p-3 bg-gray-900/40 rounded-md border border-gray-800">
@@ -602,6 +607,7 @@ const response = await fetch('/api/speed/concurrency', {
                 </div>
               </div>
             </div>
+            <a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="block mt-1 text-right text-xs text-gray-600 hover:text-gray-400 transition-colors">lm-speed-x.xtsat.cc.cd</a>
           </div>
 
           {/* Per-level details (matching SpeedTest ResultsList style) */}

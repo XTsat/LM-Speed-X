@@ -14,7 +14,7 @@ import { ResultsList } from './results-list'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Input } from './ui/input'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command'
-import { Check, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, Trash2, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat, saveResultsToServer } from '@/lib/browser-llm'
@@ -946,14 +946,15 @@ await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 					</div>
 					<div id="result" className="my-8">
 						{results.every((result) => result.status === 'completed') && (
-							<div id="summary" className="mb-8 p-6 bg-[#17181C] rounded-lg">
-								<h3 className="text-lg font-semibold text-white mb-1">
+							<div id="summary" className="mb-8 pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
+								<h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+									<Zap className="w-5 h-5" />
 									<span>LM Speed X {t('results.summary.title')}</span>
 								</h3>
 								<div className="text-sm font-normal mb-4">
-									<span className="text-gray-400 mr-2">Model:</span>
+									<span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
 									<span className="text-white mr-8">{results[0].model}</span>
-									<span className="text-gray-400 mr-2">Base URL:</span>
+									<span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
 									<span className="text-white">{new URL(getValues('baseUrl')).host}</span>
 								</div>
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1058,6 +1059,7 @@ await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 										</div>
 									</div>
 								</div>
+								<a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="block mt-1 text-right text-xs text-gray-600 hover:text-gray-400 transition-colors">lm-speed-x.xtsat.cc.cd</a>
 							</div>
 						)}
 						<ResultsList

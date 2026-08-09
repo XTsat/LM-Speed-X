@@ -4,7 +4,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, BarChart3, TrendingUp, Activity } from 'lucide-react'
+import { Loader2, TrendingUp, Activity } from 'lucide-react'
 import { isLocalUrl, runBrowserStreamedChat } from '@/lib/browser-llm'
 
 // ── Types ──
@@ -399,15 +399,21 @@ const tRank = useTranslations('rank')
 
       {/* ── Summary (shown on top after completion) ── */}
       {results && (
-        <div className="mt-8 mb-6">
-          <div id="stability-summary" className="p-6 bg-[#17181C] rounded-lg">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              {t('summary.title')}
+        <div className="mb-8">
+          <div id="stability-summary" className="pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              <span>LM Speed X {t('summary.title')}</span>
             </h3>
-            <div className="text-sm text-gray-400 mb-4">
-              <span className="mr-4">{t('summary.iterations')}: {results.results.length}</span>
-              <span className="mr-4">{t('summary.prompt')}: {results.results[0]?.content.length ?? 0} chars</span>
+            <div className="text-sm font-normal mb-4">
+              <span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
+              <span className="text-white mr-8">{modelId}</span>
+              <span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
+              <span className="text-white mr-8">{(() => { try { return new URL(baseUrl).host } catch { return baseUrl || '-' } })()}</span>
+              <span className="text-gray-400 mr-2">{t('summary.iterations')}:</span>
+              <span className="text-white mr-8">{results.results.length}</span>
+              <span className="text-gray-400 mr-2">{t('summary.prompt')}:</span>
+              <span className="text-white">{results.results[0]?.content.length ?? 0} chars</span>
             </div>
 
             <div className="overflow-x-auto">
@@ -447,7 +453,8 @@ const tRank = useTranslations('rank')
 
             <div className="mt-4 flex items-start gap-2 text-xs text-gray-400">
               <TrendingUp className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <p>{t('summary.stdDevHint')}</p>
+              <p className="flex-1 pb-2">{t('summary.stdDevHint')}</p>
+              <a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0">lm-speed-x.xtsat.cc.cd</a>
             </div>
           </div>
 
