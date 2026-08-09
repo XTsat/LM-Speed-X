@@ -14,10 +14,12 @@ import { ResultsList } from './results-list'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Input } from './ui/input'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command'
-import { Check, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, Trash2, Zap } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, SlidersHorizontal, Trash2, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat, saveResultsToServer } from '@/lib/browser-llm'
+import { COMMON_PROVIDERS } from '@/lib/providers'
+import { ConnectivityCheck } from './connectivity-check'
 
 type SpeedTestResultCard = SpeedTestResult & {
 	status?: 'pending' | 'running' | 'completed'
@@ -33,7 +35,7 @@ export function SpeedTestForm() {
 	const [streamContents, setStreamContents] = useState<{
 		[key: number]: string
 	}>({})
-	const [models, setModels] = useState<Array<{ id: string }>>([])
+	const [models, setModels] = useState<Array<{ id: string; latencyMs?: number }>>([])
 	const [isFechingModel, setIsFechingModel] = useState(false)
 	const [baseUrlOpen, setBaseUrlOpen] = useState(false)
 	const [configRefreshKey, setConfigRefreshKey] = useState(0)
@@ -41,52 +43,7 @@ export function SpeedTestForm() {
 	const [customHeadersJson, setCustomHeadersJson] = useState('')
 	const [showCustomHeaders, setShowCustomHeaders] = useState(false)
 	const [useBrowserDirect, setUseBrowserDirect] = useState(false)
-	const [commonBaseUrls, setCommonBaseUrls] = useState([
-	// ==================== 国际服务商 ====================
-	{ id: 'https://api.openai.com/v1', name: 'OpenAI' },
-	{ id: 'https://api.groq.com/openai/v1', name: 'Groq' },
-	{ id: 'https://api.mistral.ai/v1', name: 'Mistral' },
-	{ id: 'https://api.x.ai/v1', name: 'xAI (Grok)' },
-	{ id: 'https://api.together.xyz/v1', name: 'Together AI' },
-	{ id: 'https://api.fireworks.ai/inference/v1', name: 'Fireworks AI' },
-	{ id: 'https://api.cerebras.ai/v1', name: 'Cerebras' },
-	{ id: 'https://api.aimlapi.com/v1', name: 'AIML' },
-	{ id: 'https://api.venice.ai/api/v1', name: 'Venice AI' },
-	{ id: 'https://api.langdock.com/openai/us/v1', name: 'Langdock' },
-	{ id: 'https://models.github.ai/inference', name: 'GitHub Models' },
-	{ id: 'https://openrouter.ai/api/v1', name: 'OpenRouter' },
-	{ id: 'https://ai-gateway.vercel.sh/v1', name: 'Vercel AI Gateway' },
-
-	// ==================== 国内服务商 ====================
-	{ id: 'https://api.deepseek.com/v1', name: 'DeepSeek' },
-	{ id: 'https://api.moonshot.cn/v1', name: 'Moonshot (月之暗面)' },
-	{ id: 'https://api.minimaxi.com/v1', name: 'MiniMax' },
-	{ id: 'https://api.siliconflow.cn/v1', name: '硅基流动 (SiliconFlow)' },
-	{ id: 'https://api.lingyiwanwu.com/v1', name: '零一万物 (01.AI)' },
-	{ id: 'https://api.stepfun.com/v1', name: '阶跃星辰 (StepFun)' },
-	{ id: 'https://open.bigmodel.cn/api/paas/v4', name: '智谱AI (ChatGLM)' },
-	{ id: 'https://dashscope.aliyuncs.com/compatible-mode/v1', name: '阿里云百炼 (通义千问) - 国内' },
-	{ id: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', name: '阿里云百炼 (通义千问) - 新加坡' },
-	{ id: 'https://dashscope-us.aliyuncs.com/compatible-mode/v1', name: '阿里云百炼 (通义千问) - 美国' },
-	{ id: 'https://coding.dashscope.aliyuncs.com/v1', name: '阿里云百炼 Coding Plan' },
-	{ id: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1', name: '阿里云百炼 Token Plan' },
-	{ id: 'https://spark-api-open.xf-yun.com/v1', name: '讯飞星火 (Spark) V1' },
-	{ id: 'https://spark-api-open.xf-yun.com/x2', name: '讯飞星火 (Spark) X2' },
-	{ id: 'https://ark.cn-beijing.volces.com/api/v3', name: '火山方舟 (豆包)' },
-	{ id: 'https://api.hunyuan.cloud.tencent.com/v1', name: '腾讯混元' },
-	{ id: 'https://qianfan.baidubce.com/v2', name: '百度千帆 (文心一言)' },
-
-	// ==================== 云平台聚合服务 ====================
-	{ id: 'https://api.modelarts-maas.com/openai/v1', name: '华为云 MaaS' },
-	{ id: 'https://api-ap-southeast-1.modelarts-maas.com/openai/v1', name: '华为云 MaaS (亚太)' },
-	{ id: 'https://models.inference.ai.azure.com', name: 'Azure AI Models' },
-
-	// ==================== 本地/自托管 ====================
-	{ id: 'http://localhost:4000', name: 'LiteLLM (本地)' },
-	{ id: 'http://localhost:8000/v1', name: 'vLLM (本地)' },
-	{ id: 'http://localhost:8080', name: 'LocalAI (本地)' },
-	{ id: 'http://localhost:5000/v1', name: 'Ollama (本地)' },
-	])
+	const [commonBaseUrls, setCommonBaseUrls] = useState(() => [...COMMON_PROVIDERS])
 
 	const contentRef = useRef<{ [key: number]: string }>({})
 	const [autoTestLink, setAutoTestLink] = useState(true)
@@ -124,6 +81,15 @@ export function SpeedTestForm() {
 
 	useEffect(() => {
 		setHydrated(true)
+	}, [])
+
+	// 自动添加当前页面域名到基础 URL 候选列表
+	useEffect(() => {
+		const origin = window.location.origin
+		if (origin && !commonBaseUrls.some(url => url.id === origin)) {
+			setCommonBaseUrls(prev => [...prev, { id: origin, name: `当前站点 (${origin})` }])
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
 	// Function to parse URL parameters
@@ -169,7 +135,16 @@ export function SpeedTestForm() {
 			})
 
 			if (!response.ok) {
-				throw new Error('Failed to fetch models')
+				let errorMsg = `Failed to fetch models (${response.status})`
+				try {
+					const errorData = await response.json()
+					if (errorData.error) {
+						errorMsg = errorData.error
+					}
+				} catch {
+					// could not parse response body
+				}
+				throw new Error(errorMsg)
 			}
 
 			const data = await response.json()
@@ -599,6 +574,15 @@ export function SpeedTestForm() {
 		}, [watchBaseUrl])
 
 	const [open, setOpen] = useState(false)
+	const [modelSearch, setModelSearch] = useState('')
+	const [baseUrlSearch, setBaseUrlSearch] = useState('')
+
+	// 打开基础 URL 下拉时自动填入当前站点域名
+	useEffect(() => {
+		if (baseUrlOpen && !baseUrlSearch) {
+			setBaseUrlSearch(window.location.origin)
+		}
+	}, [baseUrlOpen])
 
 	return (
 		<div className="container mx-auto px-4 sm:px-0">
@@ -625,7 +609,44 @@ export function SpeedTestForm() {
 									</PopoverTrigger>
 									<PopoverContent align="start" className="w-[500px] p-0">
 										<Command>
-											<CommandInput placeholder={t('form.baseUrl.placeholder')} />
+											<div className="border-b">
+												<CommandInput placeholder="搜索..." onValueChange={setBaseUrlSearch} />
+											</div>
+											<div className="flex gap-2 p-2 border-b">
+												<Input
+													value={baseUrlSearch}
+													onChange={(e) => setBaseUrlSearch(e.target.value)}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter') {
+															e.preventDefault()
+															e.stopPropagation()
+															const customUrl = baseUrlSearch.trim()
+															if (customUrl && !commonBaseUrls.some(url => url.id === customUrl)) {
+																setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
+																setValue('baseUrl', customUrl)
+																setBaseUrlSearch('')
+															}
+														}
+													}}
+													placeholder="输入自定义 URL"
+													className="h-8 text-sm"
+												/>
+												<Button
+													type="button"
+													size="sm"
+													className="shrink-0"
+													onClick={() => {
+														const customUrl = baseUrlSearch.trim()
+														if (customUrl && !commonBaseUrls.some(url => url.id === customUrl)) {
+															setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
+															setValue('baseUrl', customUrl)
+															setBaseUrlSearch('')
+														}
+													}}
+												>
+													{t('form.add')}
+												</Button>
+											</div>
 											<CommandList>
 												<CommandEmpty>No base URL found.</CommandEmpty>
 												<CommandGroup>
@@ -658,20 +679,6 @@ export function SpeedTestForm() {
 													))}
 												</CommandGroup>
 											</CommandList>
-											<div className="p-2 flex flex-row gap-2">
-												<Input {...register('baseUrl')} className="h-9" placeholder={t('form.baseUrl.placeholder')} />
-												<Button
-													size="sm"
-													onClick={() => {
-														const customUrl = getValues('baseUrl')
-														if (customUrl && !commonBaseUrls.some(url => url.id === customUrl)) {
-															setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
-														}
-													}}
-												>
-													{t('form.add')}
-												</Button>
-											</div>
 										</Command>
 									</PopoverContent>
 								</Popover>
@@ -728,46 +735,92 @@ export function SpeedTestForm() {
 									</PopoverTrigger>
 									<PopoverContent align="start" className="w-[500px] p-0">
 										<Command>
-											<CommandInput placeholder={t('form.modelId.placeholder')} />
-											<CommandList>
-												<CommandEmpty>No framework found.</CommandEmpty>
-												<CommandGroup>
-													{Array.from(new Map(models.map(m => [m.id, m])).values()).map((model) => (
-														<CommandItem
-															key={model.id}
-															value={model.id}
-															onSelect={(currentValue) => {
-																setValue('modelId', currentValue)
-																setOpen(false)
-															}}
-														>
-															<Check
-																className={cn(
-																	'mr-2 h-4 w-4',
-																	getValues('modelId') === model.id
-																		? 'opacity-100'
-																		: 'opacity-0'
-																)}
-															/>
-															{model.id}
-														</CommandItem>
-													))}
-												</CommandGroup>
-											</CommandList>
-											<div className="p-2 flex flex-row gap-2">
-												<Input {...register('modelId')} className="h-9" />
+											<div className="border-b">
+												<CommandInput placeholder="搜索..." onValueChange={setModelSearch} />
+											</div>
+											<div className="flex gap-2 p-2 border-b">
+												<Input
+													value={modelSearch}
+													onChange={(e) => setModelSearch(e.target.value)}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter') {
+															e.preventDefault()
+															e.stopPropagation()
+															const ids = modelSearch.split(',').map(s => s.trim()).filter(Boolean)
+															for (const id of ids) {
+																if (!models.some(m => m.id === id)) {
+																	setModels((prev) => [...prev, { id }])
+																}
+															}
+															if (ids.length > 0) {
+																setValue('modelId', ids[ids.length - 1])
+																setModelSearch('')
+															}
+														}
+													}}
+													placeholder="多个模型用逗号分隔"
+													className="h-8 text-sm"
+												/>
 												<Button
+													type="button"
 													size="sm"
+													className="shrink-0"
 													onClick={() => {
-														setModels((prev) => [
-															...prev,
-															{ id: getValues('modelId') },
-														])
+														const ids = modelSearch
+															.split(',')
+															.map(s => s.trim())
+															.filter(Boolean)
+														for (const id of ids) {
+															if (!models.some(m => m.id === id)) {
+																setModels((prev) => [...prev, { id }])
+															}
+														}
+														if (ids.length > 0) {
+															setValue('modelId', ids[ids.length - 1])
+															setModelSearch('')
+														}
 													}}
 												>
 													{t('form.add')}
 												</Button>
 											</div>
+											<CommandList>
+												<CommandEmpty>No framework found.</CommandEmpty>
+												<CommandGroup>
+									{Array.from(new Map(models.map(m => [m.id, m])).values())
+										.sort((a, b) => {
+											const aOk = a.latencyMs != null ? 0 : 1
+											const bOk = b.latencyMs != null ? 0 : 1
+											if (aOk !== bOk) return aOk - bOk
+											return (a.latencyMs ?? 0) - (b.latencyMs ?? 0)
+										})
+										.map((model) => (
+										<CommandItem
+											key={model.id}
+											value={model.id}
+											onSelect={(currentValue) => {
+												setValue('modelId', currentValue)
+												setOpen(false)
+											}}
+										>
+											<Check
+												className={cn(
+													'mr-2 h-4 w-4',
+													getValues('modelId') === model.id
+														? 'opacity-100'
+														: 'opacity-0'
+												)}
+											/>
+											<span className="flex-1 truncate">{model.id}</span>
+											{model.latencyMs != null && (
+												<span className="ml-2 text-xs text-green-600 dark:text-green-400 shrink-0">
+													{model.latencyMs}ms
+												</span>
+											)}
+										</CommandItem>
+									))}
+												</CommandGroup>
+											</CommandList>
 										</Command>
 									</PopoverContent>
 								</Popover>
@@ -777,39 +830,58 @@ export function SpeedTestForm() {
 						{errors.modelId && <p className="text-rose-400 text-sm">{errors.modelId.message}</p>}
 					</div>
 
+					<ConnectivityCheck onModelsFound={(found) => {
+						setModels(prev => {
+							const updated = prev.map(m => {
+								const f = found.find(x => x.id === m.id)
+								return f ? { ...m, latencyMs: f.latencyMs } : m
+							})
+							const existingIds = new Set(updated.map(m => m.id))
+							const newModels = found.filter(m => !existingIds.has(m.id))
+							return [...updated, ...newModels]
+						})
+					}} />
+
 					{/* 自定义请求头区域 */}
-					<div className="space-y-2">
-						<div className="flex items-center justify-between">
-							<label className="text-sm text-gray-600">{t('form.customHeaders.label') || '自定义请求头'}</label>
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								className="h-6 px-2 text-xs"
-								onClick={() => setShowCustomHeaders(!showCustomHeaders)}
-							>
-								{showCustomHeaders ? '收起' : '展开'}
-							</Button>
-						</div>
+					<div className="border border-input rounded-md">
+						<button
+							type="button"
+							onClick={() => setShowCustomHeaders(!showCustomHeaders)}
+							className="flex items-center justify-between w-full px-4 py-2 text-sm hover:bg-muted/50 transition-colors rounded-md"
+						>
+							<div className="flex items-center gap-2">
+								<SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+								<span className="font-medium">额外设置</span>
+							</div>
+							<ChevronDown
+								className={cn(
+									'ml-2 h-4 w-4 shrink-0 opacity-50 transition-transform',
+									!showCustomHeaders && 'rotate-90',
+								)}
+							/>
+						</button>
 						{showCustomHeaders && (
-								<div className="space-y-2 p-3 bg-gray-50 rounded-md border border-gray-200">
-									<div className="flex items-center gap-2 mb-3">
-										<Checkbox
-											id="browser-direct"
-											checked={useBrowserDirect}
-											onCheckedChange={(checked) => setUseBrowserDirect(!!checked)}
-										/>
-										<label htmlFor="browser-direct" className="text-sm text-gray-600 cursor-pointer select-none">
-											{t('form.browserDirect.label')}
-										</label>
-									</div>
+							<div className="px-3 pb-3 pt-3 space-y-3 border-t border-input/60">
+								<div className="flex items-center gap-2">
+									<Checkbox
+										id="browser-direct"
+										checked={useBrowserDirect}
+										onCheckedChange={(checked) => setUseBrowserDirect(!!checked)}
+									/>
+									<label htmlFor="browser-direct" className="text-sm text-gray-600 cursor-pointer select-none">
+										{t('form.browserDirect.label')}
+									</label>
+								</div>
+								<div>
+									<label className="text-sm text-gray-600 mb-1 block">{t('form.customHeaders.label') || '自定义请求头'}</label>
 									<textarea
 									value={customHeadersJson}
 									onChange={(e) => setCustomHeadersJson(e.target.value)}
 									placeholder={`{\"X-Custom-Auth\": \"your-token\"}`}
 									className="w-full h-24 p-2 text-sm font-mono border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 								/>
-								<p className="text-xs text-gray-400">{t('form.customHeaders.help') || 'JSON 格式，例如：{\"Header-Name\": \"value\"}'}</p>
+								<p className="text-xs text-gray-400 mt-1">{t('form.customHeaders.help') || 'JSON 格式，例如：{\"Header-Name\": \"value\"}'}</p>
+								</div>
 							</div>
 						)}
 					</div>
@@ -840,10 +912,32 @@ await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 							type="button"
 							variant="outline"
 							className="flex-1"
-							onClick={async () => {
+						onClick={async () => {
 								try {
 									const text = await navigator.clipboard.readText();
 									const config = JSON.parse(text);
+
+									// 支持 newapi 一键导入格式：{_type: "newapi_channel_conn", key: "sk-...", url: "http://..."}
+									if (config._type === 'newapi_channel_conn') {
+										const baseUrl = config.url;
+										const apiKey = config.key;
+
+										if (baseUrl) {
+											setValue('baseUrl', baseUrl, { shouldDirty: true });
+											if (!commonBaseUrls.some(url => url.id === baseUrl)) {
+												setCommonBaseUrls(prev => [...prev, { id: baseUrl, name: baseUrl }]);
+											}
+										}
+										if (apiKey) setValue('apiKey', apiKey, { shouldDirty: true });
+
+										// 强制刷新UI显示
+										setConfigRefreshKey(prev => prev + 1);
+										toast.success(t('form.configImported'), {
+											description: t('form.apiKeyWarning'),
+										});
+										return;
+									}
+
 									if (config.baseUrl) {
 										setValue('baseUrl', config.baseUrl, { shouldDirty: true });
 										// 如果导入的URL不在列表中，自动添加

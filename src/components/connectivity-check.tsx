@@ -1,0 +1,368 @@
+'use client'
+
+import { useState, useCallback, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { CheckCircle, XCircle, Loader2, Wifi, ChevronDown, Download, FlaskConical } from 'lucide-react'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+
+interface ModelTestResult {
+  modelId: string
+  reachable: boolean
+  error: string
+  latencyMs: number
+  retries: number
+}
+
+export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: { id: string; latencyMs: number }[]) => void }) {
+  const t = useTranslations('ConnectivityCheck')
+
+  // Read from localStorage
+  const [baseUrl, setBaseUrl] = useState('')
+  const [apiKey, setApiKey] = useState('')
+
+  useEffect(() => {
+    const storedUrl = localStorage.getItem('speedtest_baseUrl') || ''
+    const storedKey = localStorage.getItem('speedtest_apiKey') || ''
+    setBaseUrl(storedUrl)
+    setApiKey(storedKey)
+  }, [])
+
+  // Model list
+  const [modelIds, setModelIds] = useState<string[]>([])
+  const [customModelInput, setCustomModelInput] = useState('')
+  const [delayMs, setDelayMs] = useState('')
+  const [retries, setRetries] = useState('')
+  const [timeoutMs, setTimeoutMs] = useState('')
+  const [fetchingModels, setFetchingModels] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [results, setResults] = useState<ModelTestResult[] | null>(null)
+  const [expanded, setExpanded] = useState(false)
+
+  // Merge upstream models with custom IDs
+  const allModelIds = (() => {
+    const customIds = customModelInput
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const merged = new Set([...modelIds, ...customIds])
+    return [...merged]
+  })()
+
+  const fetchModels = useCallback(async () => {
+    if (!baseUrl || !apiKey) {
+      toast.error(t('errors.noConfig'))
+      return
+    }
+    setFetchingModels(true)
+    try {
+      const resp = await fetch('/api/model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseUrl, apiKey }),
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const data = await resp.json()
+      const ids: string[] = (data.models || [])
+        .map((m: { id: string }) => m.id)
+        .filter(Boolean)
+      setModelIds(ids)
+      toast.success(t('modelsFetched', { count: ids.length }))
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : t('errors.fetchFailed'),
+      )
+    } finally {
+      setFetchingModels(false)
+    }
+  }, [baseUrl, apiKey, t])
+
+  const runTests = useCallback(async () => {
+    if (!baseUrl || !apiKey) {
+      toast.error(t('errors.noConfig'))
+      return
+    }
+    if (allModelIds.length === 0) {
+      toast.error(t('errors.noModels'))
+      return
+    }
+    setTesting(true)
+    setResults([])
+    try {
+      const resp = await fetch('/api/connectivity/test-models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl,
+          apiKey,
+          modelIds: allModelIds,
+          delayMs: delayMs ? Number(delayMs) : 0,
+          retries: retries ? Number(retries) : 0,
+          timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
+        }),
+      })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Request failed' }))
+        throw new Error(err.error || `HTTP ${resp.status}`)
+      }
+
+        // Read streaming NDJSON response
+        const reader = resp.body?.getReader()
+        if (!reader) throw new Error('No response body')
+        const decoder = new TextDecoder()
+        let buffer = ''
+        const reachableModels = new Map<string, number>()
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (!line.trim()) continue
+            try {
+              const msg = JSON.parse(line)
+              if (msg.result) {
+                if (msg.result.reachable) {
+                  reachableModels.set(msg.result.modelId, msg.result.latencyMs)
+                }
+                setResults((prev) => {
+                  const existing = prev ? [...prev] : []
+                  const idx = existing.findIndex((r) => r.modelId === msg.result.modelId)
+                  if (idx >= 0) {
+                    existing[idx] = msg.result
+                  } else {
+                    existing.push(msg.result)
+                  }
+                  return existing
+                })
+              }
+            } catch {
+              // skip unparseable lines
+            }
+          }
+        }
+
+        // Add reachable models to the form's model dropdown
+        if (reachableModels.size > 0 && onModelsFound) {
+          onModelsFound([...reachableModels].map(([id, latencyMs]) => ({ id, latencyMs })))
+        }
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : t('errors.testFailed'),
+      )
+    } finally {
+      setTesting(false)
+    }
+  }, [baseUrl, apiKey, allModelIds, delayMs, retries, timeoutMs, onModelsFound, t])
+
+  const reachableCount = results?.filter((r) => r.reachable).length ?? 0
+  const totalCount = results?.length ?? 0
+  const hasConfig = !!(baseUrl && apiKey)
+
+  return (
+    <div className="border border-input rounded-md">
+      {/* Collapse header — always visible */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full px-4 py-2 text-sm hover:bg-muted/50 transition-colors rounded-md"
+      >
+        <div className="flex items-center gap-2">
+          <Wifi className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{t('title')}</span>
+          {results && (
+            <span className={cn(
+              'text-xs px-1.5 py-0.5 rounded-full',
+              testing
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                : reachableCount === totalCount
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+            )}>
+              {testing ? `${results.length}/${allModelIds.length}` : `${reachableCount}/${totalCount}`}
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          className={cn(
+            'ml-2 h-4 w-4 shrink-0 opacity-50 transition-transform',
+            !expanded && 'rotate-90',
+          )}
+        />
+      </button>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div className="px-3 pb-3 pt-3 space-y-3 border-t border-input/60">
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={fetchModels}
+              disabled={fetchingModels || !hasConfig}
+              size="sm"
+            >
+              {fetchingModels ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  {t('fetchingModels')}
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-3 w-3" />
+                  {t('fetchModels')}
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              onClick={runTests}
+              disabled={testing || !hasConfig || allModelIds.length === 0}
+              size="sm"
+            >
+              {testing ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  {t('testing')}
+                </>
+              ) : (
+                <>
+                  <FlaskConical className="mr-2 h-3 w-3" />
+                  {t('testAll')}
+                </>
+              )}
+            </Button>
+            {!hasConfig && (
+              <span className="text-xs text-muted-foreground self-center">
+                {t('errors.noConfig')}
+              </span>
+            )}
+            {modelIds.length > 0 && (
+              <span className="text-xs text-muted-foreground self-center">
+                {modelIds.length} {t('modelCount').toLowerCase()}
+              </span>
+            )}
+          </div>
+
+          {/* Custom model IDs + delay + retry + timeout in one row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="min-w-0">
+              <label className="text-xs text-muted-foreground mb-1 block truncate">
+                {t('customModelsLabel')}
+              </label>
+              <Input
+                placeholder={t('customModelsPlaceholder')}
+                value={customModelInput}
+                onChange={(e) => setCustomModelInput(e.target.value)}
+                disabled={testing}
+                className="text-xs h-8"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {t('delayLabel')} (ms)
+              </label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={delayMs}
+                onChange={(e) => setDelayMs(e.target.value)}
+                disabled={testing}
+                className="text-xs h-8"
+                min="0"
+                step="100"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {t('retryLabel')}
+              </label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={retries}
+                onChange={(e) => setRetries(e.target.value)}
+                disabled={testing}
+                className="text-xs h-8"
+                min="0"
+                max="5"
+                step="1"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {t('timeoutLabel')} (ms)
+              </label>
+              <Input
+                type="number"
+                placeholder="15000"
+                value={timeoutMs}
+                onChange={(e) => setTimeoutMs(e.target.value)}
+                disabled={testing}
+                className="text-xs h-8"
+                min="1000"
+                step="1000"
+              />
+            </div>
+          </div>
+
+          {/* Results grid */}
+          {results && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-[400px] overflow-y-auto">
+              {results.slice().sort((a, b) => (b.reachable ? 1 : 0) - (a.reachable ? 1 : 0)).map((r) => (
+                <div
+                  key={r.modelId}
+                  className={cn(
+                    'flex items-start gap-1.5 rounded border px-2 py-1.5 text-xs',
+                    r.reachable
+                      ? 'border-green-200 bg-green-50 dark:border-green-900/30 dark:bg-green-950/20'
+                      : 'border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-950/20',
+                  )}
+                >
+                  {r.reachable ? (
+                    <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <XCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-500 dark:text-red-400" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate" title={r.modelId}>
+                      {r.modelId}
+                    </div>
+                    {r.reachable ? (
+                      <span className="text-muted-foreground">
+                        {r.latencyMs}ms
+                        {r.retries > 0 && (
+                          <span className="text-amber-600 dark:text-amber-400 ml-1">
+                            ({t('retried', { count: r.retries })})
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span
+                        className="text-red-600 dark:text-red-400 truncate block"
+                        title={r.error}
+                      >
+                        {r.error}
+                        {r.retries > 0 && (
+                          <span className="text-amber-600 dark:text-amber-400 ml-1">
+                            ({t('retried', { count: r.retries })})
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

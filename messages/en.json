@@ -307,7 +307,8 @@
       "title": "Parameter Description"
     },
     "table": {
-      "rank": "Ranking",
+    "rank": "Ranking",
+    "changelog": "Changelog",
       "avgLatency": "Avg First Token Latency",
       "avgTokens": "Avg Tokens/s",
       "avgTotalTime": "Avg Total Time (s)",
@@ -336,8 +337,76 @@
     "importInvalidFormat": "Invalid file format",
     "delete": "Delete"
   },
+  "ConnectivityCheck": {
+    "title": "Model Connectivity Check",
+    "modelCount": "Models",
+    "fetchModels": "Fetch Models",
+    "fetchingModels": "Fetching...",
+    "testAll": "Test All Models",
+    "testing": "Testing...",
+    "customModelsLabel": "Custom Model IDs",
+    "customModelsPlaceholder": "Comma-separated model IDs",
+    "modelsFetched": "Fetched {count} models",
+    "errors": {
+      "noConfig": "Please fill in the API address and key in the form above first",
+      "noModels": "No models to test. Please fetch the model list or enter custom model IDs",
+      "fetchFailed": "Failed to fetch model list",
+      "testFailed": "Connectivity test failed"
+    },
+    "delayLabel": "Request Interval",
+    "retryLabel": "Auto Retry",
+    "retried": "after {count} retries",
+    "timeoutLabel": "Timeout"
+  },
   "Footer": {
     "madeBy": "Made with ❤️ by",
     "starOnGithub": "Star on GitHub"
+  },
+  "Changelog": {
+    "title": "Changelog",
+    "subtitle": "LM Speed X version update history",
+    "version": "Version",
+    "feature": "New Feature",
+    "improvement": "Improvement",
+    "fix": "Bug Fix",
+    "original": "Original",
+    "basedOn": "Based on original",
+    "noDetails": "No details available",
+    "entries": {
+      "v0_1_0": {
+        "realtime": "Real-time performance monitoring with multi-dimensional data display",
+        "streaming": "Streaming results for real-time test progress monitoring",
+        "ranking": "Speed rankings to compare performance across models and providers",
+        "export": "One-click export for test reports and sharing"
+      },
+      "v0_2_0": {
+        "localStorage": "Migrated data storage from remote database to browser localStorage, eliminating the need for a backend database"
+      },
+      "v0_2_1": {
+        "quickSelect": "Added provider quick selection feature"
+      },
+      "v0_3_0": {
+        "rename": "Officially renamed to LM Speed X",
+        "importExport": "Added configuration data import/export feature"
+      },
+      "v0_4_0": {
+        "concurrency": "Added concurrency testing",
+        "stability": "Added stability testing",
+        "customHeaders": "Added custom request headers support"
+      },
+      "v0_5_0": {
+        "shareLink": "Added quick share link feature",
+        "concurrencyOpt": "Concurrency optimization: prevent fake concurrency, add max first token latency and timeout mechanism"
+      },
+      "v0_5_1": {
+        "localNetwork": "Fixed browser-based public link to test intranet environments"
+      },
+      "v0_6_0": {
+        "uiOptimization": "Comprehensive UI optimization",
+        "summaryPanel": "Improved summary panel display",
+        "connectivityTest": "Added model connectivity testing",
+        "changelog": "Added changelog page"
+      }
+    }
   }
 }

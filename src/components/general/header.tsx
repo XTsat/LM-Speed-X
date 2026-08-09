@@ -40,6 +40,7 @@ export default function Header() {
 		{ path: '/', label: t('home') },
 		{ path: '/nav', label: t('nav') },
 		{ path: '/rank', label: t('rank') },
+		{ path: '/changelog', label: t('changelog') },
 	]
 
 	return (

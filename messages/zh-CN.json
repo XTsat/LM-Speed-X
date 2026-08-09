@@ -26,6 +26,7 @@
     "brand": "语言模型速度",
     "home": "首页",
     "rank": "排行榜",
+    "changelog": "更新日志",
     "feedback": "反馈",
     "nav": "导航"
   },
@@ -322,8 +323,76 @@
     "importInvalidFormat": "文件格式不正确",
     "delete": "删除"
   },
+  "ConnectivityCheck": {
+    "title": "模型连通性检测",
+    "modelCount": "模型数",
+    "fetchModels": "获取模型列表",
+    "fetchingModels": "获取中...",
+    "testAll": "检测全部模型",
+    "testing": "检测中...",
+    "customModelsLabel": "自定义模型 ID",
+    "customModelsPlaceholder": "多个模型用逗号分隔",
+    "modelsFetched": "已获取 {count} 个模型",
+    "errors": {
+      "noConfig": "请先在上方表单中填写 API 地址和密钥",
+      "noModels": "没有可检测的模型，请先获取模型列表或输入自定义模型 ID",
+      "fetchFailed": "获取模型列表失败",
+      "testFailed": "连通性检测失败"
+    },
+    "delayLabel": "请求间隔",
+    "retryLabel": "自动重试",
+    "retried": "重试 {count} 次后",
+    "timeoutLabel": "超时时间"
+  },
   "Footer": {
     "madeBy": "Made with ❤️ by",
     "starOnGithub": "在 GitHub 上 Star"
+  },
+  "Changelog": {
+    "title": "更新日志",
+    "subtitle": "LM Speed X 版本更新记录",
+    "version": "版本",
+    "feature": "新功能",
+    "improvement": "改进",
+    "fix": "修复",
+    "original": "原始版本",
+    "basedOn": "基于原始版本",
+    "noDetails": "暂无详细说明",
+    "entries": {
+      "v0_1_0": {
+        "realtime": "实时性能监控：支持多维度实时数据展示",
+        "streaming": "实时流式结果：通过流式结果实时监控测试进度",
+        "ranking": "速度排行榜：直观比较不同模型和服务商的性能表现",
+        "export": "一键导出报告：支持测试报告导出与分享"
+      },
+      "v0_2_0": {
+        "localStorage": "数据存储从远程数据库迁移至浏览器本地存储（localStorage），无需后端数据库即可运行"
+      },
+      "v0_2_1": {
+        "quickSelect": "新增服务商快速选择功能"
+      },
+      "v0_3_0": {
+        "rename": "正式更名为 LM Speed X",
+        "importExport": "新增配置数据导入/导出功能"
+      },
+      "v0_4_0": {
+        "concurrency": "新增并发测试功能",
+        "stability": "新增稳定性测试功能",
+        "customHeaders": "支持自定义请求头"
+      },
+      "v0_5_0": {
+        "shareLink": "新增快速分享链接功能",
+        "concurrencyOpt": "并发测试优化：防止假并发、增加最大首字延迟和超时机制"
+      },
+      "v0_5_1": {
+        "localNetwork": "修复浏览器公网链接测试内网环境功能"
+      },
+      "v0_6_0": {
+        "uiOptimization": "全面界面优化",
+        "summaryPanel": "优化汇总面板展示",
+        "connectivityTest": "新增模型连通性测试功能",
+        "changelog": "新增更新日志页面"
+      }
+    }
   }
 }
