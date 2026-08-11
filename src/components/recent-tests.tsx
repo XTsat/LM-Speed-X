@@ -57,7 +57,7 @@ export function RecentTests(params: Props) {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="bg-white shadow overflow-hidden rounded-lg p-4 text-center text-gray-500">
-          加载中...
+          {t('loading')}
         </div>
       </div>
     );

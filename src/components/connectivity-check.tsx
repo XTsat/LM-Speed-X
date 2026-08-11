@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { CheckCircle, XCircle, Loader2, Wifi, ChevronDown, Download, FlaskConical } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, Wifi, ChevronDown, Download, FlaskConical, AlertTriangle } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { isLocalUrl, fetchModelsDirect, testConnectivityDirect } from '@/lib/browser-llm'
 
 interface ModelTestResult {
   modelId: string
@@ -14,6 +15,7 @@ interface ModelTestResult {
   error: string
   latencyMs: number
   retries: number
+  tierRestricted?: boolean
 }
 
 export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: { id: string; latencyMs: number }[]) => void }) {
@@ -58,6 +60,15 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
     }
     setFetchingModels(true)
     try {
+      // Browser-direct mode for local/private IPs — bypasses server proxy
+      if (isLocalUrl(baseUrl)) {
+        const models = await fetchModelsDirect(baseUrl, apiKey)
+        const ids: string[] = models.map((m) => m.id).filter(Boolean)
+        setModelIds(ids)
+        toast.success(t('modelsFetched', { count: ids.length }))
+        return
+      }
+
       const resp = await fetch('/api/model', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,7 +101,56 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
     }
     setTesting(true)
     setResults([])
+
+    const effectiveTimeout = timeoutMs ? Number(timeoutMs) : 15000
+    const effectiveRetries = retries ? Number(retries) : 0
+    const effectiveDelay = delayMs ? Number(delayMs) : 0
+
     try {
+      // Browser-direct mode for local/private IPs — test from browser directly
+      if (isLocalUrl(baseUrl)) {
+        const reachableModels = new Map<string, number>()
+        const abortController = new AbortController()
+        const total = allModelIds.length
+
+        const testOne = async (id: string) => {
+          const result = await testConnectivityDirect(
+            baseUrl, apiKey, id,
+            effectiveTimeout, effectiveRetries, effectiveDelay,
+            abortController.signal,
+          )
+          if (result.reachable) {
+            reachableModels.set(result.modelId, result.latencyMs)
+          }
+          setResults((prev) => {
+            const existing = prev ? [...prev] : []
+            const idx = existing.findIndex((r) => r.modelId === result.modelId)
+            if (idx >= 0) {
+              existing[idx] = result
+            } else {
+              existing.push(result)
+            }
+            return existing
+          })
+          return result
+        }
+
+        if (effectiveDelay > 0) {
+          for (const id of allModelIds) {
+            await testOne(id)
+            // Delay between tests (even between retries, handled internally)
+          }
+        } else {
+          await Promise.all(allModelIds.map(testOne))
+        }
+
+        if (reachableModels.size > 0 && onModelsFound) {
+          onModelsFound([...reachableModels].map(([id, latencyMs]) => ({ id, latencyMs })))
+        }
+        return
+      }
+
+      // Server-proxy mode: use streaming NDJSON endpoint
       const resp = await fetch('/api/connectivity/test-models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -177,12 +237,12 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
           <span className="font-medium">{t('title')}</span>
           {results && (
             <span className={cn(
-              'text-xs px-1.5 py-0.5 rounded-full',
+              'text-xs px-1.5 py-0.5 rounded-full font-medium',
               testing
-                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
                 : reachableCount === totalCount
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
             )}>
               {testing ? `${results.length}/${allModelIds.length}` : `${reachableCount}/${totalCount}`}
             </span>
@@ -315,18 +375,24 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
           {/* Results grid */}
           {results && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-[400px] overflow-y-auto">
-              {results.slice().sort((a, b) => (b.reachable ? 1 : 0) - (a.reachable ? 1 : 0)).map((r) => (
+              {results.slice().sort((a, b) => (b.reachable ? 1 : 0) - (a.reachable ? 1 : 0)).map((r) => {
+                const tierRestricted = !r.reachable && r.tierRestricted
+                return (
                 <div
                   key={r.modelId}
                   className={cn(
                     'flex items-start gap-1.5 rounded border px-2 py-1.5 text-xs',
                     r.reachable
                       ? 'border-green-200 bg-green-50 dark:border-green-900/30 dark:bg-green-950/20'
-                      : 'border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-950/20',
+                      : tierRestricted
+                        ? 'border-amber-200 bg-amber-50 dark:border-amber-900/30 dark:bg-amber-950/20'
+                        : 'border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-950/20',
                   )}
                 >
                   {r.reachable ? (
                     <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
+                  ) : tierRestricted ? (
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
                   ) : (
                     <XCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-500 dark:text-red-400" />
                   )}
@@ -345,9 +411,19 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
                       </span>
                     ) : (
                       <span
-                        className="text-red-600 dark:text-red-400 truncate block"
+                        className={cn(
+                          'truncate block',
+                          tierRestricted
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-red-600 dark:text-red-400',
+                        )}
                         title={r.error}
                       >
+                        {tierRestricted && (
+                          <span className="font-medium">
+                            [{t('tierRestricted')}]{' '}
+                          </span>
+                        )}
                         {r.error}
                         {r.retries > 0 && (
                           <span className="text-amber-600 dark:text-amber-400 ml-1">
@@ -358,7 +434,8 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

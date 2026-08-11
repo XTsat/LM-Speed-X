@@ -49,7 +49,8 @@
   },
   "RecentTests": {
     "recentTests": "最近测试记录",
-    "noTests": "暂无测试记录"
+    "noTests": "暂无测试记录",
+    "loading": "加载中..."
   },
   "StabilityTest": {
     "title": "稳定性测试",
@@ -213,7 +214,23 @@
       "browserDirect": {
         "label": "浏览器直连模式（本地/内网 API）",
         "description": "当 API 地址为本地或内网 IP 时自动启用，浏览器直接连接 API 绕过服务器代理"
-      }
+      },
+      "currentSite": "当前站点 ({origin})",
+      "customHeaders": {
+        "label": "自定义请求头",
+        "help": "JSON 格式，例如：'{'\"Header-Name\": \"value\"'}'",
+        "example": "JSON 格式，例如：{\"Header-Name\": \"value\"}",
+        "invalid": "自定义请求头 JSON 格式错误"
+      },
+      "resultSaved": "测试结果已保存",
+      "search": "搜索...",
+      "customBaseUrl": "输入自定义 URL",
+      "noBaseUrl": "未找到 Base URL",
+      "customModelPlaceholder": "多个模型用逗号分隔",
+      "noFramework": "未找到",
+      "extraSettings": "额外设置",
+      "downloadSummary": "下载汇总报告",
+      "downloadFullReport": "下载完整测试报告"
     },
     "results": {
       "metrics": {
@@ -342,7 +359,8 @@
     "delayLabel": "请求间隔",
     "retryLabel": "自动重试",
     "retried": "重试 {count} 次后",
-    "timeoutLabel": "超时时间"
+    "timeoutLabel": "超时时间",
+    "tierRestricted": "套餐受限"
   },
   "Footer": {
     "madeBy": "Made with ❤️ by",
@@ -392,6 +410,11 @@
         "summaryPanel": "优化汇总面板展示",
         "connectivityTest": "新增模型连通性测试功能",
         "changelog": "新增更新日志页面"
+      },
+      "v0_6_1": {
+        "urlFix": "修复 URL 添加识别",
+        "intranetImprove": "改进浏览器连通性内网测试",
+        "connStatus": "优化连通性测试状态展示：支持测试成功、测试失败、模型套餐受限等分级状态"
       }
     }
   }

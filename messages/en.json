@@ -26,6 +26,7 @@
     "brand": "LM Speed X",
     "home": "Home",
     "rank": "Ranking",
+    "changelog": "Changelog",
     "feedback": "Feedback",
     "nav": "Navigation"
   },
@@ -48,7 +49,8 @@
   },
   "RecentTests": {
     "recentTests": "Recent Test Results",
-    "noTests": "No test records"
+    "noTests": "No test records",
+    "loading": "Loading..."
   },
   "StabilityTest": {
     "title": "Stability Test",
@@ -97,7 +99,8 @@
       "outputToken": "Tokens",
       "toggleContent": "View output",
       "loading": "Loading...",
-      "waiting": "Waiting..."
+      "waiting": "Waiting...",
+      "iteration": "Iteration"
     },
     "errors": {
       "noConfig": "Please configure API connection in the speed test form first",
@@ -211,7 +214,23 @@
       "browserDirect": {
         "label": "Browser Direct Mode (Local/Intranet API)",
         "description": "Auto-enabled when the API address is a local or intranet IP. The browser connects directly, bypassing the server proxy."
-      }
+      },
+      "currentSite": "Current site ({origin})",
+      "customHeaders": {
+        "label": "Custom Headers",
+        "help": "JSON format, e.g.: '{\"Header-Name\": \"value\"}'",
+        "example": "JSON format, e.g.: {\"Header-Name\": \"value\"}",
+        "invalid": "Invalid JSON format for custom headers"
+      },
+      "resultSaved": "Test result saved",
+      "search": "Search...",
+      "customBaseUrl": "Enter custom URL",
+      "noBaseUrl": "No base URL found.",
+      "customModelPlaceholder": "Separate multiple models with commas",
+      "noFramework": "No framework found.",
+      "extraSettings": "Extra Settings",
+      "downloadSummary": "Download Summary Report",
+      "downloadFullReport": "Download Full Test Report"
     },
     "results": {
       "metrics": {
@@ -356,7 +375,8 @@
     "delayLabel": "Request Interval",
     "retryLabel": "Auto Retry",
     "retried": "after {count} retries",
-    "timeoutLabel": "Timeout"
+    "timeoutLabel": "Timeout",
+    "tierRestricted": "Tier Restricted"
   },
   "Footer": {
     "madeBy": "Made with ❤️ by",
@@ -406,6 +426,11 @@
         "summaryPanel": "Improved summary panel display",
         "connectivityTest": "Added model connectivity testing",
         "changelog": "Added changelog page"
+      },
+      "v0_6_1": {
+        "urlFix": "Fixed URL parsing recognition",
+        "intranetImprove": "Improved browser-based intranet connectivity testing",
+        "connStatus": "Optimized connectivity test status display: test success, failure, and plan-limited tiered statuses"
       }
     }
   }

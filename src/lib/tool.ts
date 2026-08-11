@@ -4,7 +4,7 @@ import { toast } from "sonner";
 export const handleToImage = (id: string) => {
   const node = document.getElementById(id);
   if (!node) {
-    toast.error("请等待测试完成");
+    toast.error("Please wait for the test to complete");
     return;
   }
 

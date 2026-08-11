@@ -87,7 +87,7 @@ export function SpeedTestForm() {
 	useEffect(() => {
 		const origin = window.location.origin
 		if (origin && !commonBaseUrls.some(url => url.id === origin)) {
-			setCommonBaseUrls(prev => [...prev, { id: origin, name: `当前站点 (${origin})` }])
+			setCommonBaseUrls(prev => [...prev, { id: origin, name: t('form.currentSite', { origin }) }])
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
@@ -210,7 +210,7 @@ export function SpeedTestForm() {
 					try {
 						customHeaders = JSON.parse(customHeadersJson)
 					} catch (e) {
-						toast.error('自定义请求头 JSON 格式错误')
+						toast.error(t('form.customHeaders.invalid'))
 						return
 					}
 				}
@@ -305,7 +305,7 @@ export function SpeedTestForm() {
 						})),
 					}
 					saveTestResult(testResultToSave)
-					toast.success('测试结果已保存')
+					toast.success(t('form.resultSaved'))
 					window.dispatchEvent(new Event('lm-speed-test-completed'))
 					setTimeout(() => setExpandedIndex(null), 1000)
 					setTimeout(() => {
@@ -326,7 +326,7 @@ export function SpeedTestForm() {
 			try {
 				customHeaders = JSON.parse(customHeadersJson)
 			} catch (e) {
-				toast.error('自定义请求头 JSON 格式错误')
+				toast.error(t('form.customHeaders.invalid'))
 				return
 			}
 		}
@@ -462,7 +462,7 @@ export function SpeedTestForm() {
 											}))
 										}
 										saveTestResult(testResultToSave)
-										toast.success('测试结果已保存')
+										toast.success(t('form.resultSaved'))
 										
 										// 发送自定义事件通知其他页面更新数据
 										window.dispatchEvent(new Event('lm-speed-test-completed'))
@@ -577,10 +577,13 @@ export function SpeedTestForm() {
 	const [modelSearch, setModelSearch] = useState('')
 	const [baseUrlSearch, setBaseUrlSearch] = useState('')
 
-	// 打开基础 URL 下拉时自动填入当前站点域名
+	// 打开基础 URL 下拉时自动填入当前已选的 base URL
 	useEffect(() => {
 		if (baseUrlOpen && !baseUrlSearch) {
-			setBaseUrlSearch(window.location.origin)
+			const currentBaseUrl = getValues('baseUrl')
+			if (currentBaseUrl) {
+				setBaseUrlSearch(currentBaseUrl)
+			}
 		}
 	}, [baseUrlOpen])
 
@@ -610,7 +613,7 @@ export function SpeedTestForm() {
 									<PopoverContent align="start" className="w-[500px] p-0">
 										<Command>
 											<div className="border-b">
-												<CommandInput placeholder="搜索..." onValueChange={setBaseUrlSearch} />
+												<CommandInput placeholder={t('form.search')} onValueChange={setBaseUrlSearch} />
 											</div>
 											<div className="flex gap-2 p-2 border-b">
 												<Input
@@ -628,7 +631,7 @@ export function SpeedTestForm() {
 															}
 														}
 													}}
-													placeholder="输入自定义 URL"
+													placeholder={t('form.customBaseUrl')}
 													className="h-8 text-sm"
 												/>
 												<Button
@@ -648,7 +651,7 @@ export function SpeedTestForm() {
 												</Button>
 											</div>
 											<CommandList>
-												<CommandEmpty>No base URL found.</CommandEmpty>
+												<CommandEmpty>{t('form.noBaseUrl')}</CommandEmpty>
 												<CommandGroup>
 													{commonBaseUrls.map((url) => (
 														<CommandItem
@@ -736,7 +739,7 @@ export function SpeedTestForm() {
 									<PopoverContent align="start" className="w-[500px] p-0">
 										<Command>
 											<div className="border-b">
-												<CommandInput placeholder="搜索..." onValueChange={setModelSearch} />
+												<CommandInput placeholder={t('form.search')} onValueChange={setModelSearch} />
 											</div>
 											<div className="flex gap-2 p-2 border-b">
 												<Input
@@ -758,7 +761,7 @@ export function SpeedTestForm() {
 															}
 														}
 													}}
-													placeholder="多个模型用逗号分隔"
+													placeholder={t('form.customModelPlaceholder')}
 													className="h-8 text-sm"
 												/>
 												<Button
@@ -785,7 +788,7 @@ export function SpeedTestForm() {
 												</Button>
 											</div>
 											<CommandList>
-												<CommandEmpty>No framework found.</CommandEmpty>
+												<CommandEmpty>{t('form.noFramework')}</CommandEmpty>
 												<CommandGroup>
 									{Array.from(new Map(models.map(m => [m.id, m])).values())
 										.sort((a, b) => {
@@ -851,7 +854,7 @@ export function SpeedTestForm() {
 						>
 							<div className="flex items-center gap-2">
 								<SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-								<span className="font-medium">额外设置</span>
+								<span className="font-medium">{t('form.extraSettings')}</span>
 							</div>
 							<ChevronDown
 								className={cn(
@@ -880,7 +883,7 @@ export function SpeedTestForm() {
 									placeholder={`{\"X-Custom-Auth\": \"your-token\"}`}
 									className="w-full h-24 p-2 text-sm font-mono border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
 								/>
-								<p className="text-xs text-gray-400 mt-1">{t('form.customHeaders.help') || 'JSON 格式，例如：{\"Header-Name\": \"value\"}'}</p>
+								<p className="text-xs text-gray-400 mt-1">{t('form.customHeaders.help') || t('form.customHeaders.example')}</p>
 								</div>
 							</div>
 						)}
@@ -1028,14 +1031,14 @@ await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 				<>
 					<div className="flex justify-center gap-4 mt-8">
 						<Button className="rounded-full" onClick={() => handleToImage('summary')}>
-							下载汇总报告
+							{t('form.downloadSummary')}
 						</Button>
 						<Button
 							variant="outline"
 							className="rounded-full"
 							onClick={() => handleToImage('result')}
 						>
-							下载完整测试报告
+							{t('form.downloadFullReport')}
 						</Button>
 					</div>
 					<div id="result" className="my-8">

@@ -18,6 +18,17 @@ export default function ChangelogPage() {
 
   const entries: ChangelogEntry[] = [
     {
+      version: '0.6.1',
+      date: '2026-08-09',
+      types: ['improvement'],
+      commit: 'd919e2fef6410e18d35f672e1ab1b7020736f739',
+      changes: [
+        t('entries.v0_6_1.urlFix'),
+        t('entries.v0_6_1.intranetImprove'),
+        t('entries.v0_6_1.connStatus'),
+      ],
+    },
+    {
       version: '0.6.0',
       date: '2026-08-09',
       types: ['improvement', 'feature'],
