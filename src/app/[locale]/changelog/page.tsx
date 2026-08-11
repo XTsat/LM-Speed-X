@@ -19,9 +19,9 @@ export default function ChangelogPage() {
   const entries: ChangelogEntry[] = [
     {
       version: '0.7.0',
-      date: '2026-08-11',
+      date: '2026-08-12',
       types: ['feature'],
-      commit: '262e455988e77a5f90a8d0ecd760e33b1c7b218e',
+      commit: '43da474960bb13bd3a14c14897ebbe93e46f7fa4',
       changes: [
         {
           text: t('entries.v0_7_0.modelVerify'),
