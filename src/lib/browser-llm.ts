@@ -128,7 +128,43 @@ export interface ConnectivityResult {
   latencyMs: number
   retries: number
   tierRestricted?: boolean
+  contentValid?: boolean | null
 }
+
+/** Validation challenge definitions — mirrors route.ts */
+const VALIDATION_CHALLENGES = {
+  repeat: {
+    prompt: 'Reply with exactly the word "PONG" and nothing else. Do not add any other text.',
+    validate: (content: string) => {
+      const cleaned = content.trim().toLowerCase()
+      return cleaned.includes('pong') && cleaned.length <= 10
+    },
+  },
+  self: {
+    prompt: 'State your exact model name and nothing else. Do not add explanations.',
+    validate: (content: string) => {
+      const lower = content.trim().toLowerCase()
+      if (lower.length < 3) return false
+      const errorSignals = ['error', 'overloaded', 'unavailable', 'try again', 'rate limit', 'quota', 'billing']
+      if (errorSignals.some((s) => lower.includes(s))) return false
+      const genericTemplates = [
+        'how can i assist', 'how may i help', 'i am an ai assistant',
+        'i am a large language model', 'i am here to help', 'what can i help you with',
+      ]
+      if (genericTemplates.some((s) => lower.includes(s))) return false
+      return true
+    },
+  },
+  math: {
+    prompt: 'Calculate 173 + 289. Reply with only the number, no explanation.',
+    validate: (content: string) => {
+      const cleaned = content.trim().replace(/[^\d]/g, '')
+      return cleaned === '462'
+    },
+  },
+} as const
+
+export type ValidationLevel = keyof typeof VALIDATION_CHALLENGES | null
 
 function truncateError(msg: string): string {
   return msg.length > 200 ? msg.slice(0, 200) + '...' : msg
@@ -156,25 +192,28 @@ export async function testConnectivityDirect(
   maxRetries: number,
   retryDelayMs: number,
   signal?: AbortSignal,
+  validationLevel?: ValidationLevel,
 ): Promise<ConnectivityResult> {
   const normalized = baseUrl.replace(/\/+$/, '')
   const prefix = await detectApiPath(baseUrl, apiKey) ?? (normalized.endsWith('/v1') ? '' : '/v1')
   const apiBase = `${normalized}${prefix}`
+  const challenge = validationLevel ? VALIDATION_CHALLENGES[validationLevel] : null
+  const probeMessage = challenge ? challenge.prompt : 'Hi'
 
   const mkHeaders = () => ({
     'Content-Type': 'application/json',
     ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
   })
 
-  const probe = async (stream: boolean, abortSignal: AbortSignal): Promise<{ ok: boolean; error: string; status?: number }> => {
+  const probe = async (stream: boolean, abortSignal: AbortSignal): Promise<{ ok: boolean; error: string; status?: number; content?: string }> => {
     try {
       const resp = await fetch(`${apiBase}/chat/completions`, {
         method: 'POST',
         headers: mkHeaders(),
         body: JSON.stringify({
           model: modelId,
-          messages: [{ role: 'user', content: 'Hi' }],
-          ...(stream ? { stream: true } : { max_tokens: 1, stream: false }),
+          messages: [{ role: 'user', content: probeMessage }],
+          ...(stream ? { stream: true } : { max_tokens: challenge ? 64 : 1, stream: false }),
         }),
         signal: abortSignal,
       })
@@ -185,11 +224,12 @@ export async function testConnectivityDirect(
       }
 
       if (stream) {
-        // Read first content chunk to confirm connectivity
+        // Read all content chunks to get the full response for validation
         if (!resp.body) return { ok: false, error: 'No response body', status: resp.status }
         const reader = resp.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
+        let fullContent = ''
         try {
           while (true) {
             const { value, done } = await reader.read()
@@ -204,21 +244,20 @@ export async function testConnectivityDirect(
               if (jsonStr === '[DONE]') continue
               try {
                 const chunk = JSON.parse(jsonStr)
-                if (chunk.choices?.[0]?.delta?.content) {
-                  reader.cancel()
-                  return { ok: true, error: '', status: resp.status }
-                }
+                const delta = chunk.choices?.[0]?.delta?.content
+                if (delta) fullContent += delta
               } catch { /* skip */ }
             }
           }
-          return { ok: true, error: '', status: resp.status }
+          return { ok: fullContent.length > 0, error: '', status: resp.status, content: fullContent }
         } finally {
           reader.releaseLock()
         }
       } else {
         const data = await resp.json()
-        const hasContent = data.choices?.length > 0 && data.choices[0].message?.content !== undefined
-        return { ok: hasContent, error: hasContent ? '' : 'Empty response from model', status: resp.status }
+        const content = data.choices?.[0]?.message?.content
+        const hasContent = content !== undefined && content !== null
+        return { ok: hasContent, error: hasContent ? '' : 'Empty response from model', status: resp.status, content: content ?? '' }
       }
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === 'AbortError') {
@@ -242,13 +281,14 @@ export async function testConnectivityDirect(
     return streamUnsupported || badStatus || authFailed
   }
 
-  const makeResult = (reachable: boolean, error: string, latencyMs: number, retries: number): ConnectivityResult => ({
+  const makeResult = (reachable: boolean, error: string, latencyMs: number, retries: number, contentValid?: boolean | null): ConnectivityResult => ({
     modelId,
     reachable,
     error: truncateError(error),
     latencyMs,
     retries,
     tierRestricted: !reachable ? isTierRestricted(error) : undefined,
+    contentValid: contentValid ?? (reachable ? null : (validationLevel ? false : null)),
   })
 
   const attemptOnce = async (abortSignal: AbortSignal) => {
@@ -261,7 +301,8 @@ export async function testConnectivityDirect(
 
     const streaming = await probe(true, abortSignal)
     if (streaming.ok) {
-      return makeResult(true, '', Date.now() - start, 0)
+      const valid = challenge ? challenge.validate(streaming.content ?? '') : null
+      return makeResult(true, '', Date.now() - start, 0, valid)
     }
 
     if (shouldFallbackToNonStreaming(streaming)) {
@@ -271,7 +312,8 @@ export async function testConnectivityDirect(
       }
       const nonStreaming = await probe(false, abortSignal)
       if (nonStreaming.ok) {
-        return makeResult(true, '', Date.now() - start, 1)
+        const valid = challenge ? challenge.validate(nonStreaming.content ?? '') : null
+        return makeResult(true, '', Date.now() - start, 1, valid)
       }
       const streamHint =
         /stream/i.test(streaming.error) &&

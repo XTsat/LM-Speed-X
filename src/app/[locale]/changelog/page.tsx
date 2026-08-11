@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 interface ChangelogEntry {
   version: string
   date: string
-  changes: string[]
+  changes: { text: string; sub?: string[] }[]
   types: ('feature' | 'improvement' | 'fix' | 'original')[]
   commit?: string
   basedOnCommit?: string
@@ -18,14 +18,30 @@ export default function ChangelogPage() {
 
   const entries: ChangelogEntry[] = [
     {
+      version: '0.7.0',
+      date: '2026-08-11',
+      types: ['feature'],
+      commit: '262e455988e77a5f90a8d0ecd760e33b1c7b218e',
+      changes: [
+        {
+          text: t('entries.v0_7_0.modelVerify'),
+          sub: [
+            t('entries.v0_7_0.verifyRepeat'),
+            t('entries.v0_7_0.verifySelf'),
+            t('entries.v0_7_0.verifyMath'),
+          ],
+        },
+      ],
+    },
+    {
       version: '0.6.1',
       date: '2026-08-11',
       types: ['improvement'],
       commit: '4be28e694e11186bf10e31a66dd9a93e94585425',
       changes: [
-        t('entries.v0_6_1.urlFix'),
-        t('entries.v0_6_1.intranetImprove'),
-        t('entries.v0_6_1.connStatus'),
+        { text: t('entries.v0_6_1.urlFix') },
+        { text: t('entries.v0_6_1.intranetImprove') },
+        { text: t('entries.v0_6_1.connStatus') },
       ],
     },
     {
@@ -34,10 +50,10 @@ export default function ChangelogPage() {
       types: ['improvement', 'feature'],
       commit: 'f4bd9c285bd9e88fbe96a71047ced1e6da2311d9',
       changes: [
-        t('entries.v0_6_0.uiOptimization'),
-        t('entries.v0_6_0.summaryPanel'),
-        t('entries.v0_6_0.connectivityTest'),
-        t('entries.v0_6_0.changelog'),
+        { text: t('entries.v0_6_0.uiOptimization') },
+        { text: t('entries.v0_6_0.summaryPanel') },
+        { text: t('entries.v0_6_0.connectivityTest') },
+        { text: t('entries.v0_6_0.changelog') },
       ],
     },
     {
@@ -46,7 +62,7 @@ export default function ChangelogPage() {
       types: ['improvement'],
       commit: '9a712822cb1dd9ce3b0069165e110c690a1fcbf5',
       changes: [
-        t('entries.v0_5_1.localNetwork'),
+        { text: t('entries.v0_5_1.localNetwork') },
       ],
     },
     {
@@ -55,8 +71,8 @@ export default function ChangelogPage() {
       types: ['feature'],
       commit: '7f86e2c649467dc8d6123348c83c8053e2d8b296',
       changes: [
-        t('entries.v0_5_0.shareLink'),
-        t('entries.v0_5_0.concurrencyOpt'),
+        { text: t('entries.v0_5_0.shareLink') },
+        { text: t('entries.v0_5_0.concurrencyOpt') },
       ],
     },
     {
@@ -65,9 +81,9 @@ export default function ChangelogPage() {
       types: ['feature'],
       commit: '7d029290f53f4b9f7d233227acf3a77da789c9d1',
       changes: [
-        t('entries.v0_4_0.concurrency'),
-        t('entries.v0_4_0.stability'),
-        t('entries.v0_4_0.customHeaders'),
+        { text: t('entries.v0_4_0.concurrency') },
+        { text: t('entries.v0_4_0.stability') },
+        { text: t('entries.v0_4_0.customHeaders') },
       ],
     },
     {
@@ -76,8 +92,8 @@ export default function ChangelogPage() {
       types: ['feature'],
       commit: '0f9aa17b65690698be0d8d6472265f0b99f3eb79',
       changes: [
-        t('entries.v0_3_0.rename'),
-        t('entries.v0_3_0.importExport'),
+        { text: t('entries.v0_3_0.rename') },
+        { text: t('entries.v0_3_0.importExport') },
       ],
     },
     {
@@ -86,7 +102,7 @@ export default function ChangelogPage() {
       types: ['feature'],
       commit: 'a53bbdb98cd4b7d5eeab01783c56f2f123de6978',
       changes: [
-        t('entries.v0_2_1.quickSelect'),
+        { text: t('entries.v0_2_1.quickSelect') },
       ],
     },
     {
@@ -95,7 +111,7 @@ export default function ChangelogPage() {
       types: ['improvement'],
       commit: 'bf8763e8cf4291f3fa59c37e50b019503cc5a30f',
       changes: [
-        t('entries.v0_2_0.localStorage'),
+        { text: t('entries.v0_2_0.localStorage') },
       ],
     },
     {
@@ -104,10 +120,10 @@ export default function ChangelogPage() {
       types: ['original'],
       basedOnCommit: 'a5d7dc8fd84a5dca55085fae25fa3981ee0731e1',
       changes: [
-        t('entries.v0_1_0.realtime'),
-        t('entries.v0_1_0.streaming'),
-        t('entries.v0_1_0.ranking'),
-        t('entries.v0_1_0.export'),
+        { text: t('entries.v0_1_0.realtime') },
+        { text: t('entries.v0_1_0.streaming') },
+        { text: t('entries.v0_1_0.ranking') },
+        { text: t('entries.v0_1_0.export') },
       ],
     },
   ]
@@ -179,9 +195,21 @@ export default function ChangelogPage() {
               {entry.changes.length > 0 ? (
                 <ul className="space-y-2">
                   {entry.changes.map((change, changeIndex) => (
-                    <li key={changeIndex} className="flex items-start gap-2 text-gray-600">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-400" />
-                      {change}
+                    <li key={changeIndex}>
+                      <div className="flex items-start gap-2 text-gray-600">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-400" />
+                        {change.text}
+                      </div>
+                      {change.sub && (
+                        <ul className="mt-1 ml-5 space-y-1">
+                          {change.sub.map((sub, subIndex) => (
+                            <li key={subIndex} className="flex items-start gap-2 text-sm text-gray-500">
+                              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-gray-300" />
+                              {sub}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
                 </ul>

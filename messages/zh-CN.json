@@ -230,7 +230,11 @@
       "noFramework": "未找到",
       "extraSettings": "额外设置",
       "downloadSummary": "下载汇总报告",
-      "downloadFullReport": "下载完整测试报告"
+      "downloadFullReport": "下载完整测试报告",
+      "modelStatus": {
+        "validationFailed": "验证失败",
+        "unreachable": "不可达"
+      }
     },
     "results": {
       "metrics": {
@@ -360,7 +364,19 @@
     "retryLabel": "自动重试",
     "retried": "重试 {count} 次后",
     "timeoutLabel": "超时时间",
-    "tierRestricted": "套餐受限"
+    "tierRestricted": "套餐受限",
+    "validationModes": {
+      "label": "验证模式",
+      "none": "关闭",
+      "repeat": "复述检测",
+      "self": "自我检测",
+      "math": "算数检测",
+      "noneDesc": "仅检查模型是否返回内容，不做额外验证",
+      "repeatDesc": "要求模型回复固定词\"PONG\"，验证其是否遵循指令",
+      "selfDesc": "要求模型自报身份名称，排除网关/代理的通用模板回复",
+      "mathDesc": "要求模型计算算术题，验证其是否具备真实推理能力"
+    },
+    "contentInvalid": "响应无效"
   },
   "Footer": {
     "madeBy": "Made with ❤️ by",
@@ -415,6 +431,12 @@
         "urlFix": "修复 URL 添加识别",
         "intranetImprove": "改进浏览器连通性内网测试",
         "connStatus": "优化连通性测试状态展示：支持测试成功、测试失败、模型套餐受限等分级状态"
+      },
+      "v0_7_0": {
+        "modelVerify": "新增模型真实性验证功能",
+        "verifyRepeat": "PONG 检测：要求模型回复特定词汇，验证基础响应能力",
+        "verifySelf": "自报家门检测：要求模型自述名称，识别伪装通用 AI 的代理模型",
+        "verifyMath": "数学验证：要求模型回答算术题，验证实际推理能力"
       }
     }
   }

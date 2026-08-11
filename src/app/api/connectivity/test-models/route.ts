@@ -10,7 +10,44 @@ export interface ModelTestResult {
   retries: number
   /** True when the model is gated by a subscription tier (e.g. OpenRouter Plus/Ultra) */
   tierRestricted?: boolean
+  /** True when challenge-response validation passed (null when no validation was requested) */
+  contentValid?: boolean | null
 }
+
+/** Validation challenge definitions */
+const VALIDATION_CHALLENGES = {
+  repeat: {
+    prompt: 'Reply with exactly the word "PONG" and nothing else. Do not add any other text.',
+    validate: (content: string) => {
+      const cleaned = content.trim().toLowerCase()
+      return cleaned.includes('pong') && cleaned.length <= 10
+    },
+  },
+  self: {
+    prompt: 'State your exact model name and nothing else. Do not add explanations.',
+    validate: (content: string) => {
+      const lower = content.trim().toLowerCase()
+      if (lower.length < 3) return false
+      const errorSignals = ['error', 'overloaded', 'unavailable', 'try again', 'rate limit', 'quota', 'billing']
+      if (errorSignals.some((s) => lower.includes(s))) return false
+      const genericTemplates = [
+        'how can i assist', 'how may i help', 'i am an ai assistant',
+        'i am a large language model', 'i am here to help', 'what can i help you with',
+      ]
+      if (genericTemplates.some((s) => lower.includes(s))) return false
+      return true
+    },
+  },
+  math: {
+    prompt: 'Calculate 173 + 289. Reply with only the number, no explanation.',
+    validate: (content: string) => {
+      const cleaned = content.trim().replace(/[^\d]/g, '')
+      return cleaned === '462'
+    },
+  },
+} as const
+
+type ValidationLevel = keyof typeof VALIDATION_CHALLENGES | null
 
 interface RequestBody {
   baseUrl: string
@@ -22,6 +59,8 @@ interface RequestBody {
   retries?: number
   /** Per-model timeout in ms (default 15000) */
   timeoutMs?: number
+  /** Challenge-response validation level: 'repeat' | 'self' | 'math' (null = no validation) */
+  validationLevel?: ValidationLevel
 }
 
 interface AttemptResult {
@@ -58,32 +97,38 @@ async function testModel(
   openai: OpenAI,
   modelId: string,
   timeoutMs: number,
+  validationLevel: ValidationLevel,
 ): Promise<ModelTestResult> {
   const start = Date.now()
+  const challenge = validationLevel ? VALIDATION_CHALLENGES[validationLevel] : null
+  const probeMessage = challenge ? challenge.prompt : 'Hi'
 
-  const attempt = async (stream: boolean): Promise<AttemptResult> => {
+  const attempt = async (stream: boolean): Promise<AttemptResult & { content?: string }> => {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
       if (stream) {
+        let fullContent = ''
         const completion = await openai.chat.completions.create(
           {
             model: modelId,
-            messages: [{ role: 'user', content: 'Hi' }],
+            messages: [{ role: 'user', content: probeMessage }],
             stream: true,
           },
           { signal: controller.signal as unknown as AbortSignal },
         )
-        // Read the first content chunk to confirm connectivity
+        // Read all content chunks to get the full response for validation
         for await (const chunk of completion) {
-          if (chunk.choices?.[0]?.delta?.content) break
+          const delta = chunk.choices?.[0]?.delta?.content
+          if (delta) fullContent += delta
         }
+        return { ok: fullContent.length > 0, error: '', content: fullContent }
       } else {
         const resp = await openai.chat.completions.create(
           {
             model: modelId,
-            messages: [{ role: 'user', content: 'Hi' }],
-            max_tokens: 1,
+            messages: [{ role: 'user', content: probeMessage }],
+            max_tokens: challenge ? 64 : 1,
             stream: false,
           },
           { signal: controller.signal as unknown as AbortSignal },
@@ -94,8 +139,8 @@ async function testModel(
         if (!hasContent) {
           return { ok: false, error: 'Empty response from model' }
         }
+        return { ok: true, error: '', content: resp.choices[0].message.content ?? '' }
       }
-      return { ok: true, error: '' }
     } catch (e: unknown) {
       const status =
         typeof e === 'object' && e !== null && 'status' in e
@@ -141,29 +186,27 @@ async function testModel(
     latencyMs: Date.now() - start,
     retries,
     tierRestricted: isTierRestricted(error),
+    contentValid: validationLevel ? false : null,
+  })
+
+  const success = (content: string | undefined, retries: number): ModelTestResult => ({
+    modelId,
+    reachable: true,
+    error: '',
+    latencyMs: Date.now() - start,
+    retries,
+    contentValid: challenge ? challenge.validate(content ?? '') : null,
   })
 
   const streaming = await attempt(true)
   if (streaming.ok) {
-    return {
-      modelId,
-      reachable: true,
-      error: '',
-      latencyMs: Date.now() - start,
-      retries: 0,
-    }
+    return success(streaming.content, 0)
   }
 
   if (shouldFallbackToNonStreaming(streaming)) {
     const nonStreaming = await attempt(false)
     if (nonStreaming.ok) {
-      return {
-        modelId,
-        reachable: true,
-        error: '',
-        latencyMs: Date.now() - start,
-        retries: 1,
-      }
+      return success(nonStreaming.content, 1)
     }
     // Both modes failed — prefer the more meaningful error (the one that is
     // not a "streaming not supported" hint)
@@ -185,6 +228,7 @@ async function testModelWithRetry(
   maxRetries: number,
   delayMs: number,
   timeoutMs: number,
+  validationLevel: ValidationLevel,
 ): Promise<ModelTestResult> {
   let lastResult: ModelTestResult = {
     modelId,
@@ -197,7 +241,7 @@ async function testModelWithRetry(
   const retryInterval = Math.max(500, delayMs)
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const result = await testModel(openai, modelId, timeoutMs)
+    const result = await testModel(openai, modelId, timeoutMs, validationLevel)
     if (result.reachable) {
       return { ...result, retries: attempt }
     }
@@ -256,6 +300,7 @@ export async function POST(request: Request) {
   const delayMs = Math.max(0, body.delayMs ?? 0)
   const maxRetries = Math.max(0, Math.min(body.retries ?? 0, 5))
   const timeoutMs = Math.max(1000, body.timeoutMs ?? 15_000)
+  const validationLevel: ValidationLevel = body.validationLevel ?? null
 
   const openai = new OpenAI({
     apiKey: body.apiKey,
@@ -275,7 +320,7 @@ export async function POST(request: Request) {
         if (delayMs > 0) {
           // Sequential with delay — stream each result as it completes
           for (const id of body.modelIds) {
-            const result = await testModelWithRetry(openai, id, maxRetries, delayMs, timeoutMs)
+            const result = await testModelWithRetry(openai, id, maxRetries, delayMs, timeoutMs, validationLevel)
             completed++
             const done = completed >= total
             sendResult(controller, writer, result, done, total, completed)
@@ -286,7 +331,7 @@ export async function POST(request: Request) {
         } else {
           // Parallel — stream each result as it settles
           const promises = body.modelIds.map(async (id) => {
-            const result = await testModelWithRetry(openai, id, maxRetries, delayMs, timeoutMs)
+            const result = await testModelWithRetry(openai, id, maxRetries, delayMs, timeoutMs, validationLevel)
             completed++
             const done = completed >= total
             sendResult(controller, writer, result, done, total, completed)

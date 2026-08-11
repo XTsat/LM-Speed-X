@@ -35,7 +35,7 @@ export function SpeedTestForm() {
 	const [streamContents, setStreamContents] = useState<{
 		[key: number]: string
 	}>({})
-	const [models, setModels] = useState<Array<{ id: string; latencyMs?: number }>>([])
+	const [models, setModels] = useState<Array<{ id: string; latencyMs?: number | null; status?: 'ok' | 'validation_failed' | 'unreachable' }>>([])
 	const [isFechingModel, setIsFechingModel] = useState(false)
 	const [baseUrlOpen, setBaseUrlOpen] = useState(false)
 	const [configRefreshKey, setConfigRefreshKey] = useState(0)
@@ -790,14 +790,15 @@ export function SpeedTestForm() {
 											<CommandList>
 												<CommandEmpty>{t('form.noFramework')}</CommandEmpty>
 												<CommandGroup>
-									{Array.from(new Map(models.map(m => [m.id, m])).values())
-										.sort((a, b) => {
-											const aOk = a.latencyMs != null ? 0 : 1
-											const bOk = b.latencyMs != null ? 0 : 1
-											if (aOk !== bOk) return aOk - bOk
-											return (a.latencyMs ?? 0) - (b.latencyMs ?? 0)
-										})
-										.map((model) => (
+								{Array.from(new Map(models.map(m => [m.id, m])).values())
+									.sort((a, b) => {
+										const order = { ok: 0, validation_failed: 1, unreachable: 2, undefined: 3 }
+										const aOrd = order[a.status ?? 'undefined']
+										const bOrd = order[b.status ?? 'undefined']
+										if (aOrd !== bOrd) return aOrd - bOrd
+										return (a.latencyMs ?? 0) - (b.latencyMs ?? 0)
+									})
+									.map((model) => (
 										<CommandItem
 											key={model.id}
 											value={model.id}
@@ -814,12 +815,22 @@ export function SpeedTestForm() {
 														: 'opacity-0'
 												)}
 											/>
-											<span className="flex-1 truncate">{model.id}</span>
-											{model.latencyMs != null && (
-												<span className="ml-2 text-xs text-green-600 dark:text-green-400 shrink-0">
-													{model.latencyMs}ms
-												</span>
-											)}
+										<span className="flex-1 truncate">{model.id}</span>
+										{model.status === 'ok' && model.latencyMs != null && (
+											<span className="ml-2 text-xs text-green-600 dark:text-green-400 shrink-0">
+												{model.latencyMs}ms
+											</span>
+										)}
+										{model.status === 'validation_failed' && (
+											<span className="ml-2 text-xs text-amber-600 dark:text-amber-400 shrink-0 font-medium">
+												{t('form.modelStatus.validationFailed')}
+											</span>
+										)}
+										{model.status === 'unreachable' && (
+											<span className="ml-2 text-xs text-red-500 dark:text-red-400 shrink-0">
+												{t('form.modelStatus.unreachable')}
+											</span>
+										)}
 										</CommandItem>
 									))}
 												</CommandGroup>
@@ -833,17 +844,17 @@ export function SpeedTestForm() {
 						{errors.modelId && <p className="text-rose-400 text-sm">{errors.modelId.message}</p>}
 					</div>
 
-					<ConnectivityCheck onModelsFound={(found) => {
-						setModels(prev => {
-							const updated = prev.map(m => {
-								const f = found.find(x => x.id === m.id)
-								return f ? { ...m, latencyMs: f.latencyMs } : m
-							})
-							const existingIds = new Set(updated.map(m => m.id))
-							const newModels = found.filter(m => !existingIds.has(m.id))
-							return [...updated, ...newModels]
+				<ConnectivityCheck onModelsFound={(found) => {
+					setModels(prev => {
+						const updated = prev.map(m => {
+							const f = found.find(x => x.id === m.id)
+							return f ? { ...m, latencyMs: f.latencyMs, status: f.status } : m
 						})
-					}} />
+						const existingIds = new Set(updated.map(m => m.id))
+						const newModels = found.filter(m => !existingIds.has(m.id))
+						return [...updated, ...newModels]
+					})
+				}} />
 
 					{/* 自定义请求头区域 */}
 					<div className="border border-input rounded-md">

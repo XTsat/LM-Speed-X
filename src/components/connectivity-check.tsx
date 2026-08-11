@@ -5,9 +5,11 @@ import { useTranslations } from 'next-intl'
 import { CheckCircle, XCircle, Loader2, Wifi, ChevronDown, Download, FlaskConical, AlertTriangle } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { isLocalUrl, fetchModelsDirect, testConnectivityDirect } from '@/lib/browser-llm'
+import type { ValidationLevel } from '@/lib/browser-llm'
 
 interface ModelTestResult {
   modelId: string
@@ -16,9 +18,10 @@ interface ModelTestResult {
   latencyMs: number
   retries: number
   tierRestricted?: boolean
+  contentValid?: boolean | null
 }
 
-export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: { id: string; latencyMs: number }[]) => void }) {
+export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: { id: string; latencyMs: number | null; status?: 'ok' | 'validation_failed' | 'unreachable' }[]) => void }) {
   const t = useTranslations('ConnectivityCheck')
 
   // Read from localStorage
@@ -42,6 +45,7 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
   const [testing, setTesting] = useState(false)
   const [results, setResults] = useState<ModelTestResult[] | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [validationLevel, setValidationLevel] = useState<ValidationLevel>(null)
 
   // Merge upstream models with custom IDs
   const allModelIds = (() => {
@@ -109,19 +113,17 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
     try {
       // Browser-direct mode for local/private IPs — test from browser directly
       if (isLocalUrl(baseUrl)) {
-        const reachableModels = new Map<string, number>()
+        const collectedResults: ModelTestResult[] = []
         const abortController = new AbortController()
-        const total = allModelIds.length
 
         const testOne = async (id: string) => {
           const result = await testConnectivityDirect(
             baseUrl, apiKey, id,
             effectiveTimeout, effectiveRetries, effectiveDelay,
             abortController.signal,
+            validationLevel,
           )
-          if (result.reachable) {
-            reachableModels.set(result.modelId, result.latencyMs)
-          }
+          collectedResults.push(result)
           setResults((prev) => {
             const existing = prev ? [...prev] : []
             const idx = existing.findIndex((r) => r.modelId === result.modelId)
@@ -138,14 +140,17 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
         if (effectiveDelay > 0) {
           for (const id of allModelIds) {
             await testOne(id)
-            // Delay between tests (even between retries, handled internally)
           }
         } else {
           await Promise.all(allModelIds.map(testOne))
         }
 
-        if (reachableModels.size > 0 && onModelsFound) {
-          onModelsFound([...reachableModels].map(([id, latencyMs]) => ({ id, latencyMs })))
+        if (onModelsFound) {
+          onModelsFound(collectedResults.map((r) => ({
+            id: r.modelId,
+            latencyMs: r.reachable && r.contentValid !== false ? r.latencyMs : null,
+            status: (r.reachable && r.contentValid !== false ? 'ok' : r.reachable ? 'validation_failed' : 'unreachable') as 'ok' | 'validation_failed' | 'unreachable',
+          })))
         }
         return
       }
@@ -161,6 +166,7 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
           delayMs: delayMs ? Number(delayMs) : 0,
           retries: retries ? Number(retries) : 0,
           timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
+          validationLevel: validationLevel || undefined,
         }),
       })
       if (!resp.ok) {
@@ -173,7 +179,7 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
         if (!reader) throw new Error('No response body')
         const decoder = new TextDecoder()
         let buffer = ''
-        const reachableModels = new Map<string, number>()
+        const collectedResults: ModelTestResult[] = []
 
         while (true) {
           const { value, done } = await reader.read()
@@ -187,9 +193,7 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
             try {
               const msg = JSON.parse(line)
               if (msg.result) {
-                if (msg.result.reachable) {
-                  reachableModels.set(msg.result.modelId, msg.result.latencyMs)
-                }
+                collectedResults.push(msg.result)
                 setResults((prev) => {
                   const existing = prev ? [...prev] : []
                   const idx = existing.findIndex((r) => r.modelId === msg.result.modelId)
@@ -207,9 +211,13 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
           }
         }
 
-        // Add reachable models to the form's model dropdown
-        if (reachableModels.size > 0 && onModelsFound) {
-          onModelsFound([...reachableModels].map(([id, latencyMs]) => ({ id, latencyMs })))
+        // Notify parent of all tested models — validation-failed ones get null latency
+        if (onModelsFound) {
+          onModelsFound(collectedResults.map((r) => ({
+            id: r.modelId,
+            latencyMs: r.reachable && r.contentValid !== false ? r.latencyMs : null,
+            status: (r.reachable && r.contentValid !== false ? 'ok' : r.reachable ? 'validation_failed' : 'unreachable') as 'ok' | 'validation_failed' | 'unreachable',
+          })))
         }
     } catch (e) {
       toast.error(
@@ -220,7 +228,7 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
     }
   }, [baseUrl, apiKey, allModelIds, delayMs, retries, timeoutMs, onModelsFound, t])
 
-  const reachableCount = results?.filter((r) => r.reachable).length ?? 0
+  const reachableCount = results?.filter((r) => r.reachable && r.contentValid !== false).length ?? 0
   const totalCount = results?.length ?? 0
   const hasConfig = !!(baseUrl && apiKey)
 
@@ -310,6 +318,83 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
             )}
           </div>
 
+          {/* Validation mode selector */}
+          <TooltipProvider>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground shrink-0">
+                {t('validationModes.label')}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={validationLevel === null ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    disabled={testing}
+                    onClick={() => setValidationLevel(null)}
+                  >
+                    {t('validationModes.none')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{t('validationModes.noneDesc')}</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={validationLevel === 'repeat' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    disabled={testing}
+                    onClick={() => setValidationLevel('repeat')}
+                  >
+                    {t('validationModes.repeat')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{t('validationModes.repeatDesc')}</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={validationLevel === 'self' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    disabled={testing}
+                    onClick={() => setValidationLevel('self')}
+                  >
+                    {t('validationModes.self')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{t('validationModes.selfDesc')}</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={validationLevel === 'math' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    disabled={testing}
+                    onClick={() => setValidationLevel('math')}
+                  >
+                    {t('validationModes.math')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{t('validationModes.mathDesc')}</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+
           {/* Custom model IDs + delay + retry + timeout in one row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="min-w-0">
@@ -377,19 +462,24 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-[400px] overflow-y-auto">
               {results.slice().sort((a, b) => (b.reachable ? 1 : 0) - (a.reachable ? 1 : 0)).map((r) => {
                 const tierRestricted = !r.reachable && r.tierRestricted
+                const contentInvalid = r.reachable && r.contentValid === false
                 return (
                 <div
                   key={r.modelId}
                   className={cn(
                     'flex items-start gap-1.5 rounded border px-2 py-1.5 text-xs',
-                    r.reachable
-                      ? 'border-green-200 bg-green-50 dark:border-green-900/30 dark:bg-green-950/20'
-                      : tierRestricted
-                        ? 'border-amber-200 bg-amber-50 dark:border-amber-900/30 dark:bg-amber-950/20'
-                        : 'border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-950/20',
+                    contentInvalid
+                      ? 'border-amber-200 bg-amber-50 dark:border-amber-900/30 dark:bg-amber-950/20'
+                      : r.reachable
+                        ? 'border-green-200 bg-green-50 dark:border-green-900/30 dark:bg-green-950/20'
+                        : tierRestricted
+                          ? 'border-amber-200 bg-amber-50 dark:border-amber-900/30 dark:bg-amber-950/20'
+                          : 'border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-950/20',
                   )}
                 >
-                  {r.reachable ? (
+                  {contentInvalid ? (
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                  ) : r.reachable ? (
                     <CheckCircle className="mt-0.5 h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
                   ) : tierRestricted ? (
                     <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -400,7 +490,11 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
                     <div className="font-medium truncate" title={r.modelId}>
                       {r.modelId}
                     </div>
-                    {r.reachable ? (
+                    {contentInvalid ? (
+                      <span className="text-amber-600 dark:text-amber-400 block truncate">
+                        {r.latencyMs}ms — {t('contentInvalid')}
+                      </span>
+                    ) : r.reachable ? (
                       <span className="text-muted-foreground">
                         {r.latencyMs}ms
                         {r.retries > 0 && (

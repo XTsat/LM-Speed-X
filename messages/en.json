@@ -230,7 +230,11 @@
       "noFramework": "No framework found.",
       "extraSettings": "Extra Settings",
       "downloadSummary": "Download Summary Report",
-      "downloadFullReport": "Download Full Test Report"
+      "downloadFullReport": "Download Full Test Report",
+      "modelStatus": {
+        "validationFailed": "Invalid",
+        "unreachable": "Unreachable"
+      }
     },
     "results": {
       "metrics": {
@@ -376,7 +380,19 @@
     "retryLabel": "Auto Retry",
     "retried": "after {count} retries",
     "timeoutLabel": "Timeout",
-    "tierRestricted": "Tier Restricted"
+    "tierRestricted": "Tier Restricted",
+    "validationModes": {
+      "label": "Validation",
+      "none": "Off",
+      "repeat": "Repeat",
+      "self": "Identity",
+      "math": "Arithmetic",
+      "noneDesc": "Only checks if the model returns any content, no additional validation",
+      "repeatDesc": "Asks the model to reply with exactly \"PONG\", verifying instruction following",
+      "selfDesc": "Asks the model to state its identity, filtering out gateway/proxy template responses",
+      "mathDesc": "Asks the model to calculate 173+289, verifying genuine reasoning capability"
+    },
+    "contentInvalid": "Invalid Response"
   },
   "Footer": {
     "madeBy": "Made with ❤️ by",
@@ -431,6 +447,12 @@
         "urlFix": "Fixed URL parsing recognition",
         "intranetImprove": "Improved browser-based intranet connectivity testing",
         "connStatus": "Optimized connectivity test status display: test success, failure, and plan-limited tiered statuses"
+      },
+      "v0_7_0": {
+        "modelVerify": "Added model authenticity verification",
+        "verifyRepeat": "PONG test: requests a specific word from the model to verify basic response capability",
+        "verifySelf": "Self-identification test: asks model to state its own name to detect proxy models posing as general AI",
+        "verifyMath": "Math verification: asks model to solve an arithmetic problem to verify actual reasoning ability"
       }
     }
   }
