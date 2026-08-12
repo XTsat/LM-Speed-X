@@ -24,8 +24,6 @@ export function saveTestResult(result: SpeedTestResult): void {
     const existing = getTestResults();
     existing.push(result);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-    console.log('Test result saved to localStorage. Total results:', existing.length);
-    console.log('Saved result:', result);
   } catch (error) {
     console.error('Error saving test result:', error);
   }
@@ -34,9 +32,7 @@ export function saveTestResult(result: SpeedTestResult): void {
 export function getTestResults(): SpeedTestResult[] {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    const results = data ? JSON.parse(data) : [];
-    console.log('Loaded test results from localStorage:', results.length);
-    return results;
+    return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Error getting test results:', error);
     return [];
@@ -73,13 +69,5 @@ export function deleteTestResult(id: string): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
   } catch (error) {
     console.error('Error deleting test result:', error);
-  }
-}
-
-export function clearAllResults(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error('Error clearing test results:', error);
   }
 }

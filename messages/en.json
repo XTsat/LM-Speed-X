@@ -453,6 +453,11 @@
         "verifyRepeat": "PONG test: requests a specific word from the model to verify basic response capability",
         "verifySelf": "Self-identification test: asks model to state its own name to detect proxy models posing as general AI",
         "verifyMath": "Math verification: asks model to solve an arithmetic problem to verify actual reasoning ability"
+      },
+      "v0_7_1": {
+        "projectCleanup": "Cleaned up project structure: removed database-related leftovers and redundant files",
+        "projectInfo": "Refactored project information: updated README structure and deployment docs",
+        "connectivitySort": "Fixed connectivity check sorting: results with the same status are now ordered by latency ascending"
       }
     }
   }

@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, TrendingUp, Activity } from 'lucide-react'
 import { isLocalUrl, runBrowserStreamedChat } from '@/lib/browser-llm'
+import { copyToClipboard } from '@/lib/clipboard'
 
 // ── Types ──
 
@@ -502,7 +503,7 @@ const tRank = useTranslations('rank')
                   <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedIteration === r.iteration - 1 ? 'block' : 'hidden'}`}>
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
-                      <button onClick={(e) => { e.stopPropagation(); if (r.content) navigator.clipboard.writeText(r.content) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
+                      <button onClick={(e) => { e.stopPropagation(); if (r.content) copyToClipboard(r.content) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
                     </div>
                     <div className="whitespace-pre-wrap font-mono text-sm">
                       {r.content || '-'}
@@ -589,7 +590,7 @@ const tRank = useTranslations('rank')
                 <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedIteration === idx ? 'block' : 'hidden'}`}>
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
-                    <button onClick={(e) => { e.stopPropagation(); const text = streamContents[idx]; if (text) navigator.clipboard.writeText(text) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
+                    <button onClick={(e) => { e.stopPropagation(); const text = streamContents[idx]; if (text) copyToClipboard(text) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
                   </div>
                   <div className="whitespace-pre-wrap font-mono text-sm">
                     {streamContents[idx] || '-'}

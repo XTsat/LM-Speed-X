@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { speedTestSchema } from '@/lib/schema';
 import OpenAI from 'openai';
-import { db } from '@/db';
-import { speedTestResultSchema, speedTestsTable, speedTestResultsTable } from '@/db/schema';
 
 const TEST_PROMPTS = [
   "Explain the concept of quantum computing in simple terms.",
@@ -52,7 +50,6 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder();
 
     // Process prompts in background
-    const timestamp = new Date().toISOString();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results: any[] = [];
 
@@ -136,50 +133,6 @@ export async function POST(request: Request) {
           // 发送完成标记
           await writer.write(encoder.encode(JSON.stringify({ type: 'result', data: result }) + '\n'));
 
-        }
-
-        // Save results to database (optional - skip if database is unavailable)
-        if (db) {
-          const resultsWithMeta = {
-            timestamp,
-            baseUrl: validatedData.baseUrl,
-            results
-          };
-
-          try {
-            // Validate data with Zod schema
-            const validatedSpeedTest = speedTestResultSchema.parse(resultsWithMeta);
-
-            // Insert main speed test record
-            const [speedTest] = await db.insert(speedTestsTable)
-              .values({
-                timestamp: new Date(validatedSpeedTest.timestamp),
-                baseUrl: validatedSpeedTest.baseUrl
-              })
-              .returning();
-
-            // Insert individual test results
-            await db.insert(speedTestResultsTable)
-              .values(validatedSpeedTest.results.map(result => ({
-                speedTestId: speedTest.id,
-                prompt: result.prompt,
-                model: result.model,
-                firstTokenLatency: result.firstTokenLatency,
-                tokensPerSecond: result.tokensPerSecond,
-                tokensPerSecondTotal: result.tokensPerSecondTotal,
-                outputToken: result.outputToken,
-                totalTime: result.totalTime,
-                outputTime: result.outputTime,
-                content: result.content
-              })));
-
-            console.log('Results saved to database');
-          } catch (error) {
-            console.error('Error saving results to database (continuing without saving):', error);
-            // Don't throw error, just log it and continue
-          }
-        } else {
-          console.log('Database not available, skipping save');
         }
 
         // Close the stream

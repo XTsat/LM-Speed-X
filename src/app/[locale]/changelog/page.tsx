@@ -9,7 +9,7 @@ interface ChangelogEntry {
   date: string
   changes: { text: string; sub?: string[] }[]
   types: ('feature' | 'improvement' | 'fix' | 'original')[]
-  commit?: string
+  tag?: string
   basedOnCommit?: string
 }
 
@@ -18,10 +18,21 @@ export default function ChangelogPage() {
 
   const entries: ChangelogEntry[] = [
     {
+      version: '0.7.1',
+      date: '2026-08-12',
+      types: ['improvement', 'fix'],
+      tag: 'v0.7.1',
+      changes: [
+        { text: t('entries.v0_7_1.projectCleanup') },
+        { text: t('entries.v0_7_1.projectInfo') },
+        { text: t('entries.v0_7_1.connectivitySort') },
+      ],
+    },
+    {
       version: '0.7.0',
       date: '2026-08-12',
       types: ['feature'],
-      commit: '43da474960bb13bd3a14c14897ebbe93e46f7fa4',
+      tag: 'v0.7.0',
       changes: [
         {
           text: t('entries.v0_7_0.modelVerify'),
@@ -37,7 +48,7 @@ export default function ChangelogPage() {
       version: '0.6.1',
       date: '2026-08-11',
       types: ['improvement'],
-      commit: '4be28e694e11186bf10e31a66dd9a93e94585425',
+      tag: 'v0.6.1',
       changes: [
         { text: t('entries.v0_6_1.urlFix') },
         { text: t('entries.v0_6_1.intranetImprove') },
@@ -48,7 +59,7 @@ export default function ChangelogPage() {
       version: '0.6.0',
       date: '2026-08-09',
       types: ['improvement', 'feature'],
-      commit: 'f4bd9c285bd9e88fbe96a71047ced1e6da2311d9',
+      tag: 'v0.6.0',
       changes: [
         { text: t('entries.v0_6_0.uiOptimization') },
         { text: t('entries.v0_6_0.summaryPanel') },
@@ -60,7 +71,7 @@ export default function ChangelogPage() {
       version: '0.5.1',
       date: '2026-08-08',
       types: ['improvement'],
-      commit: '9a712822cb1dd9ce3b0069165e110c690a1fcbf5',
+      tag: 'v0.5.1',
       changes: [
         { text: t('entries.v0_5_1.localNetwork') },
       ],
@@ -69,7 +80,7 @@ export default function ChangelogPage() {
       version: '0.5.0',
       date: '2026-08-02',
       types: ['feature'],
-      commit: '7f86e2c649467dc8d6123348c83c8053e2d8b296',
+      tag: 'v0.5.0',
       changes: [
         { text: t('entries.v0_5_0.shareLink') },
         { text: t('entries.v0_5_0.concurrencyOpt') },
@@ -79,7 +90,7 @@ export default function ChangelogPage() {
       version: '0.4.0',
       date: '2026-07-06',
       types: ['feature'],
-      commit: '7d029290f53f4b9f7d233227acf3a77da789c9d1',
+      tag: 'v0.4.0',
       changes: [
         { text: t('entries.v0_4_0.concurrency') },
         { text: t('entries.v0_4_0.stability') },
@@ -90,7 +101,7 @@ export default function ChangelogPage() {
       version: '0.3.0',
       date: '2026-05-27',
       types: ['feature'],
-      commit: '0f9aa17b65690698be0d8d6472265f0b99f3eb79',
+      tag: 'v0.3.0',
       changes: [
         { text: t('entries.v0_3_0.rename') },
         { text: t('entries.v0_3_0.importExport') },
@@ -100,7 +111,7 @@ export default function ChangelogPage() {
       version: '0.2.1',
       date: '2026-05-26',
       types: ['feature'],
-      commit: 'a53bbdb98cd4b7d5eeab01783c56f2f123de6978',
+      tag: 'v0.2.1',
       changes: [
         { text: t('entries.v0_2_1.quickSelect') },
       ],
@@ -109,7 +120,7 @@ export default function ChangelogPage() {
       version: '0.2.0',
       date: '2026-05-25',
       types: ['improvement'],
-      commit: 'bf8763e8cf4291f3fa59c37e50b019503cc5a30f',
+      tag: 'v0.2.0',
       changes: [
         { text: t('entries.v0_2_0.localStorage') },
       ],
@@ -128,7 +139,7 @@ export default function ChangelogPage() {
     },
   ]
 
-  const typeBadge = (type: ChangelogEntry['type']) => {
+  const typeBadge = (type: ChangelogEntry['types'][number]) => {
     switch (type) {
       case 'feature':
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{t('feature')}</Badge>
@@ -174,16 +185,15 @@ export default function ChangelogPage() {
                       {entry.basedOnCommit.slice(0, 7)}
                     </a>
                   </span>
-                ) : entry.commit ? (
+                ) : entry.tag ? (
                   <span>
-                    {t('version')} {entry.version}{' '}
                     <a
-                      href={`https://github.com/XTsat/LM-Speed-X/commit/${entry.commit}`}
+                      href={`https://github.com/XTsat/LM-Speed-X/releases/tag/${entry.tag}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-blue-600 hover:text-blue-800 underline"
                     >
-                      {entry.commit.slice(0, 7)}
+                      {t('version')} {entry.version}
                     </a>
                   </span>
                 ) : (

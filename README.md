@@ -2,83 +2,110 @@
 
 # LM Speed - Simple LLM Speed Analysis Tool
 
-Portal: <https://lmspeed.net>
+Portal: <https://lm-speed-x.xtsat.cc.cd>
 
 Provides precise and reliable OpenAI API performance testing solutions for AI application developers. Through multi-dimensional real-time data analysis, it helps users quickly identify performance bottlenecks and optimize model calling strategies. It also offers an intuitive ranking feature, allowing users to easily compare and select the most suitable models and service providers.
 
-![picture-2025-02-12-20-21-28](https://vscode-markdown.s3.bitiful.net/eba9b5e1e200dd0c5504914243d1d6247eb4a16c2c20f87adfe11244ff9668c7.png)  
-
 ## Features
 
-- 🚀 Real-time Performance Monitoring: Multi-dimensional real-time data display
-- 📊 Comprehensive Performance Evaluation: Core metrics including first token latency and response time
-- 📈 Data Visualization: Rich chart displays for intuitive performance trend understanding
-- 🔄 Automated Testing: Five-round continuous stress testing for reliable data
-- 📝 One-click Reports: Automatic professional test report generation with export capabilities
+- ⚡ **Real-time Speed Testing**: Test any OpenAI-compatible API (DeepSeek, SiliconFlow, Tencent Cloud, etc.) with your own `baseUrl`, `apiKey` and `modelId`. Five built-in prompts run through streaming with live progress, measuring first token latency, tokens per second (TPoS) and total response time.
+- 📊 **Stability Testing**: Run configurable iterations (default 10) and get a complete statistical profile — mean, median, standard deviation, variance, min and max for latency, TPoS, output tokens and total time.
+- 🚦 **Concurrency Stress Testing**: Test with multiple concurrency levels (e.g. 1 / 5 / 10 / 20), measuring success rate, RPS, average latency, p99 latency and average TPoS per level, and automatically recommending the best-performing configuration.
+- 🛜 **Connectivity Checking**: Batch-verify model reachability before testing — including latency, retries, tier restrictions and content validity — so you can fix configuration issues upfront.
+- 🧠 **Model Authenticity Verification**: Detect disguised proxy models that swap real reasoning models for generic AI. Three built-in checks: PONG response detection, self-identification check, and arithmetic reasoning verification.
+- 🏆 **Ranking & Comparison**: All local test results are aggregated into a leaderboard with time-range filters, model/provider quick badges, custom search, metric-based sorting (TPoS / latency), and fully customizable table columns.
+- 📤 **Data Import & Export**: Export rankings as JSON or save test reports as PNG images with one click; import JSON data back to merge results.
+- 🔗 **Quick Start via URL**: Pre-fill the test form with `baseUrl`, `apiKey` and `modelId` URL parameters, or generate a shareable auto-test link — no manual form filling required.
+- 🖥️ **LAN / Private API Support**: Direct browser-side streaming to local or intranet endpoints, bypassing server-side proxy restrictions.
+- 🌐 **Bilingual & Local-First**: Full Chinese and English UI, no backend database required — all test results are stored in your browser's localStorage.
 
-## Quick Start
+## Comparison with the Original
 
-### Deploy with Docker Compose
+LM Speed X is a fork of the original [nexmoe/lm-speed](https://github.com/nexmoe/lm-speed) project. Both share the same core speed-testing experience; LM Speed X focuses on a simpler deployment model — it ships as a single web page with no database dependency, making it lighter and easier to deploy:
 
-```yaml
-version: '3.8'
+| Feature | LM Speed (Original) | LM Speed X |
+|---|---|---|
+| Real-time speed testing (first-token latency / TPoS) | ✅ | ✅ |
+| URL parameter quick start | ✅ | ✅ (adds `autoTest`) |
+| Leaderboard | ✅ | ✅ (local data, filterable/sortable) |
+| Bilingual UI | ✅ | ✅ |
+| Stability testing (multi-round statistics) | — | ✅ |
+| Concurrency stress testing (multi-level) | — | ✅ |
+| Connectivity check (batch model reachability) | — | ✅ |
+| Model authenticity verification | — | ✅ |
+| Custom request headers | — | ✅ |
+| Data import / export (JSON) | — | ✅ |
+| Report export as PNG image | — | ✅ |
+| Shareable quick-test link | — | ✅ |
+| LAN / private API direct testing | — | ✅ |
+| Database dependency | Requires a database | **None** — single-page deployment, more lightweight |
+| Changelog page | — | ✅ |
 
-services:
-  app:
-    image: nexmoe/lmspeed:latest
-    ports:
-      - "8650:3000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/nexmoe
-      - NODE_ENV=production
-    depends_on:
-      - db
-    restart: always
+## Screenshots
 
-  db:
-    image: postgres:16
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: nexmoe
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+### Speed Test
 
-volumes:
-  postgres_data:
-```
+![Speed Test](docs/screenshots/speed-test.png)
 
-### Manual Deployment
+### Stability Test
+
+![Stability Test](docs/screenshots/stability-test.png)
+
+### Concurrency Test
+
+![Concurrency Test](docs/screenshots/concurrency-test.png)
+
+### Connectivity Check & Model Verification
+
+![Connectivity Check & Model Verification](docs/screenshots/connectivity-check.png)
+
+### Ranking
+
+![Ranking](docs/screenshots/ranking.png)
+
+## More
+
+### Quick Start
+
+#### Manual Build & Deployment
 
 1. Clone the repository
+
 ```bash
-git clone https://github.com/yourusername/lm-speed.git
-cd lm-speed
+git clone https://github.com/XTsat/LM-Speed-X.git
+cd LM-Speed-X
 ```
 
 2. Install dependencies
+
 ```bash
-npm install
+pnpm install
 ```
 
-3. Configure environment variables
+3. Build the project
+
 ```bash
-cp .env.example .env
-# Edit .env file with necessary configuration
+pnpm build
 ```
 
 4. Start the service
+
 ```bash
-npm run dev
+pnpm start
 ```
 
-## URL Parameters Usage
+The app runs at `http://localhost:3000` by default.
 
-LM Speed supports quick test initiation through URL parameters without manual form filling. You can use it in the following way:
+> **For development**, run `pnpm dev` instead — it starts the dev server with hot reload.
+>
+> **No configuration required**: the project has no database or external services, so no environment variables are needed — clone, install, build and start.
+
+### URL Parameters Usage
+
+LM Speed supports quick test initiation through URL parameters without manual form filling:
 
 ```
-https://lmspeed.net/?baseUrl=YOUR_BASE_URL&apiKey=YOUR_API_KEY&modelId=YOUR_MODEL_ID
+https://lm-speed-x.xtsat.cc.cd/?baseUrl=YOUR_BASE_URL&apiKey=YOUR_API_KEY&modelId=YOUR_MODEL_ID
 ```
 
 Parameter Description:
@@ -86,51 +113,23 @@ Parameter Description:
 - `baseUrl`: The base URL of the API service, e.g., `https://api.deepseek.com/v1`
 - `apiKey`: Your API key
 - `modelId`: The model ID to test
+- `autoTest`: Set to `true` to start the test automatically after the page loads
 
 Example:
 
 ```
-http://lmspeed.net/zh-CN?baseUrl=https://api.suanli.cn/v1&apiKey=sk-W0rpStc95T7JVYVwDYc29IyirjtpPPby6SozFMQr17m8KWeo&modelId=free:QwQ-32B
+https://lm-speed-x.xtsat.cc.cd/zh-CN?baseUrl=https://api.deepseek.com/v1&apiKey=sk-xxx&modelId=deepseek-chat&autoTest=true
 ```
 
 Notes:
 
-1. All parameters are required; missing any parameter will prevent the test from starting automatically
-2. For security reasons, it's recommended not to pass API keys directly in URLs, but rather use the form for manual input
-3. If the URL contains special characters, make sure to URL encode them
+1. For security reasons, it's recommended not to pass API keys directly in URLs, but rather use the form for manual input
+2. If the URL contains special characters, make sure to URL encode them
 
-## Three Core Pain Points Solved
-
-### 1. Response Quality Opacity
-
-Is DeepSeek's official API unusable? Is Silicon Flow's API too slow? When choosing LLM API services, developers often face challenges in evaluating service quality. Different service providers' APIs have significant performance variations, and there's a lack of objective evaluation standards. LM Speed provides standardized performance testing solutions, allowing you to accurately assess each API's actual performance before development.
-
-![picture-2025-02-12-20-22-30](https://vscode-markdown.s3.bitiful.net/0ff2ab60e7bf2fb64134565d4d9d82535d0d87db1f568dcdc5465c73b6eadbfa.png)  
-
-### 2. Performance Fluctuation Monitoring
-
-Unsure about the LLM API speed? Uncertain about supplier reliability? Traditional performance testing tools often only provide simple response time data, failing to comprehensively reflect API's actual performance. LM Speed employs five-round continuous stress testing + dynamic streaming monitoring mechanism, using tiktoken for precise token calculation, combined with response time analysis, automatically generating three-dimensional evaluation maps of maximum/minimum/average performance to help you fully understand API's performance characteristics.
-
-![picture-2025-02-12-20-21-55](https://vscode-markdown.s3.bitiful.net/e92fd7f59ac705341f7bc4e880f7e11d798a40e3a038b9373f9d885f70d997ac.png)  
-
-### 3. Test Results Accumulation
-
-Performance test data is often scattered and difficult to systematically accumulate and analyze. LM Speed provides one-click test report generation, automatically integrating performance metrics, test environment, and other key information, supporting report export and team sharing. It also offers historical data storage and trend analysis, helping teams establish a complete performance evaluation system.
-
-![picture-2025-02-12-20-24-15](https://vscode-markdown.s3.bitiful.net/2dcd9f8c44bc5801624e7b356a3c09ec41ae83c7e6ab51fd2414f5eb4092e983.png)  
-
-## Key Value Created for Users
-
-Data-driven decision support. Through comprehensive performance data analysis, helping you make wiser API selection decisions:
-
-- **Real-time Performance Insights**: Real-time monitoring of TPoS (Tokens per Second), giving you complete visibility into API performance. Supports multi-dimensional real-time data display for intuitive performance trend understanding.
-- **Comprehensive Evaluation System**: Covers core metrics including first token latency, response time, etc., providing the most comprehensive performance profile.
-- **Visual Decision Support**: One-click professional test report generation, supporting multi-user real-time collaboration, saving an average of 80% decision time. Provides rich data visualization charts to assist team decision-making.
-
-## Tech Stack
+### Tech Stack
 
 - **Frontend**:
-  - Next.js 15
+  - Next.js 16
   - React 19
   - TypeScript
   - TailwindCSS
@@ -141,33 +140,27 @@ Data-driven decision support. Through comprehensive performance data analysis, h
 
 - **Backend**:
   - Next.js API Routes
-  - Drizzle ORM
-  - PostgreSQL
   - OpenAI SDK
   - tiktoken for token counting
 
 - **Development**:
   - ESLint
   - TypeScript
-  - Drizzle Kit for database management
-  - TailwindCSS for styling
 
 - **Deployment**:
+  - Single-page deployment (`pnpm build && pnpm start`)
   - Docker
-  - Docker Compose
-  - PostgreSQL
 
-## Contributing
+> **No database required**: Test results are stored in the browser's localStorage, so the app runs without any backend database.
+
+### Contributing
 
 Issues and Pull Requests are welcome! Before submitting a PR, please ensure:
 
-1. Code follows project coding standards
+1. Code follows project coding standards (see [AGENTS.md](AGENTS.md))
 2. Necessary tests are added
 3. Related documentation is updated
 
-## License
+### License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
-
-

@@ -8,21 +8,5 @@ services:
     ports:
       - "8650:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/nexmoe
       - NODE_ENV=production
-    depends_on:
-      - db
     restart: always
-
-  db:
-    image: postgres:16
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: nexmoe
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:

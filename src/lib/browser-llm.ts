@@ -518,36 +518,3 @@ export async function runBrowserStreamedChat(
     index,
   }
 }
-
-/** Save test results to server database (POST /api/speed/recent via a save endpoint) */
-export async function saveResultsToServer(
-  baseUrl: string,
-  results: SpeedTestResult[]
-): Promise<void> {
-  try {
-    const response = await fetch('/api/speed/recent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        timestamp: new Date().toISOString(),
-        baseUrl,
-        results: results.map((r) => ({
-          prompt: r.prompt,
-          model: r.model,
-          firstTokenLatency: r.firstTokenLatency,
-          tokensPerSecond: r.tokensPerSecond,
-          tokensPerSecondTotal: r.tokensPerSecondTotal,
-          outputToken: r.outputToken,
-          totalTime: r.totalTime,
-          outputTime: r.outputTime,
-          content: r.content,
-        })),
-      }),
-    })
-    if (!response.ok) {
-      console.warn('Failed to save results to server:', response.status)
-    }
-  } catch (e) {
-    console.warn('Failed to save results to server:', e)
-  }
-}

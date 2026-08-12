@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { CheckCircle, XCircle, Loader2, Wifi, ChevronDown, Download, FlaskConical, AlertTriangle } from 'lucide-react'
 import { Button } from './ui/button'
@@ -21,19 +21,16 @@ interface ModelTestResult {
   contentValid?: boolean | null
 }
 
-export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: { id: string; latencyMs: number | null; status?: 'ok' | 'validation_failed' | 'unreachable' }[]) => void }) {
+export function ConnectivityCheck({
+  onModelsFound,
+  baseUrl,
+  apiKey,
+}: {
+  onModelsFound?: (models: { id: string; latencyMs: number | null; status?: 'ok' | 'validation_failed' | 'unreachable' }[]) => void
+  baseUrl: string
+  apiKey: string
+}) {
   const t = useTranslations('ConnectivityCheck')
-
-  // Read from localStorage
-  const [baseUrl, setBaseUrl] = useState('')
-  const [apiKey, setApiKey] = useState('')
-
-  useEffect(() => {
-    const storedUrl = localStorage.getItem('speedtest_baseUrl') || ''
-    const storedKey = localStorage.getItem('speedtest_apiKey') || ''
-    setBaseUrl(storedUrl)
-    setApiKey(storedKey)
-  }, [])
 
   // Model list
   const [modelIds, setModelIds] = useState<string[]>([])
@@ -231,6 +228,15 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
   const reachableCount = results?.filter((r) => r.reachable && r.contentValid !== false).length ?? 0
   const totalCount = results?.length ?? 0
   const hasConfig = !!(baseUrl && apiKey)
+
+  // Display order: success (green) → warning (yellow) → failed (red)
+  const statusRank = (r: ModelTestResult): number => {
+    const contentInvalid = r.reachable && r.contentValid === false
+    const tierRestricted = !r.reachable && r.tierRestricted
+    if (r.reachable && r.contentValid !== false) return 0
+    if (contentInvalid || tierRestricted) return 1
+    return 2
+  }
 
   return (
     <div className="border border-input rounded-md">
@@ -460,7 +466,12 @@ export function ConnectivityCheck({ onModelsFound }: { onModelsFound?: (models: 
           {/* Results grid */}
           {results && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-[400px] overflow-y-auto">
-              {results.slice().sort((a, b) => (b.reachable ? 1 : 0) - (a.reachable ? 1 : 0)).map((r) => {
+              {results.slice().sort((a, b) => {
+                const rankDiff = statusRank(a) - statusRank(b)
+                if (rankDiff !== 0) return rankDiff
+                // 同组内按延迟升序（快在前）；不可达项延迟为 0，自然排在组末
+                return a.latencyMs - b.latencyMs
+              }).map((r) => {
                 const tierRestricted = !r.reachable && r.tierRestricted
                 const contentInvalid = r.reachable && r.contentValid === false
                 return (

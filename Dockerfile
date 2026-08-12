@@ -8,8 +8,6 @@ RUN npm install -g pnpm
 
 # 复制 package.json 和 pnpm-lock.yaml（如果存在）
 COPY package.json pnpm-lock.yaml* ./
-COPY drizzle.config.ts ./
-COPY drizzle ./drizzle
 
 # 安装依赖
 RUN pnpm install --frozen-lockfile
@@ -46,8 +44,6 @@ RUN pnpm install --prod --frozen-lockfile
 # 从构建阶段复制必要文件
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./
-COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 
 # 复制启动脚本
 COPY start.sh ./

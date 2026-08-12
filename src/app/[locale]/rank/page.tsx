@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Settings2, RefreshCw, Download, Upload, Trash2 } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
-import useSWR from 'swr'
 import { getProvider, getModel, getModelByName } from '@/lib/info'
 import { Link } from '@/i18n/routing'
 
@@ -304,31 +303,18 @@ export default function RankPage() {
 		}
 	}
 
-	const fetcher = ({ url, args }: { url: string; args: never }) =>
-		fetch(`${url}?${new URLSearchParams(args)}`).then((res) => res.json())
-	const {
-		data: apiData,
-		error: apiError,
-		isLoading: apiLoading,
-	} = useSWR<{ results: RankingResult[] }>({ url: '/api/speed/rank', args: filters }, fetcher)
-
-	// 优先使用 API 数据，如果没有则使用本地数据
-	let rawResults = apiData?.results && apiData.results.length > 0 ? apiData.results : localResults
-	
 	// 对本地数据应用筛选条件
-	if (!apiData?.results || apiData.results.length === 0) {
-		rawResults = rawResults.filter(result => {
-			// 根据 searchModel 筛选（模糊匹配）
-			if (filters.searchModel && !result.model.toLowerCase().includes(filters.searchModel.toLowerCase())) {
-				return false
-			}
-			// 根据 listModel 筛选（精确匹配）
-			if (filters.listModel.length > 0 && !filters.listModel.includes(result.model)) {
-				return false
-			}
-			return true
-		})
-	}
+	const rawResults = localResults.filter(result => {
+		// 根据 searchModel 筛选（模糊匹配）
+		if (filters.searchModel && !result.model.toLowerCase().includes(filters.searchModel.toLowerCase())) {
+			return false
+		}
+		// 根据 listModel 筛选（精确匹配）
+		if (filters.listModel.length > 0 && !filters.listModel.includes(result.model)) {
+			return false
+		}
+		return true
+	})
 	
 	// 根据选择的指标对数据进行排序
 	const sortedResults = [...rawResults].sort((a, b) => {
@@ -342,8 +328,7 @@ export default function RankPage() {
 	})
 	
 	const data = { results: sortedResults }
-	const error = apiError
-	const loading = apiLoading && localResults.length === 0
+	const loading = false
 
 	const formatNumber = (num: number) => num?.toFixed(2)
 	const getHost = (baseUrl: string) => new URL(baseUrl).host
@@ -353,8 +338,6 @@ export default function RankPage() {
 		if (values.length === 0) return 1
 		return Math.max(...values)
 	}
-
-	if (error) return <div>Error: {error.message}</div>
 
 	return (
 		<div className="max-w-7xl mx-auto">
@@ -553,12 +536,6 @@ export default function RankPage() {
 								<TableRow>
 									<TableCell colSpan={10} className="text-center h-32 md:h-64">
 										{t('table.loading')}
-									</TableCell>
-								</TableRow>
-							) : error ? (
-								<TableRow>
-									<TableCell colSpan={9} className="text-center h-32 md:h-64 text-red-500">
-										{t('table.error')}
 									</TableCell>
 								</TableRow>
 							) : data?.results.length === 0 ? (

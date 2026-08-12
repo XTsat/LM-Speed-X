@@ -1,13 +1,12 @@
 {
   "name": "lm-speed-x",
-  "version": "0.1.0",
+  "version": "0.7.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "drizzle-kit migrate && next start",
-    "lint": "next lint",
-    "studio": "drizzle-kit studio"
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -20,14 +19,10 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/postcss": "^4.3.0",
-    "bull": "^4.16.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "dom-to-image-more": "^3.10.0",
-    "dotenv": "^17.4.2",
-    "drizzle-kit": "^0.31.10",
-    "drizzle-orm": "^0.45.2",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
@@ -35,7 +30,6 @@
     "next-themes": "^0.4.6",
     "nuqs": "^2.8.9",
     "openai": "^6.39.0",
-    "pg": "^8.21.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-hook-form": "^7.76.1",
@@ -50,10 +44,8 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@types/node": "^25.9.1",
-    "@types/pg": "^8.20.0",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
-    "drizzle-kit": "^0.30.4",
     "eslint": "^10.4.0",
     "eslint-config-next": "16.2.6",
     "postcss": "^8.5.15",

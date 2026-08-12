@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, BarChart3, TrendingUp, Zap } from 'lucide-react'
 import { isLocalUrl, runBrowserStreamedChat } from '@/lib/browser-llm'
+import { copyToClipboard } from '@/lib/clipboard'
 
 // ── Types ──
 
@@ -211,13 +212,13 @@ const tRank = useTranslations('rank')
                   },
                 }
               ).then(r => {
+                const ri = r.index ?? i
                 setActiveLevelRequests(prev => {
                   const next = [...prev]
-                  const ri = r.index ?? i
-                  next[ri] = { ...r, status: 'completed' as const, success: true }
+                  next[ri] = { ...r, status: 'completed' as const, success: true, requestId: ri + 1 }
                   return next
                 })
-                return { ...r, success: true } as RequestResult
+                return { ...r, success: true, requestId: ri + 1 } as RequestResult
               }).catch(err => {
                 setActiveLevelRequests(prev => {
                   const next = [...prev]
@@ -674,7 +675,7 @@ const response = await fetch('/api/speed/concurrency', {
                             <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedRequest === levelKey(r.requestId) ? 'block' : 'hidden'}`}>
                               <div className="flex justify-between items-center mb-2">
                                 <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
-                                <button onClick={(e) => { e.stopPropagation(); if (r.content) navigator.clipboard.writeText(r.content) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
+                                <button onClick={(e) => { e.stopPropagation(); if (r.content) copyToClipboard(r.content) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
                               </div>
                               <div className="whitespace-pre-wrap font-mono text-sm">
                                 {r.content || (r.error ? `${t('status.failed')}: ${r.error}` : '-')}
@@ -775,7 +776,7 @@ const response = await fetch('/api/speed/concurrency', {
                 <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedRequest === activeKey ? 'block' : 'hidden'}`}>
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
-                    <button onClick={(e) => { e.stopPropagation(); const text = streamContents[idx]; if (text) navigator.clipboard.writeText(text) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
+                    <button onClick={(e) => { e.stopPropagation(); const text = streamContents[idx]; if (text) copyToClipboard(text) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
                   </div>
                   <div className="whitespace-pre-wrap font-mono text-sm">
                     {streamContents[idx] || '-'}

@@ -3,13 +3,14 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { speedTestSchema, modelSchema, type SpeedTestInput } from '@/lib/schema'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { type SpeedTestResult } from '@/db/schema'
+import { type SpeedTestResult } from '@/lib/types'
 import { Button } from './ui/button'
 import { useTranslations } from 'next-intl'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
 import { handleToImage } from '@/lib/tool'
+import { copyToClipboard } from '@/lib/clipboard'
 import { ResultsList } from './results-list'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Input } from './ui/input'
@@ -17,7 +18,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, SlidersHorizontal, Trash2, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
-import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat, saveResultsToServer } from '@/lib/browser-llm'
+import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
 
@@ -106,9 +107,10 @@ export function SpeedTestForm() {
 		return { baseUrl: null, apiKey: null, modelId: null, autoTest: false };
 	};
 
-	const fetchModels = async (baseUrl: string, apiKey: string) => {
+	const fetchModels = async (baseUrl?: string, apiKey?: string) => {
 		setIsFechingModel(true)
-		baseUrl = baseUrl.trim()
+		baseUrl = baseUrl?.trim() ?? ''
+		apiKey = apiKey ?? ''
 		try {
 			if (rememberApiKey) {
 				localStorage.setItem('speedtest_apiKey', apiKey)
@@ -287,9 +289,7 @@ export function SpeedTestForm() {
 						setProgress(((i + 1) / TEST_PROMPTS.length) * 100)
 					}
 
-					// Save results
-					saveResultsToServer(data.baseUrl, allResults)
-					// Also save to localStorage
+					// Save to localStorage
 					const testResultToSave = {
 						id: Date.now().toString(),
 						timestamp: new Date().toISOString(),
@@ -844,7 +844,10 @@ export function SpeedTestForm() {
 						{errors.modelId && <p className="text-rose-400 text-sm">{errors.modelId.message}</p>}
 					</div>
 
-				<ConnectivityCheck onModelsFound={(found) => {
+				<ConnectivityCheck
+					baseUrl={watchBaseUrl || ''}
+					apiKey={watchApiKey || ''}
+					onModelsFound={(found) => {
 					setModels(prev => {
 						const updated = prev.map(m => {
 							const f = found.find(x => x.id === m.id)
@@ -913,7 +916,7 @@ export function SpeedTestForm() {
 										rememberApiKey,
 										customHeadersJson,
 									};
-await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+await copyToClipboard(JSON.stringify(config, null, 2));
 									toast.success(t('form.configCopied'), {
 										description: t('form.apiKeyWarning'),
 									});
@@ -1006,7 +1009,7 @@ await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
 								}
 								setAutoTestLink(!autoTestLink);
 								try {
-									await navigator.clipboard.writeText(url.toString());
+									await copyToClipboard(url.toString());
 									toast.success(withAutoTest ? t('form.linkCopiedAutoTest') : t('form.linkCopiedNormal'), {
 										description: t('form.apiKeyWarning'),
 										duration: 8000,

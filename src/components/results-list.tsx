@@ -1,6 +1,7 @@
 "use client";
-import { type SpeedTestResult } from "@/db/schema";
+import { type SpeedTestResult } from "@/lib/types";
 import { useTranslations } from "next-intl";
+import { copyToClipboard } from "@/lib/clipboard";
 
 type SpeedTestResultCard = SpeedTestResult & {
   status?: "pending" | "running" | "completed";
@@ -128,7 +129,7 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle }
                   onClick={(e) => {
                     e.stopPropagation()
                     const text = streamContents[index]
-                    if (text) navigator.clipboard.writeText(text)
+                    if (text) copyToClipboard(text)
                   }}
                   className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
                 >

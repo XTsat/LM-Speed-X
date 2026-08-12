@@ -23,6 +23,11 @@
 # misc
 .DS_Store
 *.pem
+.omo/
+
+# core dumps
+core
+core.*
 
 # debug
 npm-debug.log*
