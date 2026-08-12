@@ -82,7 +82,7 @@
 要点：
 - **永远插入到 `entries` 数组第 0 位**（最新在最上），禁止插到中间或末尾。
 - `types` 取值仅限：`feature` / `improvement` / `fix` / `original`（original 只用于 v0.1.0）。
-- `tag` 为该版本对应的 **Git tag 名称**（`v` + version，如 `v0.8.0`），页面自动链接到 `https://github.com/XTsat/LM-Speed-X/releases/tag/<tag>`。**发布时只需打 `git tag vX.Y.Z` 即可生效**，无需在 changelog 回填 commit hash。
+- `tag` 为该版本对应的 **Git tag 名称**（`v` + version，如 `v0.8.0`），页面自动链接到 `https://github.com/XTsat/LM-Speed-X/compare/<上一个tag>...<本tag>`（与上一版本对比，最新条目对比数组下一个条目；最旧的 v0.1.0 保持 release 页链接）。**发布时只需打 `git tag vX.Y.Z` 即可生效**，无需在 changelog 回填 commit hash。
 - `changes` 内所有文案通过 `t()` 引用 i18n key，**禁止** 在 page.tsx 写死中文/英文。
 - `sub` 用于子项列表，无子项时省略该字段。
 
@@ -162,12 +162,15 @@ README 采用四大板块结构：① 功能特点 ② 与原版对比 ③ 功�
 1. **每次提交后先更新 changelog 三件套**（page.tsx + 两个 json），再提交，保证「代码改动」与「日志」在同一 commit 或紧邻 commit。
    - 推荐做法：先完成功能代码 → 跑通验证 → 更新 changelog 与 README → 提交。changelog 条目只填 `tag`（`v` + version），**无需回填 commit hash**，发布时打 `git tag vX.Y.Z` 后链接自动生效。
 2. commit message 遵循仓库现有风格（中文简洁描述，如 `模型真实性测试`、`bug fix`、`连通性测试 更新日志`）。
-3. 完成任何代码/文档修改后，运行验证：
+3. **推送（push）必须先经用户确认**：AI 可以自行完成 代码修改 / commit，但**禁止自动执行 `git push`**。任何推送动作前必须：
+   - 向用户展示：提交 hash、提交信息、改动内容概要、推送方式（如 `git push --force-with-lease origin main`）
+   - 等待用户明确同意后再推送；用户要求修改提交信息时，用 `git commit --amend` 调整后再次确认
+4. 完成任何代码/文档修改后，运行验证：
    ```bash
    pnpm build     # 构建 + 类型检查
    ```
    确保无 TypeScript 错误、next-intl key 类型检查通过。
-4. 标签/tag 流程：版本发布时打 `git tag vX.Y.Z`（如 `git tag v0.8.0`），推送 tag 后 changelog 中的 tag 链接即可访问。
+5. 标签/tag 流程：版本发布时打 `git tag vX.Y.Z`（如 `git tag v0.8.0`），推送 tag 后 changelog 中的 tag 链接即可访问。tag 的推送同样遵循第 3 条「先确认后推送」规则。
 
 ---
 
