@@ -19,7 +19,7 @@ export default function ChangelogPage() {
   const entries: ChangelogEntry[] = [
     {
       version: '0.7.1',
-      date: '2026-08-12',
+      date: '2026-08-13',
       types: ['improvement', 'fix'],
       tag: 'v0.7.1',
       changes: [
@@ -129,6 +129,7 @@ export default function ChangelogPage() {
       version: '0.1.0',
       date: '2025-03-31',
       types: ['original'],
+      tag: 'v0.1.0',
       basedOnCommit: 'a5d7dc8fd84a5dca55085fae25fa3981ee0731e1',
       changes: [
         { text: t('entries.v0_1_0.realtime') },
@@ -188,7 +189,11 @@ export default function ChangelogPage() {
                 ) : entry.tag ? (
                   <span>
                     <a
-                      href={`https://github.com/XTsat/LM-Speed-X/releases/tag/${entry.tag}`}
+                      href={
+                        index + 1 < entries.length && entries[index + 1].tag
+                          ? `https://github.com/XTsat/LM-Speed-X/compare/${entries[index + 1].tag}...${entry.tag}`
+                          : `https://github.com/XTsat/LM-Speed-X/releases/tag/${entry.tag}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-blue-600 hover:text-blue-800 underline"
