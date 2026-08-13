@@ -624,8 +624,10 @@ export function SpeedTestForm() {
 															e.preventDefault()
 															e.stopPropagation()
 															const customUrl = baseUrlSearch.trim()
-															if (customUrl && !commonBaseUrls.some(url => url.id === customUrl)) {
-																setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
+															if (customUrl) {
+																if (!commonBaseUrls.some(url => url.id === customUrl)) {
+																	setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
+																}
 																setValue('baseUrl', customUrl)
 																setBaseUrlSearch('')
 															}
@@ -640,8 +642,10 @@ export function SpeedTestForm() {
 													className="shrink-0"
 													onClick={() => {
 														const customUrl = baseUrlSearch.trim()
-														if (customUrl && !commonBaseUrls.some(url => url.id === customUrl)) {
-															setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
+														if (customUrl) {
+															if (!commonBaseUrls.some(url => url.id === customUrl)) {
+																setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
+															}
 															setValue('baseUrl', customUrl)
 															setBaseUrlSearch('')
 														}

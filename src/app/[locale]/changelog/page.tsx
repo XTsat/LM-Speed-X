@@ -18,6 +18,17 @@ export default function ChangelogPage() {
 
   const entries: ChangelogEntry[] = [
     {
+      version: '0.7.2',
+      date: '2026-08-14',
+      types: ['feature', 'improvement', 'fix'],
+      tag: 'v0.7.2',
+      changes: [
+        { text: t('entries.v0_7_2.baseUrlAddFix') },
+        { text: t('entries.v0_7_2.connectivityAutoDelay') },
+        { text: t('entries.v0_7_2.exportModelIds') },
+      ],
+    },
+    {
       version: '0.7.1',
       date: '2026-08-13',
       types: ['improvement', 'fix'],

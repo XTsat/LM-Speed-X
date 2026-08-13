@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { CheckCircle, XCircle, Loader2, Wifi, ChevronDown, Download, FlaskConical, AlertTriangle } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, Wifi, ChevronDown, Download, FlaskConical, AlertTriangle, Copy } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
 import { cn } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/clipboard'
 import { toast } from 'sonner'
 import { isLocalUrl, fetchModelsDirect, testConnectivityDirect } from '@/lib/browser-llm'
 import type { ValidationLevel } from '@/lib/browser-llm'
@@ -20,6 +21,12 @@ interface ModelTestResult {
   tierRestricted?: boolean
   contentValid?: boolean | null
 }
+
+// When the model list exceeds this many models, auto-apply a request interval to
+// avoid slamming the server with too many concurrent probes. The user can still
+// override it manually (e.g. set it to 0 for parallel testing).
+const AUTO_DELAY_THRESHOLD = 100
+const AUTO_DELAY_MS = 500
 
 export function ConnectivityCheck({
   onModelsFound,
@@ -43,6 +50,9 @@ export function ConnectivityCheck({
   const [results, setResults] = useState<ModelTestResult[] | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [validationLevel, setValidationLevel] = useState<ValidationLevel>(null)
+  // Track whether the user has manually edited the delay field; once touched,
+  // the auto-apply logic (for 100+ model lists) will stop overriding it.
+  const [delayTouched, setDelayTouched] = useState(false)
 
   // Merge upstream models with custom IDs
   const allModelIds = (() => {
@@ -53,6 +63,14 @@ export function ConnectivityCheck({
     const merged = new Set([...modelIds, ...customIds])
     return [...merged]
   })()
+
+  // Auto-apply a request interval when the model list exceeds the threshold,
+  // unless the user has manually adjusted the delay field.
+  useEffect(() => {
+    if (allModelIds.length > AUTO_DELAY_THRESHOLD && !delayTouched) {
+      setDelayMs(String(AUTO_DELAY_MS))
+    }
+  }, [allModelIds.length, delayTouched])
 
   const fetchModels = useCallback(async () => {
     if (!baseUrl || !apiKey) {
@@ -423,12 +441,23 @@ export function ConnectivityCheck({
                 type="number"
                 placeholder="0"
                 value={delayMs}
-                onChange={(e) => setDelayMs(e.target.value)}
+                onChange={(e) => {
+                  setDelayMs(e.target.value)
+                  setDelayTouched(true)
+                }}
                 disabled={testing}
                 className="text-xs h-8"
                 min="0"
                 step="100"
               />
+              {allModelIds.length > AUTO_DELAY_THRESHOLD && !delayTouched && (
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 block mt-1">
+                  {t('autoDelayHint', {
+                    count: allModelIds.length,
+                    delay: AUTO_DELAY_MS,
+                  })}
+                </span>
+              )}
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
@@ -541,6 +570,32 @@ export function ConnectivityCheck({
                 </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* Copy model IDs button */}
+          {results && reachableCount > 0 && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const ids = results
+                    .filter((r) => r.reachable && r.contentValid !== false)
+                    .map((r) => r.modelId)
+                    .join(',')
+                  try {
+                    await copyToClipboard(ids)
+                    toast.success(t('modelIdsCopied'))
+                  } catch {
+                    toast.error(t('errors.copyFailed'))
+                  }
+                }}
+              >
+                <Copy className="mr-1 h-3 w-3" />
+                {t('copyModelIds')}
+              </Button>
             </div>
           )}
         </div>

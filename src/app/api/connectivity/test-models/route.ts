@@ -290,13 +290,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ results: [] }, { status: 200 })
   }
 
-  if (body.modelIds.length > 100) {
-    return NextResponse.json(
-      { error: 'Too many models (max 100)' },
-      { status: 400 },
-    )
-  }
-
   const delayMs = Math.max(0, body.delayMs ?? 0)
   const maxRetries = Math.max(0, Math.min(body.retries ?? 0, 5))
   const timeoutMs = Math.max(1000, body.timeoutMs ?? 15_000)

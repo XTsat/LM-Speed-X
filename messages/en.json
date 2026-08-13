@@ -374,7 +374,8 @@
       "noConfig": "Please fill in the API address and key in the form above first",
       "noModels": "No models to test. Please fetch the model list or enter custom model IDs",
       "fetchFailed": "Failed to fetch model list",
-      "testFailed": "Connectivity test failed"
+      "testFailed": "Connectivity test failed",
+      "copyFailed": "Failed to copy to clipboard"
     },
     "delayLabel": "Request Interval",
     "retryLabel": "Auto Retry",
@@ -392,7 +393,10 @@
       "selfDesc": "Asks the model to state its identity, filtering out gateway/proxy template responses",
       "mathDesc": "Asks the model to calculate 173+289, verifying genuine reasoning capability"
     },
-    "contentInvalid": "Invalid Response"
+    "contentInvalid": "Invalid Response",
+    "autoDelayHint": "Request interval of {delay}ms auto-added for {count} models; set to 0 to test in parallel",
+    "copyModelIds": "Copy Model IDs",
+    "modelIdsCopied": "Model IDs copied to clipboard"
   },
   "Footer": {
     "madeBy": "Made with ❤️ by",
@@ -458,6 +462,11 @@
         "projectCleanup": "Cleaned up project structure: removed database-related leftovers and redundant files",
         "projectInfo": "Refactored project information: updated README structure and deployment docs",
         "connectivitySort": "Fixed connectivity check sorting: results with the same status are now ordered by latency ascending"
+      },
+      "v0_7_2": {
+        "baseUrlAddFix": "Fixed built-in base URLs failing to be selected via custom input",
+        "connectivityAutoDelay": "Connectivity check now supports 100+ models: auto-adds a request interval to prevent excessive concurrency; can be set to 0 for parallel testing",
+        "exportModelIds": "Connectivity check: one-click batch export of available model IDs (comma-separated) to clipboard"
       }
     }
   }

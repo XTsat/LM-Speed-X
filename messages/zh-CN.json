@@ -358,7 +358,8 @@
       "noConfig": "请先在上方表单中填写 API 地址和密钥",
       "noModels": "没有可检测的模型，请先获取模型列表或输入自定义模型 ID",
       "fetchFailed": "获取模型列表失败",
-      "testFailed": "连通性检测失败"
+      "testFailed": "连通性检测失败",
+      "copyFailed": "复制到剪贴板失败"
     },
     "delayLabel": "请求间隔",
     "retryLabel": "自动重试",
@@ -376,7 +377,10 @@
       "selfDesc": "要求模型自报身份名称，排除网关/代理的通用模板回复",
       "mathDesc": "要求模型计算算术题，验证其是否具备真实推理能力"
     },
-    "contentInvalid": "响应无效"
+    "contentInvalid": "响应无效",
+    "autoDelayHint": "检测到 {count} 个模型，已自动添加 {delay}ms 请求间隔；可手动改为 0 并行检测",
+    "copyModelIds": "复制可用模型 ID",
+    "modelIdsCopied": "模型 ID 已复制到剪贴板"
   },
   "Footer": {
     "madeBy": "Made with ❤️ by",
@@ -442,6 +446,11 @@
         "projectCleanup": "清理项目结构：移除数据库相关残留，删除冗余文件",
         "projectInfo": "重构项目信息：更新 README 文档结构与部署说明",
         "connectivitySort": "修复连通性检测排序：同状态结果按延迟升序排列"
+      },
+      "v0_7_2": {
+        "baseUrlAddFix": "修复已内置的 Base URL 无法通过自定义输入添加选中的问题",
+        "connectivityAutoDelay": "连通性检测支持 100 个以上模型：自动添加请求间隔避免并发过高，可手动设为 0 并行检测",
+        "exportModelIds": "连通性检测：一键批量导出可用模型 ID（逗号分隔）到剪贴板"
       }
     }
   }
