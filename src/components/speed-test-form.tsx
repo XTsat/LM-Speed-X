@@ -22,6 +22,11 @@ import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/bro
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
 
+// 生成唯一测试 ID（比 Date.now() 更安全，避免同毫秒内重复）
+function generateTestId(): string {
+	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 type SpeedTestResultCard = SpeedTestResult & {
 	status?: 'pending' | 'running' | 'completed'
 }
@@ -217,14 +222,10 @@ export function SpeedTestForm() {
 					}
 				}
 
-				// Use existing startPeriodicUpdate
-				let updateTimer: number | null = null
-				const startPeriodicUpdate = () => {
-					updateTimer = window.setInterval(() => {
-						setStreamContents({ ...contentRef.current })
-					}, 16) as unknown as number
-				}
-				startPeriodicUpdate()
+				// 流式内容 UI 同步定时器（browser-direct 模式）
+				const updateTimer = window.setInterval(() => {
+					setStreamContents({ ...contentRef.current })
+				}, 16) as unknown as number
 
 				try {
 					const allResults: Array<{
@@ -291,7 +292,7 @@ export function SpeedTestForm() {
 
 					// Save to localStorage
 					const testResultToSave = {
-						id: Date.now().toString(),
+						id: generateTestId(),
 						timestamp: new Date().toISOString(),
 						baseUrl: data.baseUrl,
 						results: allResults.map((r, index) => ({
@@ -317,7 +318,7 @@ export function SpeedTestForm() {
 					console.error('Browser direct test error:', error)
 					toast.error(error instanceof Error ? error.message : 'An error occurred', { duration: 30000 })
 				} finally {
-					if (updateTimer !== null) clearInterval(updateTimer)
+					if (updateTimer !== undefined) clearInterval(updateTimer)
 				}
 			} else {
 			// 解析自定义请求头
@@ -362,26 +363,24 @@ export function SpeedTestForm() {
 
 			const reader = response.body.getReader()
 			const decoder = new TextDecoder()
+			let buffer = ''
 
-			let updateTimer: number | null = null
-
-			const startPeriodicUpdate = () => {
-				updateTimer = window.setInterval(() => {
-					setStreamContents({ ...contentRef.current })
-				}, 16) as unknown as number
-			}
-
-			startPeriodicUpdate()
+			// 流式内容 UI 同步定时器（服务端代理模式）
+			const updateTimer = window.setInterval(() => {
+				setStreamContents({ ...contentRef.current })
+			}, 16) as unknown as number
 
 			try {
 				while (true) {
 					const { value, done } = await reader.read()
 					if (done) break
 
-					const chunk = decoder.decode(value)
-					const lines = chunk.split('\n').filter(Boolean)
+					buffer += decoder.decode(value, { stream: true })
+					const lines = buffer.split('\n')
+					buffer = lines.pop() || ''
 
 					for (const line of lines) {
+						if (!line.trim()) continue
 						try {
 							const message = JSON.parse(line)
 
@@ -446,7 +445,7 @@ export function SpeedTestForm() {
 									// 保存测试结果到 localStorage
 									if (message.data && message.data.length > 0) {
 										const testResultToSave = {
-											id: Date.now().toString(),
+											id: generateTestId(),
 											timestamp: new Date().toISOString(),
 											baseUrl: data.baseUrl,
 											results: message.data.map((r: SpeedTestResultCard, index: number) => ({
@@ -485,9 +484,9 @@ export function SpeedTestForm() {
 					}
 				}
 			} finally {
-				if (updateTimer !== null) {
-					clearInterval(updateTimer)
-				}
+			if (updateTimer !== undefined) {
+				clearInterval(updateTimer)
+			}
 			}
 			}
 			} catch (error) {
@@ -1070,7 +1069,13 @@ await copyToClipboard(JSON.stringify(config, null, 2));
 									<span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
 									<span className="text-white mr-8">{results[0].model}</span>
 									<span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
-									<span className="text-white">{new URL(getValues('baseUrl')).host}</span>
+									<span className="text-white">{(() => {
+										try {
+											return new URL(getValues('baseUrl')).host
+										} catch {
+											return getValues('baseUrl')
+										}
+									})()}</span>
 								</div>
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 									<div>

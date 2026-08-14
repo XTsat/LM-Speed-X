@@ -18,6 +18,16 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.7.4',
+      date: '2026-08-15',
+      types: ['fix'],
+      tag: 'v0.7.4',
+      changes: [
+        { text: t('entries.v0_7_4.storageLimit') },
+        { text: t('entries.v0_7_4.stabilityFixes') },
+      ],
+    },
+    {
       version: '0.7.3',
       date: '2026-08-14',
       types: ['feature'],

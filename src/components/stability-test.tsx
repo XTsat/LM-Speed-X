@@ -341,7 +341,7 @@ const tRank = useTranslations('rank')
     } finally {
       setLoading(false)
     }
-  }, [prompt, count, t])
+  }, [prompt, count, t, useBrowserDirect])
 
   // ── Render ──
 

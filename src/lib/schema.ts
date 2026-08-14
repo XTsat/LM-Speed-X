@@ -8,7 +8,7 @@ export const speedTestSchema = z.object({
   count: z.number()
     .int('Count must be an integer')
     .positive('Count must be a positive number')
-    .max(20, 'Maximum count is 100')
+    .max(20, 'Maximum count is 20')
     .optional(),
   // 自定义请求头（用于绕过 CF 等验证）
   customHeaders: z.record(z.string(), z.string()).optional(),

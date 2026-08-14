@@ -246,25 +246,23 @@ export default function RankPage() {
 				const existingResults = getTestResults()
 				const newResults: LocalSpeedTestResult[] = []
 				data.results.forEach((result: RankingResult, index: number) => {
-					// 根据totalTests创建对应数量的记录
-					for (let i = 0; i < result.totalTests; i++) {
-						newResults.push({
-							id: `imported-${Date.now()}-${index}-${i}`,
-							timestamp: new Date().toISOString(),
-							baseUrl: result.baseUrl,
-							results: [{
-								prompt: 'imported',
-								model: result.model,
-								firstTokenLatency: result.avgFirstTokenLatency,
-								tokensPerSecond: result.avgTokensPerSecond,
-								tokensPerSecondTotal: result.avgTokensPerSecondTotal,
-								outputToken: 0,
-								totalTime: 0,
-								outputTime: 0,
-								content: ''
-							}]
-						})
-					}
+					// 每个排名结果导入为一条记录（不按 totalTests 复制多条相同记录，避免数据膨胀）
+					newResults.push({
+						id: `imported-${Date.now()}-${index}`,
+						timestamp: new Date().toISOString(),
+						baseUrl: result.baseUrl,
+						results: [{
+							prompt: 'imported',
+							model: result.model,
+							firstTokenLatency: result.avgFirstTokenLatency,
+							tokensPerSecond: result.avgTokensPerSecond,
+							tokensPerSecondTotal: result.avgTokensPerSecondTotal,
+							outputToken: 0,
+							totalTime: 0,
+							outputTime: 0,
+							content: ''
+						}]
+					})
 				})
 				const mergedResults = [...existingResults, ...newResults]
 				localStorage.setItem('lm-speed-test-results', JSON.stringify(mergedResults))
@@ -331,7 +329,14 @@ export default function RankPage() {
 	const loading = false
 
 	const formatNumber = (num: number) => num?.toFixed(2)
-	const getHost = (baseUrl: string) => new URL(baseUrl).host
+	// 获取域名，处理无效 URL 情况（localStorage 数据可能损坏）
+	const getHost = (baseUrl: string) => {
+		try {
+			return new URL(baseUrl).host
+		} catch {
+			return baseUrl
+		}
+	}
 
 	// 获取最大值，处理空数组情况
 	const getMaxValue = (values: number[]) => {

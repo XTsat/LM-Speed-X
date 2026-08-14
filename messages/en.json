@@ -415,6 +415,10 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_7_4": {
+        "storageLimit": "Added a storage cap for test results (max 500 entries); oldest results are automatically trimmed when exceeded",
+        "stabilityFixes": "Stability fixes: browser-direct mode for local/private APIs, streamed result loss, ranking page crash, import data bloat, and more"
+      },
       "v0_7_3": {
         "visionVerify": "Added image recognition verification to the connectivity check",
         "verifyVision": "Sends a red circle image to the model to verify image understanding capability"

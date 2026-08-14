@@ -218,14 +218,35 @@ const tRank = useTranslations('rank')
                   next[ri] = { ...r, status: 'completed' as const, success: true, requestId: ri + 1 }
                   return next
                 })
-                return { ...r, success: true, requestId: ri + 1 } as RequestResult
+                return {
+                  requestId: ri + 1,
+                  firstTokenLatency: r.firstTokenLatency,
+                  tokensPerSecond: r.tokensPerSecond,
+                  tokensPerSecondTotal: r.tokensPerSecondTotal,
+                  outputToken: r.outputToken,
+                  totalTime: r.totalTime,
+                  outputTime: r.outputTime,
+                  content: r.content,
+                  success: true,
+                } satisfies RequestResult
               }).catch(err => {
                 setActiveLevelRequests(prev => {
                   const next = [...prev]
                   next[i] = { ...next[i], status: 'failed' as const, success: false, error: err instanceof Error ? err.message : String(err) }
                   return next
                 })
-                return { requestId: i + 1, firstTokenLatency: 0, tokensPerSecond: 0, tokensPerSecondTotal: 0, outputToken: 0, totalTime: 0, outputTime: 0, content: '', success: false, error: err instanceof Error ? err.message : String(err), index: i, prompt, model: liveModelId } as unknown as RequestResult
+                return {
+                  requestId: i + 1,
+                  firstTokenLatency: 0,
+                  tokensPerSecond: 0,
+                  tokensPerSecondTotal: 0,
+                  outputToken: 0,
+                  totalTime: 0,
+                  outputTime: 0,
+                  content: '',
+                  success: false,
+                  error: err instanceof Error ? err.message : String(err),
+                } satisfies RequestResult
               })
             )
 
