@@ -16,7 +16,19 @@ interface ChangelogEntry {
 export default function ChangelogPage() {
   const t = useTranslations('Changelog')
 
-  const entries: ChangelogEntry[] = [
+const entries: ChangelogEntry[] = [
+    {
+      version: '0.7.3',
+      date: '2026-08-14',
+      types: ['feature'],
+      tag: 'v0.7.3',
+      changes: [
+        {
+          text: t('entries.v0_7_3.visionVerify'),
+          sub: [t('entries.v0_7_3.verifyVision')],
+        },
+      ],
+    },
     {
       version: '0.7.2',
       date: '2026-08-14',

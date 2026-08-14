@@ -416,6 +416,23 @@ export function ConnectivityCheck({
                   <p className="text-xs max-w-[200px]">{t('validationModes.mathDesc')}</p>
                 </TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={validationLevel === 'vision' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    disabled={testing}
+                    onClick={() => setValidationLevel('vision')}
+                  >
+                    {t('validationModes.vision')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{t('validationModes.visionDesc')}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           </TooltipProvider>
 

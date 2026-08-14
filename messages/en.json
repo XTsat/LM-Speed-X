@@ -388,10 +388,12 @@
       "repeat": "Repeat",
       "self": "Identity",
       "math": "Arithmetic",
+      "vision": "Vision",
       "noneDesc": "Only checks if the model returns any content, no additional validation",
       "repeatDesc": "Asks the model to reply with exactly \"PONG\", verifying instruction following",
       "selfDesc": "Asks the model to state its identity, filtering out gateway/proxy template responses",
-      "mathDesc": "Asks the model to calculate 173+289, verifying genuine reasoning capability"
+      "mathDesc": "Asks the model to calculate 173+289, verifying genuine reasoning capability",
+      "visionDesc": "Sends an image of a red circle embedded as a data URI (no external access needed) and asks the model to identify it, verifying image understanding capability"
     },
     "contentInvalid": "Invalid Response",
     "autoDelayHint": "Request interval of {delay}ms auto-added for {count} models; set to 0 to test in parallel",
@@ -413,6 +415,10 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_7_3": {
+        "visionVerify": "Added image recognition verification to the connectivity check",
+        "verifyVision": "Sends a red circle image to the model to verify image understanding capability"
+      },
       "v0_1_0": {
         "realtime": "Real-time performance monitoring with multi-dimensional data display",
         "streaming": "Streaming results for real-time test progress monitoring",
