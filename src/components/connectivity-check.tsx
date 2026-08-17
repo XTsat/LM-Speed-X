@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { CheckCircle, XCircle, Loader2, Wifi, ChevronDown, Download, FlaskConical, AlertTriangle, Copy } from 'lucide-react'
 import { Button } from './ui/button'
@@ -9,8 +9,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/t
 import { cn } from '@/lib/utils'
 import { copyToClipboard } from '@/lib/clipboard'
 import { toast } from 'sonner'
-import { isLocalUrl, fetchModelsDirect, testConnectivityDirect } from '@/lib/browser-llm'
+import { isLocalUrl, fetchModelsDirect, testConnectivityDirect, isCloudflareError } from '@/lib/browser-llm'
 import type { ValidationLevel } from '@/lib/browser-llm'
+import { CloudflareBypassDialog } from './cloudflare-bypass-dialog'
 
 interface ModelTestResult {
   modelId: string
@@ -53,6 +54,9 @@ export function ConnectivityCheck({
   // Track whether the user has manually edited the delay field; once touched,
   // the auto-apply logic (for 100+ model lists) will stop overriding it.
   const [delayTouched, setDelayTouched] = useState(false)
+  const [cloudflareDialogOpen, setCloudflareDialogOpen] = useState(false)
+  const [cloudflarePendingUrl, setCloudflarePendingUrl] = useState('')
+  const forceBrowserDirectRef = useRef(false)
 
   // Merge upstream models with custom IDs
   const allModelIds = (() => {
@@ -80,12 +84,29 @@ export function ConnectivityCheck({
     setFetchingModels(true)
     try {
       // Browser-direct mode for local/private IPs — bypasses server proxy
-      if (isLocalUrl(baseUrl)) {
-        const models = await fetchModelsDirect(baseUrl, apiKey)
-        const ids: string[] = models.map((m) => m.id).filter(Boolean)
-        setModelIds(ids)
-        toast.success(t('modelsFetched', { count: ids.length }))
-        return
+      // (also used after a successful manual Cloudflare verification)
+      if (isLocalUrl(baseUrl) || forceBrowserDirectRef.current) {
+        try {
+          const models = await fetchModelsDirect(
+            baseUrl,
+            apiKey,
+            forceBrowserDirectRef.current ? { credentials: 'include' } : undefined,
+          )
+          const ids: string[] = models.map((m) => m.id).filter(Boolean)
+          setModelIds(ids)
+          toast.success(t('modelsFetched', { count: ids.length }))
+          return
+        } catch (e) {
+          // If browser-direct fetch fails (e.g. CORS, extension injection TypeError),
+          // fallback to server proxy if it's not explicitly a local URL.
+          // For local URLs, we can't use server proxy anyway, so just throw the error.
+          if (isLocalUrl(baseUrl)) {
+            throw e
+          }
+          console.warn('Browser-direct fetch failed, falling back to server proxy:', e)
+          forceBrowserDirectRef.current = false // Reset the flag
+          // Continue to server proxy flow below
+        }
       }
 
       const resp = await fetch('/api/model', {
@@ -93,7 +114,16 @@ export function ConnectivityCheck({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ baseUrl, apiKey }),
       })
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      if (!resp.ok) {
+        let errorMsg = `HTTP ${resp.status}`
+        try {
+          const errorData = await resp.json()
+          if (errorData.error) errorMsg = errorData.error
+        } catch {
+          // could not parse response body
+        }
+        throw new Error(errorMsg)
+      }
       const data = await resp.json()
       const ids: string[] = (data.models || [])
         .map((m: { id: string }) => m.id)
@@ -101,13 +131,23 @@ export function ConnectivityCheck({
       setModelIds(ids)
       toast.success(t('modelsFetched', { count: ids.length }))
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : t('errors.fetchFailed'),
-      )
+      const msg = e instanceof Error ? e.message : t('errors.fetchFailed')
+      if (isCloudflareError(msg) && baseUrl) {
+        setCloudflarePendingUrl(baseUrl)
+        setCloudflareDialogOpen(true)
+        return
+      }
+      toast.error(msg)
     } finally {
       setFetchingModels(false)
     }
   }, [baseUrl, apiKey, t])
+
+  const handleCloudflareVerified = useCallback(() => {
+    setCloudflareDialogOpen(false)
+    forceBrowserDirectRef.current = true
+    fetchModels()
+  }, [fetchModels])
 
   const runTests = useCallback(async () => {
     if (!baseUrl || !apiKey) {
@@ -617,6 +657,12 @@ export function ConnectivityCheck({
           )}
         </div>
       )}
+      <CloudflareBypassDialog
+        open={cloudflareDialogOpen}
+        onOpenChange={setCloudflareDialogOpen}
+        baseUrl={cloudflarePendingUrl}
+        onVerified={handleCloudflareVerified}
+      />
     </div>
   )
 }

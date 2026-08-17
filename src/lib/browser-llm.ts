@@ -25,6 +25,28 @@ export function isLocalUrl(url: string): boolean {
   }
 }
 
+// ── Cloudflare challenge detection ──
+
+/** Indicator strings that appear in Cloudflare challenge / block pages */
+const CLOUDFLARE_INDICATORS = [
+  'challenges.cloudflare.com',
+  'cf_chl_',
+  'cf_clearance',
+  '__cf_chl',
+  'just a moment',
+  'enable javascript and cookies',
+]
+
+/**
+ * Detect whether an error message or response body indicates a Cloudflare
+ * managed-challenge / bot-protection page (the "Just a moment..." interstitial).
+ */
+export function isCloudflareError(input: string): boolean {
+  if (!input) return false
+  const lower = input.toLowerCase()
+  return CLOUDFLARE_INDICATORS.some((indicator) => lower.includes(indicator))
+}
+
 // ── Token estimation ──
 
 function estimateTokens(text: string): number {
@@ -41,7 +63,11 @@ const _pathCache = new Map<string, string>()
  * Tries /models first, falls back to /v1/models.
  * Results are cached per baseUrl for the session.
  */
-async function detectApiPath(baseUrl: string, apiKey: string): Promise<string | null> {
+async function detectApiPath(
+  baseUrl: string,
+  apiKey: string,
+  credentials?: RequestCredentials
+): Promise<string | null> {
   const normalized = baseUrl.replace(/\/+$/, '')
   
   const cached = _pathCache.get(normalized)
@@ -57,9 +83,13 @@ async function detectApiPath(baseUrl: string, apiKey: string): Promise<string | 
     try {
       response = await fetch(url, {
         headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+        credentials,
       })
-    } catch {
+    } catch (e) {
       // Chrome extensions may monkey-patch window.fetch and throw synchronously
+      if (e instanceof Error && e.name === 'TypeError' && e.message === 'Failed to fetch') {
+        throw e // Re-throw to allow fallback mechanisms in the caller to handle it properly
+      }
       continue
     }
 
@@ -98,16 +128,24 @@ export interface ModelsListResult {
 /** Fetch available models directly from the OpenAI-compatible API */
 export async function fetchModelsDirect(
   baseUrl: string,
-  apiKey: string
+  apiKey: string,
+  options?: { credentials?: RequestCredentials }
 ): Promise<ModelsListResult[]> {
   const normalized = baseUrl.replace(/\/+$/, '')
   
   // Detect the correct API path prefix, fall back to /v1 if unreachable
-  const prefix = await detectApiPath(baseUrl, apiKey) ?? (normalized.endsWith('/v1') ? '' : '/v1')
+  const prefix =
+    (await detectApiPath(baseUrl, apiKey, options?.credentials)) ??
+    (normalized.endsWith('/v1') ? '' : '/v1')
   const url = `${normalized}${prefix}/models`
   
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${apiKey}` },
+    credentials: options?.credentials,
+  }).catch((e) => {
+    // Chrome extensions may monkey-patch window.fetch and throw synchronously
+    // Also handles general network errors like CORS, mixed content, etc.
+    throw new Error(`Failed to fetch models: ${e instanceof Error ? e.message : 'Network error'}`)
   })
 
   if (!response.ok) {

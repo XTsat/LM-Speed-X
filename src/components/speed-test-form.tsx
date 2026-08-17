@@ -18,9 +18,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, SlidersHorizontal, Trash2, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
-import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
+import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat, isCloudflareError } from '@/lib/browser-llm'
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
+import { CloudflareBypassDialog } from './cloudflare-bypass-dialog'
 
 // 生成唯一测试 ID（比 Date.now() 更安全，避免同毫秒内重复）
 function generateTestId(): string {
@@ -49,6 +50,9 @@ export function SpeedTestForm() {
 	const [customHeadersJson, setCustomHeadersJson] = useState('')
 	const [showCustomHeaders, setShowCustomHeaders] = useState(false)
 	const [useBrowserDirect, setUseBrowserDirect] = useState(false)
+	const [cloudflareDialogOpen, setCloudflareDialogOpen] = useState(false)
+	const [cloudflarePendingUrl, setCloudflarePendingUrl] = useState('')
+	const forceBrowserDirectRef = useRef(false)
 	const [commonBaseUrls, setCommonBaseUrls] = useState(() => [...COMMON_PROVIDERS])
 
 	const contentRef = useRef<{ [key: number]: string }>({})
@@ -122,18 +126,28 @@ export function SpeedTestForm() {
 			}
 			modelSchema.parse({ baseUrl, apiKey })
 			localStorage.setItem('speedtest_baseUrl', baseUrl)
-			if (useBrowserDirect) {
-				const directModels = await fetchModelsDirect(baseUrl, apiKey)
-				const uniqueModels = directModels.filter(
-					(m: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === m.id) === i
-				)
-				setModels(prev => {
-					const existingIds = new Set(prev.map(m => m.id))
-					const newModels = uniqueModels.filter((m: any) => !existingIds.has(m.id))
-					return [...prev, ...newModels]
-				})
-				setIsFechingModel(false)
-				return
+			if (useBrowserDirect || forceBrowserDirectRef.current) {
+				try {
+					const directModels = await fetchModelsDirect(baseUrl, apiKey, forceBrowserDirectRef.current ? { credentials: 'include' } : undefined)
+					const uniqueModels = directModels.filter(
+						(m: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === m.id) === i
+					)
+					setModels(prev => {
+						const existingIds = new Set(prev.map(m => m.id))
+						const newModels = uniqueModels.filter((m: any) => !existingIds.has(m.id))
+						return [...prev, ...newModels]
+					})
+					setIsFechingModel(false)
+					return
+				} catch (e) {
+					// Fallback to server proxy if browser-direct fetch fails
+					if (isLocalUrl(baseUrl)) {
+						throw e
+					}
+					console.warn('Browser-direct fetch failed, falling back to server proxy:', e)
+					forceBrowserDirectRef.current = false
+					// Continue to server proxy fetch
+				}
 			}
 			const response = await fetch('/api/model', {
 				method: 'POST',
@@ -176,10 +190,22 @@ export function SpeedTestForm() {
 				}
 			} else {
 				console.error('Error fetching models:', error)
-				toast.error(error instanceof Error ? error.message : 'Failed to fetch models')
+				const msg = error instanceof Error ? error.message : 'Failed to fetch models'
+				if (isCloudflareError(msg) && baseUrl) {
+					setCloudflarePendingUrl(baseUrl)
+					setCloudflareDialogOpen(true)
+					return
+				}
+				toast.error(msg)
 			}
 		}
 		setIsFechingModel(false)
+	}
+
+	const handleCloudflareVerified = () => {
+		setCloudflareDialogOpen(false)
+		forceBrowserDirectRef.current = true
+		fetchModels(getValues('baseUrl'), getValues('apiKey'))
 	}
 
 	const onSubmit = async (data: SpeedTestInput) => {
@@ -1191,6 +1217,12 @@ await copyToClipboard(JSON.stringify(config, null, 2));
 					</div>
 				</>
 			)}
+			<CloudflareBypassDialog
+				open={cloudflareDialogOpen}
+				onOpenChange={setCloudflareDialogOpen}
+				baseUrl={cloudflarePendingUrl}
+				onVerified={handleCloudflareVerified}
+			/>
 		</div>
 	)
 }
