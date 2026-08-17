@@ -939,6 +939,7 @@ export function SpeedTestForm() {
 							className="flex-1"
 							onClick={async () => {
 							const config = {
+										testlink: 'https://lm-speed-x.xtsat.cc.cd/',
 										baseUrl: getValues('baseUrl'),
 										apiKey: getValues('apiKey'),
 										modelId: getValues('modelId'),
