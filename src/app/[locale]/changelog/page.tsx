@@ -18,6 +18,18 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.8.0',
+      date: '2026-08-17',
+      types: ['feature'],
+      tag: 'v0.8.0',
+      changes: [
+        {
+          text: t('entries.v0_8_0.cloudflareBypass'),
+          sub: [t('entries.v0_8_0.cfDetect'), t('entries.v0_8_0.cfManualVerify')],
+        },
+      ],
+    },
+    {
       version: '0.7.4',
       date: '2026-08-15',
       types: ['fix'],

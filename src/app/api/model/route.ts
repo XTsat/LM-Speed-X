@@ -1,38 +1,105 @@
 import { NextResponse } from 'next/server';
 import { modelSchema } from '@/lib/schema';
-import OpenAI from 'openai';
+
+/** Indicator strings that appear in Cloudflare challenge / block pages */
+const CLOUDFLARE_INDICATORS = [
+  'challenges.cloudflare.com',
+  'cf_chl_',
+  'cf_clearance',
+  '__cf_chl',
+  'just a moment',
+  'enable javascript and cookies',
+];
+
+/** Detect whether a response body is a Cloudflare managed-challenge page */
+function isCloudflareBody(body: string): boolean {
+  if (!body) return false;
+  const lower = body.toLowerCase();
+  return CLOUDFLARE_INDICATORS.some((indicator) => lower.includes(indicator));
+}
+
+/**
+ * Probe an OpenAI-compatible API for the models list using a raw fetch so we
+ * can detect Cloudflare challenge pages (which the OpenAI SDK would silently
+ * turn into a generic parse error) and surface a recognizable error message.
+ */
+async function fetchModelsRaw(
+  baseUrl: string,
+  apiKey: string,
+): Promise<{ models: Array<{ id: string; object?: string }> } | { cfUrl: string }> {
+  const normalized = baseUrl.replace(/\/+$/, '');
+  const attempts = [
+    { path: '', url: `${normalized}/models` },
+    { path: '/v1', url: `${normalized}/v1/models` },
+  ];
+
+  for (const { path, url } of attempts) {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(30 * 1000),
+      });
+    } catch {
+      continue;
+    }
+
+    const body = await response.text().catch(() => '');
+    const contentType = response.headers.get('content-type') || '';
+
+    // Cloudflare challenge / bot-protection page — tell the client so it can
+    // offer the manual verification dialog.
+    if (!contentType.includes('application/json') || isCloudflareBody(body) || response.status === 403) {
+      if (isCloudflareBody(body)) {
+        return { cfUrl: url };
+      }
+      continue;
+    }
+
+    try {
+      const data = JSON.parse(body);
+      const models = Array.isArray(data) ? data : data.data;
+      if (Array.isArray(models) && models.length > 0 && models[0]?.id) {
+        return { models: models.filter((m: { id: string }) => m && typeof m.id === 'string') };
+      }
+    } catch {
+      // not JSON — try next candidate
+    }
+  }
+
+  throw new Error('Model list not found. The URL may be incorrect or the service does not expose an OpenAI-compatible /models endpoint.');
+}
 
 export async function POST(request: Request) {
   let baseUrl = '';
   try {
     const body = await request.json();
-    
+
     // Validate input
     const validatedData = modelSchema.parse(body);
-    baseUrl = validatedData.baseUrl;
-    
-    // Create OpenAI client with timeout to prevent indefinite hanging
-    const openai = new OpenAI({
-      apiKey: validatedData.apiKey,
-      baseURL: validatedData.baseUrl,
-      timeout: 30 * 1000, // 30s timeout for model listing
-      maxRetries: 1,
-    });
 
-    // Get available models to verify if the selected model is available
-    const modelsResponse = await openai.models.list();
+    baseUrl = validatedData.baseUrl;
+    const result = await fetchModelsRaw(validatedData.baseUrl, validatedData.apiKey);
+
+    if ('cfUrl' in result) {
+      return NextResponse.json(
+        {
+          error: `Cloudflare challenge detected at ${result.cfUrl}. Please verify manually (browser direct).`,
+        },
+        { status: 403 }
+      );
+    }
 
     return NextResponse.json(
-      { models: modelsResponse.data },
+      { models: result.models },
       { status: 200 }
     );
   } catch (error) {
     console.error('Model fetch error:', error);
-    
-    // Provide more helpful error messages for common issues
+
     let errorMessage = error instanceof Error ? error.message : 'Unknown error';
     let statusCode = 400;
-    
+
     // Detect timeout/connection errors and give actionable diagnostics
     if (error instanceof Error) {
       const msg = error.message.toLowerCase();
@@ -51,7 +118,7 @@ export async function POST(request: Request) {
         statusCode = 502;
       }
     }
-    
+
     return NextResponse.json(
       { error: errorMessage },
       { status: statusCode }

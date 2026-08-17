@@ -17,6 +17,7 @@ Provides precise and reliable OpenAI API performance testing solutions for AI ap
 - 📤 **Data Import & Export**: Export rankings as JSON or save test reports as PNG images with one click; import JSON data back to merge results.
 - 🔗 **Quick Start via URL**: Pre-fill the test form with `baseUrl`, `apiKey` and `modelId` URL parameters, or generate a shareable auto-test link — no manual form filling required.
 - 🖥️ **LAN / Private API Support**: Direct browser-side streaming to local or intranet endpoints, bypassing server-side proxy restrictions.
+- ☁️ **Cloudflare Protection Bypass**: Automatically detect Cloudflare challenge pages when fetching model lists. Integrated manual verification dialog with embedded panel and popup window support — complete the challenge once, then model listing switches to browser-direct fetch.
 - 🌐 **Bilingual & Local-First**: Full Chinese and English UI, no backend database required — all test results are stored in your browser's localStorage.
 
 ## Comparison with the Original
@@ -38,6 +39,7 @@ LM Speed X is a fork of the original [nexmoe/lm-speed](https://github.com/nexmoe
 | Report export as PNG image | — | ✅ |
 | Shareable quick-test link | — | ✅ |
 | LAN / private API direct testing | — | ✅ |
+| Cloudflare challenge manual bypass | — | ✅ |
 | Database dependency | Requires a database | **None** — single-page deployment, more lightweight |
 | Changelog page | — | ✅ |
 

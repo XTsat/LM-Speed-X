@@ -403,6 +403,11 @@
         "storageLimit": "测试结果存储新增容量上限（最多保留 500 条），超出自动淘汰最旧记录",
         "stabilityFixes": "稳定性修复：本地/内网 API 浏览器直连、流式结果丢失、排行榜崩溃、导入数据膨胀等问题"
       },
+      "v0_8_0": {
+        "cloudflareBypass": "新增 Cloudflare 人机验证手动绕过功能",
+        "cfDetect": "自动检测 Cloudflare 挑战拦截并弹窗引导手动验证",
+        "cfManualVerify": "支持内嵌面板 / 新窗口两种方式完成 Cloudflare 验证，验证后自动切换浏览器直连获取模型列表"
+      },
       "v0_7_3": {
         "visionVerify": "连通性检测新增图片识别验证",
         "verifyVision": "图片识别验证：向模型发送红色圆圈内嵌图片，检验其是否具备图像理解能力"
@@ -463,5 +468,17 @@
         "exportModelIds": "连通性检测：一键批量导出可用模型 ID（逗号分隔）到剪贴板"
       }
     }
+  },
+  "CloudflareBypass": {
+    "title": "Cloudflare 人机验证",
+    "description": "该 API 被 Cloudflare 人机验证拦截，无法直接获取模型列表。如果下方面板出现「Just a moment...」验证页面，请完成验证；如果页面正常显示，说明浏览器已有有效 Cookie，可直接点击下方「重试获取模型」。",
+    "iframeHint": "如果下方面板空白或无法加载，请点击「在新窗口打开」按钮完成验证。",
+    "iframeUnavailable": "内嵌页面不可用，请在新窗口中完成验证。",
+    "openInNewWindowHint": "新窗口打开后，请完成 Cloudflare 人机验证，然后关闭窗口并返回此对话框。",
+    "openInNewWindow": "在新窗口打开",
+    "retryIframe": "重试内嵌加载",
+    "verifiedAndRetry": "已完成验证，重试获取模型",
+    "cancel": "取消",
+    "note": "验证通过后，浏览器会为该域名保存 cf_clearance Cookie，之后将改用浏览器直连方式获取模型列表。若仍失败，请更换 API 或联系服务方关闭 Cloudflare 防护。"
   }
 }

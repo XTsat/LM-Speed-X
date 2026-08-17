@@ -419,6 +419,11 @@
         "storageLimit": "Added a storage cap for test results (max 500 entries); oldest results are automatically trimmed when exceeded",
         "stabilityFixes": "Stability fixes: browser-direct mode for local/private APIs, streamed result loss, ranking page crash, import data bloat, and more"
       },
+      "v0_8_0": {
+        "cloudflareBypass": "Added Cloudflare challenge manual bypass",
+        "cfDetect": "Auto-detects Cloudflare challenge interception and prompts manual verification",
+        "cfManualVerify": "Supports embedded panel / popup window for completing Cloudflare challenge; auto-switches to browser-direct model fetch after verification"
+      },
       "v0_7_3": {
         "visionVerify": "Added image recognition verification to the connectivity check",
         "verifyVision": "Sends a red circle image to the model to verify image understanding capability"
@@ -479,5 +484,17 @@
         "exportModelIds": "Connectivity check: one-click batch export of available model IDs (comma-separated) to clipboard"
       }
     }
+  },
+  "CloudflareBypass": {
+    "title": "Cloudflare Verification",
+    "description": "This API is protected by a Cloudflare challenge. If you see a \"Just a moment...\" verification page in the panel below, complete it. If the page loads normally, your browser already has a valid cookie — just click \"Retry Fetching Models\" below.",
+    "iframeHint": "If the panel below is blank or fails to load, use the \"Open in New Window\" button to complete the verification.",
+    "iframeUnavailable": "Embedded panel unavailable. Please complete verification in a new window.",
+    "openInNewWindowHint": "After opening the new window, complete the Cloudflare challenge, then close it and return to this dialog.",
+    "openInNewWindow": "Open in New Window",
+    "retryIframe": "Retry Embedded View",
+    "verifiedAndRetry": "Completed, Retry Fetching Models",
+    "cancel": "Cancel",
+    "note": "After verification, the browser stores a cf_clearance cookie for this domain. Model listing will then use direct browser fetch. If it still fails, try a different API or ask the provider to disable Cloudflare protection."
   }
 }
