@@ -9,8 +9,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/t
 import { cn } from '@/lib/utils'
 import { copyToClipboard } from '@/lib/clipboard'
 import { toast } from 'sonner'
-import { isLocalUrl, fetchModelsDirect, testConnectivityDirect, isCloudflareError } from '@/lib/browser-llm'
-import type { ValidationLevel } from '@/lib/browser-llm'
+import { isLocalUrl, fetchModelsDirect, testConnectivityDirect } from '@/lib/browser-llm'
+import { isCloudflareError } from '@/lib/cloudflare'
+import type { ValidationLevel } from '@/lib/validation'
 import { CloudflareBypassDialog } from './cloudflare-bypass-dialog'
 
 interface ModelTestResult {
@@ -33,10 +34,13 @@ export function ConnectivityCheck({
   onModelsFound,
   baseUrl,
   apiKey,
+  useBrowserDirect = false,
 }: {
   onModelsFound?: (models: { id: string; latencyMs: number | null; status?: 'ok' | 'validation_failed' | 'unreachable' }[]) => void
   baseUrl: string
   apiKey: string
+  /** Parent's "browser-direct" toggle — forces browser-side fetch/test */
+  useBrowserDirect?: boolean
 }) {
   const t = useTranslations('ConnectivityCheck')
 
@@ -83,9 +87,8 @@ export function ConnectivityCheck({
     }
     setFetchingModels(true)
     try {
-      // Browser-direct mode for local/private IPs — bypasses server proxy
-      // (also used after a successful manual Cloudflare verification)
-      if (isLocalUrl(baseUrl) || forceBrowserDirectRef.current) {
+      // Browser-direct mode for local/private IPs, Cloudflare bypass, or manual toggle
+      if (isLocalUrl(baseUrl) || forceBrowserDirectRef.current || useBrowserDirect) {
         try {
           const models = await fetchModelsDirect(
             baseUrl,
@@ -141,7 +144,7 @@ export function ConnectivityCheck({
     } finally {
       setFetchingModels(false)
     }
-  }, [baseUrl, apiKey, t])
+  }, [baseUrl, apiKey, t, useBrowserDirect])
 
   const handleCloudflareVerified = useCallback(() => {
     setCloudflareDialogOpen(false)
@@ -166,8 +169,8 @@ export function ConnectivityCheck({
     const effectiveDelay = delayMs ? Number(delayMs) : 0
 
     try {
-      // Browser-direct mode for local/private IPs — test from browser directly
-      if (isLocalUrl(baseUrl)) {
+      // Browser-direct mode for local/private IPs, Cloudflare bypass, or manual toggle
+      if (isLocalUrl(baseUrl) || forceBrowserDirectRef.current || useBrowserDirect) {
         const collectedResults: ModelTestResult[] = []
         const abortController = new AbortController()
 
@@ -281,7 +284,7 @@ export function ConnectivityCheck({
     } finally {
       setTesting(false)
     }
-  }, [baseUrl, apiKey, allModelIds, delayMs, retries, timeoutMs, onModelsFound, t])
+  }, [baseUrl, apiKey, allModelIds, delayMs, retries, timeoutMs, onModelsFound, t, useBrowserDirect])
 
   const reachableCount = results?.filter((r) => r.reachable && r.contentValid !== false).length ?? 0
   const totalCount = results?.length ?? 0

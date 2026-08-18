@@ -18,7 +18,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, SlidersHorizontal, Trash2, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
-import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat, isCloudflareError } from '@/lib/browser-llm'
+import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
+import { isCloudflareError } from '@/lib/cloudflare'
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
 import { CloudflareBypassDialog } from './cloudflare-bypass-dialog'
@@ -876,6 +877,7 @@ export function SpeedTestForm() {
 				<ConnectivityCheck
 					baseUrl={watchBaseUrl || ''}
 					apiKey={watchApiKey || ''}
+					useBrowserDirect={useBrowserDirect}
 					onModelsFound={(found) => {
 					setModels(prev => {
 						const updated = prev.map(m => {

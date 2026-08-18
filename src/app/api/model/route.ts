@@ -1,22 +1,6 @@
 import { NextResponse } from 'next/server';
 import { modelSchema } from '@/lib/schema';
-
-/** Indicator strings that appear in Cloudflare challenge / block pages */
-const CLOUDFLARE_INDICATORS = [
-  'challenges.cloudflare.com',
-  'cf_chl_',
-  'cf_clearance',
-  '__cf_chl',
-  'just a moment',
-  'enable javascript and cookies',
-];
-
-/** Detect whether a response body is a Cloudflare managed-challenge page */
-function isCloudflareBody(body: string): boolean {
-  if (!body) return false;
-  const lower = body.toLowerCase();
-  return CLOUDFLARE_INDICATORS.some((indicator) => lower.includes(indicator));
-}
+import { isCloudflareError } from '@/lib/cloudflare';
 
 /**
  * Probe an OpenAI-compatible API for the models list using a raw fetch so we
@@ -49,8 +33,8 @@ async function fetchModelsRaw(
 
     // Cloudflare challenge / bot-protection page — tell the client so it can
     // offer the manual verification dialog.
-    if (!contentType.includes('application/json') || isCloudflareBody(body) || response.status === 403) {
-      if (isCloudflareBody(body)) {
+    if (!contentType.includes('application/json') || isCloudflareError(body) || response.status === 403) {
+      if (isCloudflareError(body)) {
         return { cfUrl: url };
       }
       continue;
