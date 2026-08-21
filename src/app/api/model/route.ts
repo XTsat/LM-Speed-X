@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: `Cloudflare challenge detected at ${result.cfUrl}. Please verify manually (browser direct).`,
+          cfUrl: result.cfUrl,
         },
         { status: 403 }
       );

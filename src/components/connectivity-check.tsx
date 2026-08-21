@@ -119,11 +119,20 @@ export function ConnectivityCheck({
       })
       if (!resp.ok) {
         let errorMsg = `HTTP ${resp.status}`
+        let cfUrl: string | undefined
         try {
           const errorData = await resp.json()
           if (errorData.error) errorMsg = errorData.error
+          if (typeof errorData.cfUrl === 'string') cfUrl = errorData.cfUrl
         } catch {
           // could not parse response body
+        }
+        // Server signals a Cloudflare challenge via the structured cfUrl field —
+        // open the manual verification dialog so the user can solve it in-browser.
+        if (cfUrl) {
+          setCloudflarePendingUrl(cfUrl)
+          setCloudflareDialogOpen(true)
+          return
         }
         throw new Error(errorMsg)
       }

@@ -424,6 +424,15 @@
         "cfDetect": "Auto-detects Cloudflare challenge interception and prompts manual verification",
         "cfManualVerify": "Supports embedded panel / popup window for completing Cloudflare challenge; auto-switches to browser-direct model fetch after verification"
       },
+      "v0_8_1": {
+        "cfConnectivityFix": "Fixed the connectivity check failing to recognize Cloudflare interception when fetching the model list",
+        "sharedDetection": "Extracted shared modules for Cloudflare challenge detection and model authenticity validation"
+      },
+      "v0_8_2": {
+        "cfDialogFix": "Fixed the verification dialog not popping up when a Cloudflare challenge is detected",
+        "cfStructuredSignal": "The server now returns a structured cfUrl field; the client opens the manual verification dialog automatically upon detection",
+        "cfFallbackMatch": "Fallback error-message matching: the verification dialog still opens even when the structured field is missing"
+      },
       "v0_7_3": {
         "visionVerify": "Added image recognition verification to the connectivity check",
         "verifyVision": "Sends a red circle image to the model to verify image understanding capability"

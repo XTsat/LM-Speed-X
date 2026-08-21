@@ -18,6 +18,30 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.8.2',
+      date: '2026-08-21',
+      types: ['fix'],
+      tag: 'v0.8.2',
+      changes: [
+        {
+          text: t('entries.v0_8_2.cfDialogFix'),
+          sub: [t('entries.v0_8_2.cfStructuredSignal'), t('entries.v0_8_2.cfFallbackMatch')],
+        },
+      ],
+    },
+    {
+      version: '0.8.1',
+      date: '2026-08-19',
+      types: ['fix'],
+      tag: 'v0.8.1',
+      changes: [
+        {
+          text: t('entries.v0_8_1.cfConnectivityFix'),
+          sub: [t('entries.v0_8_1.sharedDetection')],
+        },
+      ],
+    },
+    {
       version: '0.8.0',
       date: '2026-08-17',
       types: ['feature'],

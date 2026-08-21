@@ -11,6 +11,10 @@ const CLOUDFLARE_INDICATORS = [
   '__cf_chl',
   'just a moment',
   'enable javascript and cookies',
+  // Our own server-side proxy signals a challenge with this message — match it
+  // so the manual-verification dialog still opens if the structured cfUrl
+  // field is lost (e.g. older server build behind a newer client).
+  'cloudflare challenge detected',
 ] as const
 
 /**
