@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { createTimeoutSignal } from '@/lib/timeout-signal'
 import {
   VALIDATION_CHALLENGES,
   buildProbeContent,
@@ -28,7 +29,7 @@ interface RequestBody {
   delayMs?: number
   /** Number of automatic retries on failure (0 = no retry) */
   retries?: number
-  /** Per-model timeout in ms (default 15000) */
+  /** Per-model timeout in ms (default 60000) */
   timeoutMs?: number
   /** Challenge-response validation level: 'repeat' | 'self' | 'math' | 'vision' (null = no validation) */
   validationLevel?: ValidationLevel
@@ -75,8 +76,9 @@ async function testModel(
   const probeContent = buildProbeContent(challenge)
 
   const attempt = async (stream: boolean): Promise<AttemptResult & { content?: string }> => {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    // Per-request timeout — shared logic with the browser-direct probe
+    // (lib/browser-llm.ts). No external signal in the server proxy.
+    const { signal, done } = createTimeoutSignal(undefined, timeoutMs)
     try {
       if (stream) {
         let fullContent = ''
@@ -86,7 +88,7 @@ async function testModel(
             messages: [{ role: 'user', content: probeContent }],
             stream: true,
           },
-          { signal: controller.signal as unknown as AbortSignal },
+          { signal },
         )
         // Read all content chunks to get the full response for validation
         for await (const chunk of completion) {
@@ -102,7 +104,7 @@ async function testModel(
             max_tokens: challenge ? 256 : 1,
             stream: false,
           },
-          { signal: controller.signal as unknown as AbortSignal },
+          { signal },
         )
         const hasContent =
           resp.choices?.length > 0 &&
@@ -123,7 +125,7 @@ async function testModel(
         status,
       }
     } finally {
-      clearTimeout(timer)
+      done()
     }
   }
 
@@ -263,7 +265,7 @@ export async function POST(request: Request) {
 
   const delayMs = Math.max(0, body.delayMs ?? 0)
   const maxRetries = Math.max(0, Math.min(body.retries ?? 0, 5))
-  const timeoutMs = Math.max(1000, body.timeoutMs ?? 15_000)
+  const timeoutMs = Math.max(1000, body.timeoutMs ?? 60_000)
   const validationLevel: ValidationLevel = body.validationLevel ?? null
 
   const openai = new OpenAI({

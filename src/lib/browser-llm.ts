@@ -7,6 +7,7 @@
  */
 
 import { isCloudflareError } from '@/lib/cloudflare'
+import { createTimeoutSignal } from '@/lib/timeout-signal'
 import {
   VALIDATION_CHALLENGES,
   buildProbeContent,
@@ -211,6 +212,9 @@ export async function testConnectivityDirect(
   })
 
   const probe = async (stream: boolean, abortSignal: AbortSignal): Promise<{ ok: boolean; error: string; status?: number; content?: string }> => {
+    // Per-request timeout — shared logic with the server proxy route. The
+    // request aborts when either the timeout elapses or the caller cancels.
+    const { signal: requestSignal, done } = createTimeoutSignal(abortSignal, timeoutMs)
     try {
       const resp = await fetch(`${apiBase}/chat/completions`, {
         method: 'POST',
@@ -220,7 +224,7 @@ export async function testConnectivityDirect(
           messages: [{ role: 'user', content: probeContent }],
           ...(stream ? { stream: true } : { max_tokens: challenge ? 256 : 1, stream: false }),
         }),
-        signal: abortSignal,
+        signal: requestSignal,
       })
 
       if (!resp.ok) {
@@ -266,9 +270,16 @@ export async function testConnectivityDirect(
       }
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === 'AbortError') {
+        // External cancel and per-request timeout both produce an AbortError —
+        // distinguish them so the UI reports the real cause.
+        if (abortSignal.aborted) {
+          return { ok: false, error: 'Cancelled' }
+        }
         return { ok: false, error: `Request timed out after ${timeoutMs}ms` }
       }
       return { ok: false, error: e instanceof Error ? e.message : 'Unknown error' }
+    } finally {
+      done()
     }
   }
 

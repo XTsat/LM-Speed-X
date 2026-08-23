@@ -27,7 +27,7 @@ interface ModelTestResult {
 // When the model list exceeds this many models, auto-apply a request interval to
 // avoid slamming the server with too many concurrent probes. The user can still
 // override it manually (e.g. set it to 0 for parallel testing).
-const AUTO_DELAY_THRESHOLD = 100
+const AUTO_DELAY_THRESHOLD = 20
 const AUTO_DELAY_MS = 500
 
 export function ConnectivityCheck({
@@ -173,7 +173,7 @@ export function ConnectivityCheck({
     setTesting(true)
     setResults([])
 
-    const effectiveTimeout = timeoutMs ? Number(timeoutMs) : 15000
+    const effectiveTimeout = timeoutMs ? Number(timeoutMs) : 60_000
     const effectiveRetries = retries ? Number(retries) : 0
     const effectiveDelay = delayMs ? Number(delayMs) : 0
 
@@ -550,7 +550,7 @@ export function ConnectivityCheck({
               </label>
               <Input
                 type="number"
-                placeholder="15000"
+                placeholder="60000"
                 value={timeoutMs}
                 onChange={(e) => setTimeoutMs(e.target.value)}
                 disabled={testing}

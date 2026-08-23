@@ -417,6 +417,11 @@
         "cfStructuredSignal": "服务端返回结构化 cfUrl 字段，客户端识别后自动打开人机验证对话框",
         "cfFallbackMatch": "错误消息兜底匹配：即使缺少结构化字段也能触发验证弹窗"
       },
+      "v0_8_3": {
+        "connectivityCheck": "连通性检测优化",
+        "autoDelayThresholdLowered": "自动延迟阈值从 100 降至 20 个模型，避免触发接口限速",
+        "defaultTimeout60s": "设置默认超时 60 秒，避免单个模型检测过久阻塞后续所有检测"
+      },
       "v0_7_3": {
         "visionVerify": "连通性检测新增图片识别验证",
         "verifyVision": "图片识别验证：向模型发送红色圆圈内嵌图片，检验其是否具备图像理解能力"

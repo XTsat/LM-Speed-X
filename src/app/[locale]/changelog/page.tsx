@@ -18,6 +18,18 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.8.3',
+      date: '2026-08-23',
+      types: ['improvement'],
+      tag: 'v0.8.3',
+      changes: [
+        {
+          text: t('entries.v0_8_3.connectivityCheck'),
+          sub: [t('entries.v0_8_3.autoDelayThresholdLowered'), t('entries.v0_8_3.defaultTimeout60s')],
+        },
+      ],
+    },
+    {
       version: '0.8.2',
       date: '2026-08-21',
       types: ['fix'],

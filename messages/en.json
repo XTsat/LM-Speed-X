@@ -433,6 +433,11 @@
         "cfStructuredSignal": "The server now returns a structured cfUrl field; the client opens the manual verification dialog automatically upon detection",
         "cfFallbackMatch": "Fallback error-message matching: the verification dialog still opens even when the structured field is missing"
       },
+      "v0_8_3": {
+        "connectivityCheck": "Connectivity check improvements",
+        "autoDelayThresholdLowered": "Lowered the auto-delay threshold from 100 to 20 models to avoid hitting API rate limits",
+        "defaultTimeout60s": "Added a 60-second default timeout so a single slow model no longer blocks all subsequent checks"
+      },
       "v0_7_3": {
         "visionVerify": "Added image recognition verification to the connectivity check",
         "verifyVision": "Sends a red circle image to the model to verify image understanding capability"
