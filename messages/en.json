@@ -28,7 +28,11 @@
     "rank": "Ranking",
     "changelog": "Changelog",
     "feedback": "Feedback",
-    "nav": "Navigation"
+    "nav": "Navigation",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark"
   },
   "HomePage": {
     "about": "Go to About page",
@@ -178,6 +182,12 @@
     }
   },
   "SpeedTest": {
+    "errors": {
+      "baseUrlRequired": "Please enter a Base URL",
+      "baseUrlInvalid": "Please enter a valid URL",
+      "apiKeyRequired": "API Key is required",
+      "modelIdRequired": "Please select or enter a Model ID"
+    },
     "form": {
       "apiKey": {
         "label": "API Key",
@@ -202,6 +212,7 @@
       "configCopied": "Config copied to clipboard",
       "configImported": "Config imported",
       "configImportError": "Failed to import config, please check format",
+      "configRequired": "Please complete the configuration first: Base URL, API Key and Model ID",
       "linkCopied": "Link copied to clipboard",
       "linkCopiedAutoTest": "Auto-test link copied to clipboard (next click will generate a plain link instead)",
       "linkCopiedNormal": "Plain link copied to clipboard (next click will generate an auto-test link)",
@@ -437,6 +448,14 @@
         "connectivityCheck": "Connectivity check improvements",
         "autoDelayThresholdLowered": "Lowered the auto-delay threshold from 100 to 20 models to avoid hitting API rate limits",
         "defaultTimeout60s": "Added a 60-second default timeout so a single slow model no longer blocks all subsequent checks"
+      },
+      "v0_9_0": {
+        "darkMode": "Dark mode support",
+        "themeToggle": "Theme switcher in the header — Light / Dark / Follow system",
+        "followSystem": "Follows your system appearance by default",
+        "configValidation": "Config validation improvements for test buttons",
+        "jumpToConfig": "All three test buttons: clicking without config jumps to the form and highlights the missing fields",
+        "localizedErrors": "Validation error messages are now fully localized (Chinese/English)"
       },
       "v0_7_3": {
         "visionVerify": "Added image recognition verification to the connectivity check",

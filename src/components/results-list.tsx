@@ -39,7 +39,7 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle }
                 ? "bg-gray-100"
                 : "cursor-pointer " + (
                     result.status === "running"
-                      ? "bg-blue-50"
+                      ? "bg-blue-50 dark:bg-blue-500/15"
                       : "bg-gray-200"
                   )
             }`}
@@ -117,7 +117,7 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle }
 
             <div
               id={`content-${index}`}
-              className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${
+              className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${
                 expandedIndex === index ? "block" : "hidden"
               }`}
             >

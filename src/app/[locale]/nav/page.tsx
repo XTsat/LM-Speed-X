@@ -84,7 +84,7 @@ export default function NavPage() {
 
       {loading && (
         <div className="flex justify-center">
-          <div className="bg-white shadow overflow-hidden rounded-lg p-4 text-center text-gray-500">
+          <div className="bg-white dark:bg-gray-100 shadow overflow-hidden rounded-lg p-4 text-center text-gray-500">
             {t('loading')}
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function NavPage() {
                       href={providerInfo.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 transition-colors"
+                      className="text-blue-600 hover:text-blue-800 transition-colors dark:text-blue-400 dark:hover:text-blue-300"
                     >
                       {providerInfo.url}
                     </a>

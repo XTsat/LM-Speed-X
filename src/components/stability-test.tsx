@@ -107,7 +107,8 @@ const tRank = useTranslations('rank')
     setModelId(liveModelId)
 
     if (!liveBaseUrl || !liveApiKey || !liveModelId) {
-      toast.error(t('errors.noConfig'))
+      // 通知上方的速度测试表单：跳回配置区并让缺失的输入框显示错误提示
+      window.dispatchEvent(new CustomEvent('lm-speed-config-required'))
       return
     }
 
@@ -362,7 +363,7 @@ const tRank = useTranslations('rank')
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={t('prompt.placeholder')}
               rows={3}
-              className="w-full p-2 border-2 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full p-2 border-2 rounded-md bg-white dark:bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 
@@ -379,14 +380,14 @@ const tRank = useTranslations('rank')
 
           {/* Connection info (read-only) */}
           {(baseUrl || modelId) && (
-            <div className="text-xs text-gray-400 space-y-1 p-3 bg-white rounded-md border border-gray-200">
+            <div className="text-xs text-gray-400 space-y-1 p-3 bg-white dark:bg-gray-100 rounded-md border border-gray-200">
               <p><span className="text-gray-500">{t('connection.baseUrl')}:</span> <span className="text-gray-700">{baseUrl || '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.apiKey')}:</span> <span className="text-gray-700">{apiKey ? '••••••' + apiKey.slice(-4) : '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.modelId')}:</span> <span className="text-gray-700">{modelId || '-'}</span></p>
             </div>
           )}
 
-          <Button type="submit" disabled={loading || !prompt.trim()} className="w-full py-2 shadow-none transition-colors">
+          <Button type="submit" disabled={loading || !prompt.trim()} className="w-full py-2 shadow-none transition-colors text-white dark:bg-[#222326] dark:hover:bg-[#2b2c2f]">
             {loading ? (
               <div className="flex items-center justify-center space-x-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -401,7 +402,7 @@ const tRank = useTranslations('rank')
       {/* ── Summary (shown on top after completion) ── */}
       {results && (
         <div className="mb-8">
-          <div id="stability-summary" className="pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
+          <div id="stability-summary" className="pin-light-gray pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
             <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
               <Activity className="w-5 h-5" />
               <span>LM Speed X {t('summary.title')}</span>
@@ -500,7 +501,7 @@ const tRank = useTranslations('rank')
                     </div>
                   </div>
 
-                  <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedIteration === r.iteration - 1 ? 'block' : 'hidden'}`}>
+                  <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${expandedIteration === r.iteration - 1 ? 'block' : 'hidden'}`}>
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
                       <button onClick={(e) => { e.stopPropagation(); if (r.content) copyToClipboard(r.content) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
@@ -534,7 +535,7 @@ const tRank = useTranslations('rank')
                   it.status === 'pending'
                     ? 'bg-gray-100 cursor-default'
                     : it.status === 'running'
-                    ? 'bg-blue-50'
+                    ? 'bg-blue-50 dark:bg-blue-500/15'
                     : 'bg-gray-200'
                 }`}
               >
@@ -587,7 +588,7 @@ const tRank = useTranslations('rank')
                     </div>
                   </div>
 
-                <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white rounded-lg ${expandedIteration === idx ? 'block' : 'hidden'}`}>
+                <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${expandedIteration === idx ? 'block' : 'hidden'}`}>
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
                     <button onClick={(e) => { e.stopPropagation(); const text = streamContents[idx]; if (text) copyToClipboard(text) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>

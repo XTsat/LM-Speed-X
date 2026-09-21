@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { ThemeProvider } from 'next-themes'
 import './globals.css'
 
 export default function RootLayout({
@@ -9,7 +10,9 @@ export default function RootLayout({
   return (
     <html suppressHydrationWarning>
       <body className="bg-gray-50">
-        {children}
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

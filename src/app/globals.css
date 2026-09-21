@@ -1,35 +1,143 @@
 @import "tailwindcss";
 
+/* 深色模式基于 <html class="dark">（由 next-themes 切换），而非系统媒体查询 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* 语义色（浅色） */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.1451 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.1451 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.1451 0 0);
+  --primary: oklch(0.1451 0 0);
+  --primary-foreground: oklch(0.9843 0 0);
+  --secondary: oklch(0.9592 0.0022 264.5348);
+  --secondary-foreground: oklch(0.1451 0 0);
+  --muted: oklch(0.9592 0.0022 264.5348);
+  --muted-foreground: oklch(0.4608 0.0268 257.4136);
+  --accent: oklch(0.9592 0.0022 264.5348);
+  --accent-foreground: oklch(0.1451 0 0);
+  --destructive: oklch(0.6016 0.2078 25.3319);
+  --destructive-foreground: oklch(0.9843 0 0);
+  --border: oklch(0.898 0.0126 255.5078);
+  --input: oklch(0.898 0.0126 255.5078);
+  --ring: oklch(0.1451 0 0);
+
+  /* gray 色阶（浅色）：与 Tailwind v4 默认值一致，保证浅色模式视觉零变化 */
+  --gray-50: oklch(98.5% 0.002 247.839);
+  --gray-100: oklch(96.7% 0.003 264.542);
+  --gray-200: oklch(92.8% 0.006 264.531);
+  --gray-300: oklch(87.2% 0.01 258.338);
+  --gray-400: oklch(70.7% 0.022 261.325);
+  --gray-500: oklch(55.1% 0.027 264.364);
+  --gray-600: oklch(44.6% 0.03 256.802);
+  --gray-700: oklch(37.3% 0.034 259.733);
+  --gray-800: oklch(27.8% 0.033 256.848);
+  --gray-900: oklch(21% 0.034 264.665);
+  --gray-950: oklch(13% 0.028 261.692);
+}
+
+.dark {
+  /* 语义色（深色） */
+  --background: oklch(0.1451 0 0);
+  --foreground: oklch(0.9843 0 0);
+  --card: oklch(0.1451 0 0);
+  --card-foreground: oklch(0.9843 0 0);
+  --popover: oklch(0.1451 0 0);
+  --popover-foreground: oklch(0.9843 0 0);
+  --primary: oklch(0.9843 0 0);
+  --primary-foreground: oklch(0.1451 0 0);
+  --secondary: oklch(0.2689 0 0);
+  --secondary-foreground: oklch(0.9843 0 0);
+  --muted: oklch(0.2689 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.2689 0 0);
+  --accent-foreground: oklch(0.9843 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.9843 0 0);
+  --border: oklch(0.2689 0 0);
+  --input: oklch(0.2689 0 0);
+  --ring: oklch(0.439 0 0);
+
+  /* gray 色阶（深色）：整体反转，让既有 gray-* 类自动适配深色模式 */
+  --gray-50: oklch(0.1451 0 0);
+  --gray-100: oklch(0.185 0 0);
+  --gray-200: oklch(0.22 0 0);
+  --gray-300: oklch(0.28 0 0);
+  --gray-400: oklch(0.4 0 0);
+  --gray-500: oklch(0.52 0 0);
+  --gray-600: oklch(0.63 0 0);
+  --gray-700: oklch(0.74 0 0);
+  --gray-800: oklch(0.83 0 0);
+  --gray-900: oklch(0.91 0 0);
+  --gray-950: oklch(0.96 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-gray-50: var(--gray-50);
+  --color-gray-100: var(--gray-100);
+  --color-gray-200: var(--gray-200);
+  --color-gray-300: var(--gray-300);
+  --color-gray-400: var(--gray-400);
+  --color-gray-500: var(--gray-500);
+  --color-gray-600: var(--gray-600);
+  --color-gray-700: var(--gray-700);
+  --color-gray-800: var(--gray-800);
+  --color-gray-900: var(--gray-900);
+  --color-gray-950: var(--gray-950);
+}
+
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.1451 0 0);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.1451 0 0);
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.1451 0 0);
-  --color-primary: oklch(0.1451 0 0);
-  --color-primary-foreground: oklch(0.9843 0 0);
-  --color-secondary: oklch(0.9592 0.0022 264.5348);
-  --color-secondary-foreground: oklch(0.1451 0 0);
-  --color-muted: oklch(0.9592 0.0022 264.5348);
-  --color-muted-foreground: oklch(0.4608 0.0268 257.4136);
-  --color-accent: oklch(0.9592 0.0022 264.5348);
-  --color-accent-foreground: oklch(0.1451 0 0);
-  --color-destructive: oklch(0.6016 0.2078 25.3319);
-  --color-destructive-foreground: oklch(0.9843 0 0);
-  --color-border: oklch(0.898 0.0126 255.5078);
-  --color-input: oklch(0.898 0.0126 255.5078);
-  --color-ring: oklch(0.1451 0 0);
-  
   --font-sans: Arial, Helvetica, sans-serif;
   --radius: 0.5rem;
+}
+
+/*
+ * 固定深色区块（如导出总结图 / FAQ 深色大卡）：无论当前主题如何，
+ * 区块内的 gray 色阶始终使用浅色取值，保证这些"刻意设计为深色"的区域
+ * 在明暗两种模式下外观一致。
+ */
+.pin-light-gray {
+  --gray-50: oklch(98.5% 0.002 247.839);
+  --gray-100: oklch(96.7% 0.003 264.542);
+  --gray-200: oklch(92.8% 0.006 264.531);
+  --gray-300: oklch(87.2% 0.01 258.338);
+  --gray-400: oklch(70.7% 0.022 261.325);
+  --gray-500: oklch(55.1% 0.027 264.364);
+  --gray-600: oklch(44.6% 0.03 256.802);
+  --gray-700: oklch(37.3% 0.034 259.733);
+  --gray-800: oklch(27.8% 0.033 256.848);
+  --gray-900: oklch(21% 0.034 264.665);
+  --gray-950: oklch(13% 0.028 261.692);
 }
 
 @layer base {
   body {
     font-family: var(--font-sans);
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    border-color: var(--color-border);
+    background-color: var(--background);
+    color: var(--foreground);
+    border-color: var(--border);
   }
 }

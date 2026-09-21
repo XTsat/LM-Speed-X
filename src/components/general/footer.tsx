@@ -9,7 +9,7 @@ export default function Footer() {
         <a
           href="https://lmspeed.net/"
           target="_blnk"
-          className="text-blue-500 hover:text-blue-600"
+          className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
         >
           LM Speed
         </a>{" "}
@@ -18,7 +18,7 @@ export default function Footer() {
           href="https://bonjour.bio/nexmoe"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-500 hover:text-blue-600"
+          className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
         >
           Nexmoe
         </a>
@@ -26,14 +26,14 @@ export default function Footer() {
           href="https://github.com/XTsat/LM-Speed-X"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-500 hover:text-blue-600"
+          className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
         >
           LM Speed X
         </a> Modified version by <a
           href="https://github.com/XTsat"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-500 hover:text-blue-600"
+          className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
         >
           XTsat
         </a>

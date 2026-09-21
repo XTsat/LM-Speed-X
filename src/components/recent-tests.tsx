@@ -56,7 +56,7 @@ export function RecentTests(params: Props) {
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white shadow overflow-hidden rounded-lg p-4 text-center text-gray-500">
+        <div className="bg-white dark:bg-gray-100 shadow overflow-hidden rounded-lg p-4 text-center text-gray-500">
           {t('loading')}
         </div>
       </div>
@@ -66,7 +66,7 @@ export function RecentTests(params: Props) {
   if (error) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-red-50 text-red-500 shadow overflow-hidden rounded-lg p-4 text-center">
+        <div className="bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400 shadow overflow-hidden rounded-lg p-4 text-center">
           {error}
         </div>
       </div>
@@ -88,7 +88,7 @@ export function RecentTests(params: Props) {
       <h2 className="w-full text-xl text-center font-semibold mb-4">
         {t("recentTests")}
       </h2>
-      <div className="bg-white shadow overflow-hidden rounded-lg">
+      <div className="bg-white dark:bg-gray-100 shadow overflow-hidden rounded-lg">
         <ul className="divide-y divide-gray-200">
           {recentTests.map((test) => {
             // 计算平均值

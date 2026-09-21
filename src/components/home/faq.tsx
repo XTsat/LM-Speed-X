@@ -21,7 +21,7 @@ export function FAQ() {
 
 	return (
 		<div className="mx-auto max-w-7xl px-6 lg:px-8 ">
-			<div className="bg-[#0B0B0B] p-16 rounded-3xl mx-auto max-w-6xl grid grid-cols-1 md:grid-cols-12 gap-8">
+			<div className="pin-light-gray bg-[#0B0B0B] p-16 rounded-3xl mx-auto max-w-6xl grid grid-cols-1 md:grid-cols-12 gap-8">
 				<div className="md:col-span-4">
 					<h2 className="text-2xl font-bold mb-2 text-white">{t('title')}</h2>
 					<p className="text-gray-400">{t('subtitle')}</p>

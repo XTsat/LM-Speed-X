@@ -1,7 +1,7 @@
 'use client'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { speedTestSchema, modelSchema, type SpeedTestInput } from '@/lib/schema'
+import { type SpeedTestInput } from '@/lib/schema'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { type SpeedTestResult } from '@/lib/types'
 import { Button } from './ui/button'
@@ -67,6 +67,36 @@ export function SpeedTestForm() {
 		'How does photosynthesis work?',
 	], [])
 
+	// 本地化的校验 schema：错误消息随当前语言（zh-CN / en）切换；
+	// 服务端 API 仍使用 lib/schema.ts 中的英文消息。
+	const speedTestSchemaLocalized = useMemo(
+		() =>
+			z.object({
+				baseUrl: z
+					.string({ error: t('errors.baseUrlRequired') })
+					.url(t('errors.baseUrlInvalid')),
+				apiKey: z
+					.string({ error: t('errors.apiKeyRequired') })
+					.min(1, t('errors.apiKeyRequired')),
+				modelId: z
+					.string({ error: t('errors.modelIdRequired') })
+					.min(1, t('errors.modelIdRequired')),
+			}),
+		[t]
+	)
+	const modelSchemaLocalized = useMemo(
+		() =>
+			z.object({
+				baseUrl: z
+					.string({ error: t('errors.baseUrlRequired') })
+					.url(t('errors.baseUrlInvalid')),
+				apiKey: z
+					.string({ error: t('errors.apiKeyRequired') })
+					.min(1, t('errors.apiKeyRequired')),
+			}),
+		[t]
+	)
+
 	const {
 		register,
 		handleSubmit,
@@ -74,9 +104,30 @@ export function SpeedTestForm() {
 		formState: { errors },
 		getValues,
 		setValue,
+		setError,
 	} = useForm<SpeedTestInput>({
-		resolver: zodResolver(speedTestSchema),
+		resolver: zodResolver(speedTestSchemaLocalized),
 	})
+
+	// 稳定性/并发测试缺配置时：跳回本表单，并让缺失的输入框显示错误提示
+	useEffect(() => {
+		const handleConfigRequired = () => {
+			const fields: Array<{ field: 'baseUrl' | 'apiKey' | 'modelId'; message: string }> = [
+				{ field: 'baseUrl', message: t('errors.baseUrlRequired') },
+				{ field: 'apiKey', message: t('errors.apiKeyRequired') },
+				{ field: 'modelId', message: t('errors.modelIdRequired') },
+			]
+			const missing = fields.filter(({ field }) => !getValues(field))
+			if (missing.length === 0) return
+			missing.forEach(({ field, message }) => {
+				setError(field, { type: 'required', message })
+			})
+			const target = document.getElementById(`speedtest-field-${missing[0].field}`)
+			target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+		}
+		window.addEventListener('lm-speed-config-required', handleConfigRequired)
+		return () => window.removeEventListener('lm-speed-config-required', handleConfigRequired)
+	}, [getValues, setError, t])
 
 	const [rememberApiKey, setRememberApiKey] = useState(true)
 	const [rememberApiKeyLoaded, setRememberApiKeyLoaded] = useState(false)
@@ -125,7 +176,7 @@ export function SpeedTestForm() {
 			if (rememberApiKey) {
 				localStorage.setItem('speedtest_apiKey', apiKey)
 			}
-			modelSchema.parse({ baseUrl, apiKey })
+			modelSchemaLocalized.parse({ baseUrl, apiKey })
 			localStorage.setItem('speedtest_baseUrl', baseUrl)
 			if (useBrowserDirect || forceBrowserDirectRef.current) {
 				try {
@@ -627,8 +678,8 @@ export function SpeedTestForm() {
 	return (
 		<div className="container mx-auto px-4 sm:px-0">
 			<div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
-				<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-					<div className="space-y-2">
+				<form onSubmit={handleSubmit(onSubmit, () => toast.error(t('form.configRequired')))} className="space-y-4">
+					<div className="space-y-2" id="speedtest-field-baseUrl">
 						<label className="text-sm text-gray-600">{t('form.baseUrl.label')}</label>
 						<div className="flex flex-row gap-2">
 							<div className="relative w-full">
@@ -732,7 +783,7 @@ export function SpeedTestForm() {
 						{errors.baseUrl && <p className="text-rose-400 text-sm">{errors.baseUrl.message}</p>}
 					</div>
 
-					<div className="space-y-2">
+					<div className="space-y-2" id="speedtest-field-apiKey">
 						<label className="text-sm text-gray-600">{t('form.apiKey.label')}</label>
 						<Input
 							{...register('apiKey')}
@@ -753,7 +804,7 @@ export function SpeedTestForm() {
 						</div>
 					</div>
 
-					<div className="space-y-2">
+					<div className="space-y-2" id="speedtest-field-modelId">
 						<label className="text-sm text-gray-600">{t('form.modelId.label')}</label>
 						<div className="flex flex-row gap-2">
 							<div className="relative w-full">
@@ -937,7 +988,7 @@ export function SpeedTestForm() {
 									value={customHeadersJson}
 									onChange={(e) => setCustomHeadersJson(e.target.value)}
 									placeholder={`{\"X-Custom-Auth\": \"your-token\"}`}
-									className="w-full h-24 p-2 text-sm font-mono border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+									className="w-full h-24 p-2 text-sm font-mono border rounded-md bg-white dark:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
 								/>
 								<p className="text-xs text-gray-400 mt-1">{t('form.customHeaders.help') || t('form.customHeaders.example')}</p>
 								</div>
@@ -1069,8 +1120,8 @@ await copyToClipboard(JSON.stringify(config, null, 2));
 
 					<Button
 						type="submit"
-						disabled={loading || models.length === 0}
-						className="w-full py-2 shadow-none transition-colors"
+						disabled={loading}
+						className="w-full py-2 shadow-none transition-colors text-white dark:bg-[#222326] dark:hover:bg-[#2b2c2f]"
 					>
 						{loading ? (
 							<div className="flex items-center justify-center space-x-2">
@@ -1100,7 +1151,7 @@ await copyToClipboard(JSON.stringify(config, null, 2));
 					</div>
 					<div id="result" className="my-8">
 						{results.every((result) => result.status === 'completed') && (
-							<div id="summary" className="mb-8 pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
+							<div id="summary" className="pin-light-gray mb-8 pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
 								<h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
 									<Zap className="w-5 h-5" />
 									<span>LM Speed X {t('results.summary.title')}</span>

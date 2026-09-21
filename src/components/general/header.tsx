@@ -2,6 +2,7 @@
 
 import { Link, usePathname } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/general/theme-toggle'
 import { useTranslations, useLocale } from 'next-intl'
 import {
 	DropdownMenu,
@@ -80,6 +81,7 @@ export default function Header() {
 								))}
 							</DropdownMenuContent>
 						</DropdownMenu>
+						<ThemeToggle />
 						<Button variant="outline" size="icon" asChild>
 							<Link href="https://github.com/XTsat/LM-Speed-X" target="_blank">
 								<GithubIcon className="h-4 w-4" />
@@ -121,6 +123,7 @@ export default function Header() {
 								))}
 							</DropdownMenuContent>
 						</DropdownMenu>
+						<ThemeToggle />
 					</div>
 				)}
 			</nav>

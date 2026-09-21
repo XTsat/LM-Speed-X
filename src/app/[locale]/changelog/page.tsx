@@ -18,6 +18,22 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.9.0',
+      date: '2026-09-22',
+      types: ['feature'],
+      tag: 'v0.9.0',
+      changes: [
+        {
+          text: t('entries.v0_9_0.darkMode'),
+          sub: [t('entries.v0_9_0.themeToggle'), t('entries.v0_9_0.followSystem')],
+        },
+        {
+          text: t('entries.v0_9_0.configValidation'),
+          sub: [t('entries.v0_9_0.jumpToConfig'), t('entries.v0_9_0.localizedErrors')],
+        },
+      ],
+    },
+    {
       version: '0.8.3',
       date: '2026-08-23',
       types: ['improvement'],
@@ -224,13 +240,13 @@ const entries: ChangelogEntry[] = [
   const typeBadge = (type: ChangelogEntry['types'][number]) => {
     switch (type) {
       case 'feature':
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{t('feature')}</Badge>
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-500/20 dark:text-green-300 dark:hover:bg-green-500/20">{t('feature')}</Badge>
       case 'improvement':
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">{t('improvement')}</Badge>
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-500/20 dark:text-blue-300 dark:hover:bg-blue-500/20">{t('improvement')}</Badge>
       case 'fix':
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">{t('fix')}</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-500/20 dark:text-yellow-300 dark:hover:bg-yellow-500/20">{t('fix')}</Badge>
       case 'original':
-        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">{t('original')}</Badge>
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-500/20 dark:text-purple-300 dark:hover:bg-purple-500/20">{t('original')}</Badge>
     }
   }
 
@@ -262,7 +278,7 @@ const entries: ChangelogEntry[] = [
                       href={`https://github.com/nexmoe/lm-speed/commit/${entry.basedOnCommit}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono text-blue-600 hover:text-blue-800 underline"
+                      className="font-mono text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300"
                     >
                       {entry.basedOnCommit.slice(0, 7)}
                     </a>
@@ -277,7 +293,7 @@ const entries: ChangelogEntry[] = [
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono text-blue-600 hover:text-blue-800 underline"
+                      className="font-mono text-blue-600 hover:text-blue-800 underline dark:text-blue-400 dark:hover:text-blue-300"
                     >
                       {t('version')} {entry.version}
                     </a>
