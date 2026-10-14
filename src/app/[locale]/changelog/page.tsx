@@ -18,6 +18,22 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.10.0',
+      date: '2026-10-14',
+      types: ['feature'],
+      tag: 'v0.10.0',
+      changes: [
+        {
+          text: t('entries.v0_10_0.pwa'),
+          sub: [
+            t('entries.v0_10_0.installable'),
+            t('entries.v0_10_0.offlineCache'),
+            t('entries.v0_10_0.apiOnlineOnly'),
+          ],
+        },
+      ],
+    },
+    {
       version: '0.9.0',
       date: '2026-09-22',
       types: ['feature'],

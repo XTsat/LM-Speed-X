@@ -457,6 +457,12 @@
         "jumpToConfig": "All three test buttons: clicking without config jumps to the form and highlights the missing fields",
         "localizedErrors": "Validation error messages are now fully localized (Chinese/English)"
       },
+      "v0_10_0": {
+        "pwa": "PWA offline support — installable and usable without a network",
+        "installable": "Install to your desktop / home screen and run in a standalone window",
+        "offlineCache": "Static assets are cached locally, so the app opens and shows past test results even when offline",
+        "apiOnlineOnly": "Speed-test and other requests always run in real time over the network, never from a stale cache"
+      },
       "v0_7_3": {
         "visionVerify": "Added image recognition verification to the connectivity check",
         "verifyVision": "Sends a red circle image to the model to verify image understanding capability"

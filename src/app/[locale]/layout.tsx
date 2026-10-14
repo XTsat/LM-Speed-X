@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { routing } from '@/i18n/routing'
 import Header from '@/components/general/header'
 import Footer from '@/components/general/footer'
+import { ServiceWorkerRegister } from '@/components/general/service-worker-register'
 
 import { Toaster } from 'sonner'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
@@ -53,13 +54,16 @@ export default async function LocaleLayout({
 	const messages = await getMessages()
 
 	return (
-		<NuqsAdapter>
-			<NextIntlClientProvider messages={messages}>
-				<Header />
-				<div className="py-32">{children}</div>
-				<Footer />
-				<Toaster richColors />
-			</NextIntlClientProvider>
-		</NuqsAdapter>
+		<>
+			<NuqsAdapter>
+				<NextIntlClientProvider messages={messages}>
+					<Header />
+					<div className="py-32">{children}</div>
+					<Footer />
+					<Toaster richColors />
+				</NextIntlClientProvider>
+			</NuqsAdapter>
+			<ServiceWorkerRegister />
+		</>
 	)
 }

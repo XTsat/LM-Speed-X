@@ -20,6 +20,7 @@ Provides precise and reliable OpenAI API performance testing solutions for AI ap
 - ☁️ **Cloudflare Protection Bypass**: Automatically detect Cloudflare challenge pages when fetching model lists. Integrated manual verification dialog with embedded panel and popup window support — complete the challenge once, then model listing switches to browser-direct fetch.
 - 🌐 **Bilingual & Local-First**: Full Chinese and English UI, no backend database required — all test results are stored in your browser's localStorage.
 - 🌗 **Dark Mode**: Theme switcher in the header (Light / Dark / Follow system) — follows your system appearance by default, or pin your preference manually.
+- 📲 **PWA Offline Support**: Install LM Speed X as an app (desktop / home screen) and keep it usable without a network — static assets are cached locally, so you can still open the app and browse past test results offline. Speed tests themselves always run in real time over the network.
 
 ## Comparison with the Original
 
@@ -42,6 +43,7 @@ LM Speed X is a fork of the original [nexmoe/lm-speed](https://github.com/nexmoe
 | LAN / private API direct testing | — | ✅ |
 | Cloudflare challenge manual bypass | — | ✅ |
 | Dark mode (light / dark / follow system) | — | ✅ |
+| PWA offline support (installable app) | — | ✅ |
 | Database dependency | Requires a database | **None** — single-page deployment, more lightweight |
 | Changelog page | — | ✅ |
 

@@ -1,6 +1,12 @@
 {
   "name": "LM Speed X",
   "short_name": "LM Speed X",
+  "description": "OpenAI-compatible API speed test, stability test, concurrency stress test and ranking — installable and usable offline.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["developer tools", "utilities"],
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
