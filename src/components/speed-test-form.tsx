@@ -23,6 +23,7 @@ import { isCloudflareError } from '@/lib/cloudflare'
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
 import { CloudflareBypassDialog } from './cloudflare-bypass-dialog'
+import { ClipboardManualDialog } from './clipboard-manual-dialog'
 
 // 生成唯一测试 ID（比 Date.now() 更安全，避免同毫秒内重复）
 function generateTestId(): string {
@@ -53,6 +54,8 @@ export function SpeedTestForm() {
 	const [useBrowserDirect, setUseBrowserDirect] = useState(false)
 	const [cloudflareDialogOpen, setCloudflareDialogOpen] = useState(false)
 	const [cloudflarePendingUrl, setCloudflarePendingUrl] = useState('')
+	// 剪贴板权限不可用时的兜底弹窗：copy=导出内容手动复制；input=手动粘贴导入
+	const [clipboardDialog, setClipboardDialog] = useState<{ mode: 'copy' | 'input'; content?: string } | null>(null)
 	const forceBrowserDirectRef = useRef(false)
 	const [commonBaseUrls, setCommonBaseUrls] = useState(() => [...COMMON_PROVIDERS])
 
@@ -270,6 +273,65 @@ export function SpeedTestForm() {
 		forceBrowserDirectRef.current = true
 		fetchModels(getValues('baseUrl'), getValues('apiKey'))
 	}
+
+	// 解析并应用导入的配置 JSON；成功返回 true，失败弹 toast 并返回 false
+	const applyImportedConfig = useCallback((text: string): boolean => {
+		try {
+			const config = JSON.parse(text)
+
+			// 支持 newapi 一键导入格式：{_type: "newapi_channel_conn", key: "sk-...", url: "http://..."}
+			if (config._type === 'newapi_channel_conn') {
+				const baseUrl = config.url
+				const apiKey = config.key
+
+				if (baseUrl) {
+					setValue('baseUrl', baseUrl, { shouldDirty: true })
+					if (!commonBaseUrls.some(url => url.id === baseUrl)) {
+						setCommonBaseUrls(prev => [...prev, { id: baseUrl, name: baseUrl }])
+					}
+				}
+				if (apiKey) setValue('apiKey', apiKey, { shouldDirty: true })
+
+				// 强制刷新UI显示
+				setConfigRefreshKey(prev => prev + 1)
+				toast.success(t('form.configImported'), {
+					description: t('form.apiKeyWarning'),
+				})
+				return true
+			}
+
+			if (config.baseUrl) {
+				setValue('baseUrl', config.baseUrl, { shouldDirty: true })
+				// 如果导入的URL不在列表中，自动添加
+				if (!commonBaseUrls.some(url => url.id === config.baseUrl)) {
+					setCommonBaseUrls(prev => [...prev, { id: config.baseUrl, name: config.baseUrl }])
+				}
+			}
+			if (config.apiKey) setValue('apiKey', config.apiKey, { shouldDirty: true })
+			if (config.modelId) {
+				setValue('modelId', config.modelId, { shouldDirty: true })
+				// 如果导入的模型ID不在列表中，自动添加
+				if (!models.some(m => m.id === config.modelId)) {
+					setModels(prev => [...prev, { id: config.modelId }])
+				}
+			}
+			if (typeof config.rememberApiKey === 'boolean') {
+				setRememberApiKey(config.rememberApiKey)
+			}
+			if (config.customHeadersJson !== undefined) {
+				setCustomHeadersJson(config.customHeadersJson)
+			}
+			// 强制刷新UI显示
+			setConfigRefreshKey(prev => prev + 1)
+			toast.success(t('form.configImported'), {
+				description: t('form.apiKeyWarning'),
+			})
+			return true
+		} catch (err) {
+			toast.error(t('form.configImportError'))
+			return false
+		}
+	}, [t, commonBaseUrls, models, setValue, setCommonBaseUrls, setModels, setRememberApiKey, setCustomHeadersJson])
 
 	const onSubmit = async (data: SpeedTestInput) => {
 		try {
@@ -1002,18 +1064,24 @@ export function SpeedTestForm() {
 							variant="outline"
 							className="flex-1"
 							onClick={async () => {
-							const config = {
-										testlink: 'https://lm-speed-x.xtsat.cc.cd/',
-										baseUrl: getValues('baseUrl'),
-										apiKey: getValues('apiKey'),
-										modelId: getValues('modelId'),
-										rememberApiKey,
-										customHeadersJson,
-									};
-await copyToClipboard(JSON.stringify(config, null, 2));
+								const config = {
+									testlink: 'https://lm-speed-x.xtsat.cc.cd/',
+									baseUrl: getValues('baseUrl'),
+									apiKey: getValues('apiKey'),
+									modelId: getValues('modelId'),
+									rememberApiKey,
+									customHeadersJson,
+								};
+								const configText = JSON.stringify(config, null, 2);
+								try {
+									await copyToClipboard(configText);
 									toast.success(t('form.configCopied'), {
 										description: t('form.apiKeyWarning'),
 									});
+								} catch {
+									// 剪贴板不可用 → 弹出窗口让用户手动复制
+									setClipboardDialog({ mode: 'copy', content: configText });
+								}
 							}}
 						>
 							<Copy className="mr-1 h-4 w-4" />
@@ -1024,60 +1092,18 @@ await copyToClipboard(JSON.stringify(config, null, 2));
 							variant="outline"
 							className="flex-1"
 						onClick={async () => {
+								let text: string
 								try {
-									const text = await navigator.clipboard.readText();
-									const config = JSON.parse(text);
-
-									// 支持 newapi 一键导入格式：{_type: "newapi_channel_conn", key: "sk-...", url: "http://..."}
-									if (config._type === 'newapi_channel_conn') {
-										const baseUrl = config.url;
-										const apiKey = config.key;
-
-										if (baseUrl) {
-											setValue('baseUrl', baseUrl, { shouldDirty: true });
-											if (!commonBaseUrls.some(url => url.id === baseUrl)) {
-												setCommonBaseUrls(prev => [...prev, { id: baseUrl, name: baseUrl }]);
-											}
-										}
-										if (apiKey) setValue('apiKey', apiKey, { shouldDirty: true });
-
-										// 强制刷新UI显示
-										setConfigRefreshKey(prev => prev + 1);
-										toast.success(t('form.configImported'), {
-											description: t('form.apiKeyWarning'),
-										});
-										return;
+									if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+										throw new Error('clipboard unavailable')
 									}
-
-									if (config.baseUrl) {
-										setValue('baseUrl', config.baseUrl, { shouldDirty: true });
-										// 如果导入的URL不在列表中，自动添加
-										if (!commonBaseUrls.some(url => url.id === config.baseUrl)) {
-											setCommonBaseUrls(prev => [...prev, { id: config.baseUrl, name: config.baseUrl }]);
-										}
-									}
-									if (config.apiKey) setValue('apiKey', config.apiKey, { shouldDirty: true });
-									if (config.modelId) {
-										setValue('modelId', config.modelId, { shouldDirty: true });
-										// 如果导入的模型ID不在列表中，自动添加
-										if (!models.some(m => m.id === config.modelId)) {
-											setModels(prev => [...prev, { id: config.modelId }]);
-										}
-									}
-									if (typeof config.rememberApiKey === 'boolean') {
-											setRememberApiKey(config.rememberApiKey);
-										}
-										if (config.customHeadersJson !== undefined) {
-											setCustomHeadersJson(config.customHeadersJson);
-										}
-										// 强制刷新UI显示
-										setConfigRefreshKey(prev => prev + 1);
-									toast.success(t('form.configImported'), {
-										description: t('form.apiKeyWarning'),
-									});
-								} catch (err) {
-									toast.error(t('form.configImportError'));
+									text = await navigator.clipboard.readText();
+								} catch {
+									// 无剪贴板读取权限 → 弹出窗口让用户手动粘贴
+									setClipboardDialog({ mode: 'input' })
+									return
 								}
+								applyImportedConfig(text)
 							}}
 						>
 							<ClipboardPaste className="mr-1 h-4 w-4" />
@@ -1287,6 +1313,18 @@ await copyToClipboard(JSON.stringify(config, null, 2));
 				onOpenChange={setCloudflareDialogOpen}
 				baseUrl={cloudflarePendingUrl}
 				onVerified={handleCloudflareVerified}
+			/>
+			<ClipboardManualDialog
+				open={!!clipboardDialog}
+				onOpenChange={(open) => {
+					if (!open) setClipboardDialog(null)
+				}}
+				mode={clipboardDialog?.mode ?? 'copy'}
+				content={clipboardDialog?.mode === 'copy' ? clipboardDialog.content : undefined}
+				onConfirm={(text) => {
+					const ok = applyImportedConfig(text)
+					if (ok) setClipboardDialog(null)
+				}}
 			/>
 		</div>
 	)

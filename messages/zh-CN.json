@@ -415,6 +415,10 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_10_2": {
+        "clipboardFallback": "导入/导出配置新增剪贴板权限检测",
+        "manualCopyPaste": "剪贴板不可用时自动弹出窗口，支持手动复制导出内容、手动粘贴导入内容"
+      },
       "v0_10_1": {
         "resultFilter": "连通性检测结果新增状态筛选",
         "filterByStatus": "支持按全部 / 成功 / 警告 / 失败筛选，默认显示全部结果",
@@ -529,5 +533,19 @@
     "verifiedAndRetry": "已完成验证，重试获取模型",
     "cancel": "取消",
     "note": "验证通过后，浏览器会为该域名保存 cf_clearance Cookie，之后将改用浏览器直连方式获取模型列表。若仍失败，请更换 API 或联系服务方关闭 Cloudflare 防护。"
+  },
+  "ClipboardManual": {
+    "copyTitle": "手动复制配置",
+    "copyDescription": "无法访问剪贴板，请选中下方内容后手动复制",
+    "copyHint": "选中文本后按 Ctrl+C（Mac 为 Cmd+C）复制到剪贴板",
+    "inputTitle": "手动粘贴配置",
+    "inputDescription": "无法读取剪贴板，请将配置内容粘贴到下方输入框",
+    "inputPlaceholder": "粘贴配置 JSON 内容…",
+    "inputHint": "支持 LM Speed X 导出配置与 NewAPI 一键导入格式",
+    "retryCopy": "重试复制",
+    "confirm": "确认",
+    "cancel": "取消",
+    "copied": "已复制到剪贴板",
+    "copyFailed": "复制失败，请手动复制"
   }
 }

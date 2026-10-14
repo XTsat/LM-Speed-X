@@ -431,6 +431,10 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_10_2": {
+        "clipboardFallback": "Clipboard permission detection for config import/export",
+        "manualCopyPaste": "When the clipboard is unavailable, a dialog opens for manual copy of exported content and manual paste of imported content"
+      },
       "v0_10_1": {
         "resultFilter": "Connectivity check results now support status filtering",
         "filterByStatus": "Filter by success / warning / failed status, or view all results — all shown by default",
@@ -545,5 +549,19 @@
     "verifiedAndRetry": "Completed, Retry Fetching Models",
     "cancel": "Cancel",
     "note": "After verification, the browser stores a cf_clearance cookie for this domain. Model listing will then use direct browser fetch. If it still fails, try a different API or ask the provider to disable Cloudflare protection."
+  },
+  "ClipboardManual": {
+    "copyTitle": "Manually Copy Config",
+    "copyDescription": "Clipboard is unavailable — select the text below and copy it manually",
+    "copyHint": "Select the text and press Ctrl+C (Cmd+C on Mac) to copy",
+    "inputTitle": "Manually Paste Config",
+    "inputDescription": "Clipboard is unavailable — paste the config into the field below",
+    "inputPlaceholder": "Paste config JSON here…",
+    "inputHint": "Supports LM Speed X exported config and the NewAPI one-click import format",
+    "retryCopy": "Retry Copy",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "copied": "Copied to clipboard",
+    "copyFailed": "Copy failed, please copy manually"
   }
 }
