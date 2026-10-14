@@ -408,6 +408,11 @@
     },
     "contentInvalid": "Invalid Response",
     "autoDelayHint": "Request interval of {delay}ms auto-added for {count} models; set to 0 to test in parallel",
+    "filterAll": "All",
+    "filterSuccess": "Success",
+    "filterWarning": "Warning",
+    "filterFailed": "Failed",
+    "noFilteredResults": "No results for the current filter",
     "copyModelIds": "Copy Model IDs",
     "modelIdsCopied": "Model IDs copied to clipboard"
   },
@@ -426,6 +431,11 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_10_1": {
+        "resultFilter": "Connectivity check results now support status filtering",
+        "filterByStatus": "Filter by success / warning / failed status, or view all results — all shown by default",
+        "copyFilteredResults": "The copy-model-IDs button now copies whatever the current filter shows"
+      },
       "v0_7_4": {
         "storageLimit": "Added a storage cap for test results (max 500 entries); oldest results are automatically trimmed when exceeded",
         "stabilityFixes": "Stability fixes: browser-direct mode for local/private APIs, streamed result loss, ranking page crash, import data bloat, and more"

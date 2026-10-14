@@ -24,6 +24,17 @@ interface ModelTestResult {
   contentValid?: boolean | null
 }
 
+// Status filter for test results. 'all' shows every result; the other buckets
+// split by status: success / warning (invalid content or tier restriction) / failed.
+type ResultFilter = 'all' | 'success' | 'warning' | 'failed'
+
+const FILTER_LABELS: Record<ResultFilter, 'filterAll' | 'filterSuccess' | 'filterWarning' | 'filterFailed'> = {
+  all: 'filterAll',
+  success: 'filterSuccess',
+  warning: 'filterWarning',
+  failed: 'filterFailed',
+}
+
 // When the model list exceeds this many models, auto-apply a request interval to
 // avoid slamming the server with too many concurrent probes. The user can still
 // override it manually (e.g. set it to 0 for parallel testing).
@@ -60,6 +71,8 @@ export function ConnectivityCheck({
   const [delayTouched, setDelayTouched] = useState(false)
   const [cloudflareDialogOpen, setCloudflareDialogOpen] = useState(false)
   const [cloudflarePendingUrl, setCloudflarePendingUrl] = useState('')
+  // Reset to the all-results view on every new run
+  const [filter, setFilter] = useState<ResultFilter>('all')
   const forceBrowserDirectRef = useRef(false)
 
   // Merge upstream models with custom IDs
@@ -172,6 +185,7 @@ export function ConnectivityCheck({
     }
     setTesting(true)
     setResults([])
+    setFilter('all')
 
     const effectiveTimeout = timeoutMs ? Number(timeoutMs) : 60_000
     const effectiveRetries = retries ? Number(retries) : 0
@@ -307,6 +321,20 @@ export function ConnectivityCheck({
     if (contentInvalid || tierRestricted) return 1
     return 2
   }
+
+  const matchesFilter = (r: ModelTestResult, f: ResultFilter): boolean => {
+    if (f === 'all') return true
+    if (f === 'success') return r.reachable && r.contentValid !== false
+    if (f === 'warning') {
+      // Boolean() coerces the optional tierRestricted flag into a strict boolean
+      return Boolean((r.reachable && r.contentValid === false) || (!r.reachable && r.tierRestricted))
+    }
+    return !r.reachable && !r.tierRestricted
+  }
+
+  // 'all' shows every result (also while testing); status filters apply to the
+  // completed run so users can focus on a single bucket.
+  const visibleResults = testing ? results : results?.filter((r) => matchesFilter(r, filter)) ?? null
 
   return (
     <div className="border border-input rounded-md">
@@ -562,9 +590,9 @@ export function ConnectivityCheck({
           </div>
 
           {/* Results grid */}
-          {results && (
+          {visibleResults && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-[400px] overflow-y-auto">
-              {results.slice().sort((a, b) => {
+              {visibleResults.slice().sort((a, b) => {
                 const rankDiff = statusRank(a) - statusRank(b)
                 if (rankDiff !== 0) return rankDiff
                 // 同组内按延迟升序（快在前）；不可达项延迟为 0，自然排在组末
@@ -642,29 +670,48 @@ export function ConnectivityCheck({
             </div>
           )}
 
-          {/* Copy model IDs button */}
-          {results && reachableCount > 0 && (
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const ids = results
-                    .filter((r) => r.reachable && r.contentValid !== false)
-                    .map((r) => r.modelId)
-                    .join(',')
-                  try {
-                    await copyToClipboard(ids)
-                    toast.success(t('modelIdsCopied'))
-                  } catch {
-                    toast.error(t('errors.copyFailed'))
-                  }
-                }}
-              >
-                <Copy className="mr-1 h-3 w-3" />
-                {t('copyModelIds')}
-              </Button>
+          {/* Empty state: the selected filter matched nothing after a finished run */}
+          {visibleResults && !testing && visibleResults.length === 0 && (
+            <p className="text-xs text-muted-foreground">{t('noFilteredResults')}</p>
+          )}
+
+          {/* Status filter (left) + copy current view (right) */}
+          {results && (
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                {(['all', 'success', 'warning', 'failed'] as const).map((f) => (
+                  <Button
+                    key={f}
+                    type="button"
+                    variant={filter === f ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    disabled={testing}
+                    onClick={() => setFilter(f)}
+                  >
+                    {t(FILTER_LABELS[f])}
+                  </Button>
+                ))}
+              </div>
+              {visibleResults && visibleResults.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const ids = visibleResults.map((r) => r.modelId).join(',')
+                    try {
+                      await copyToClipboard(ids)
+                      toast.success(t('modelIdsCopied'))
+                    } catch {
+                      toast.error(t('errors.copyFailed'))
+                    }
+                  }}
+                >
+                  <Copy className="mr-1 h-3 w-3" />
+                  {t('copyModelIds')}
+                </Button>
+              )}
             </div>
           )}
         </div>

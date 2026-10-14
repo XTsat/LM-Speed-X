@@ -392,7 +392,12 @@
     },
     "contentInvalid": "响应无效",
     "autoDelayHint": "检测到 {count} 个模型，已自动添加 {delay}ms 请求间隔；可手动改为 0 并行检测",
-    "copyModelIds": "复制可用模型 ID",
+    "filterAll": "全部",
+    "filterSuccess": "成功",
+    "filterWarning": "警告",
+    "filterFailed": "失败",
+    "noFilteredResults": "当前筛选下暂无结果",
+    "copyModelIds": "复制模型 ID",
     "modelIdsCopied": "模型 ID 已复制到剪贴板"
   },
   "Footer": {
@@ -410,6 +415,11 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_10_1": {
+        "resultFilter": "连通性检测结果新增状态筛选",
+        "filterByStatus": "支持按全部 / 成功 / 警告 / 失败筛选，默认显示全部结果",
+        "copyFilteredResults": "复制模型 ID 按钮改为复制当前筛选状态下的结果"
+      },
       "v0_7_4": {
         "storageLimit": "测试结果存储新增容量上限（最多保留 500 条），超出自动淘汰最旧记录",
         "stabilityFixes": "稳定性修复：本地/内网 API 浏览器直连、流式结果丢失、排行榜崩溃、导入数据膨胀等问题"

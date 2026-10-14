@@ -18,6 +18,21 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.10.1',
+      date: '2026-10-14',
+      types: ['feature'],
+      tag: 'v0.10.1',
+      changes: [
+        {
+          text: t('entries.v0_10_1.resultFilter'),
+          sub: [
+            t('entries.v0_10_1.filterByStatus'),
+            t('entries.v0_10_1.copyFilteredResults'),
+          ],
+        },
+      ],
+    },
+    {
       version: '0.10.0',
       date: '2026-10-14',
       types: ['feature'],
