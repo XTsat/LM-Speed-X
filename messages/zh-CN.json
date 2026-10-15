@@ -221,10 +221,6 @@
       "linkCopiedNormal": "普通链接已复制到剪贴板（再次点击将生成自动测速链接）",
       "apiKeyWarning": "⚠️ 警告：链接中包含了你的 API Key，请不要将含有 API Key 的链接分享给他人！",
       "add": "添加",
-      "customHeaders": {
-        "label": "自定义请求头",
-        "help": "JSON 格式，例如：'{'\"Header-Name\": \"value\"'}'"
-      },
       "browserDirect": {
         "label": "浏览器直连模式（本地/内网 API）",
         "description": "当 API 地址为本地或内网 IP 时自动启用，浏览器直接连接 API 绕过服务器代理"
@@ -232,7 +228,7 @@
       "currentSite": "当前站点 ({origin})",
       "customHeaders": {
         "label": "自定义请求头",
-        "help": "JSON 格式，例如：'{'\"Header-Name\": \"value\"'}'",
+        "help": "JSON 格式，例如：'{\"Header-Name\": \"value\"}'",
         "example": "JSON 格式，例如：{\"Header-Name\": \"value\"}",
         "invalid": "自定义请求头 JSON 格式错误"
       },

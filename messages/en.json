@@ -221,10 +221,6 @@
       "linkCopiedNormal": "Plain link copied to clipboard (next click will generate an auto-test link)",
       "apiKeyWarning": "⚠️ Warning: The link contains your API key. Do NOT share the link with anyone!",
       "add": "Add",
-      "customHeaders": {
-        "label": "Custom Headers",
-        "help": "JSON format, e.g.: '{'\"Header-Name\": \"value\"'}'"
-      },
       "browserDirect": {
         "label": "Browser Direct Mode (Local/Intranet API)",
         "description": "Auto-enabled when the API address is a local or intranet IP. The browser connects directly, bypassing the server proxy."
@@ -328,24 +324,8 @@
       "label": "Model",
       "all": "All Models"
     },
-    "parameterDesc": {
-      "latency": {
-        "avgLatency": "Average response time for the first token, reflecting initial response speed",
-        "maxMinLatency": "Maximum and minimum response times for the first token, showing latency variation range",
-        "title": "Latency Metrics",
-        "totalTests": "Total number of completed tests, higher values indicate more reliable data"
-      },
-      "performance": {
-        "avgTokens": "Average tokens generated per second in a single test, reflecting real-time response speed",
-        "maxMinTokens": "Maximum and minimum tokens per second observed in a single test, showing performance variation range",
-        "title": "Performance Metrics",
-        "totalAvgTokens": "Cumulative average tokens per second across all tests, reflecting long-term stable performance"
-      },
-      "title": "Parameter Description"
-    },
     "table": {
     "rank": "Ranking",
-    "changelog": "Changelog",
       "avgLatency": "Avg First Token Latency",
       "avgTokens": "Avg Tokens/s",
       "avgTotalTime": "Avg Total Time (s)",
