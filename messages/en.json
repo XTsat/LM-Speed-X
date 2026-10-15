@@ -61,6 +61,7 @@
     "submit": "Run Stability Test (est. 1000 tokens per run)",
     "running": "Running...",
     "complete": "Stability test completed",
+    "baseUrlAutoFixed": "API URL auto-fixed: {url}",
     "prompt": {
       "label": "Test Prompt",
       "placeholder": "Enter test prompt"
@@ -116,6 +117,7 @@
     "submit": "Run Concurrency Test (parallel requests, ~1000 tokens per request)",
     "running": "Running...",
     "complete": "Concurrency test completed",
+    "baseUrlAutoFixed": "API URL auto-fixed: {url}",
     "prompt": {
       "label": "Test Prompt",
       "placeholder": "Enter test prompt"
@@ -212,6 +214,7 @@
       "configCopied": "Config copied to clipboard",
       "configImported": "Config imported",
       "configImportError": "Failed to import config, please check format",
+      "baseUrlAutoFixed": "API URL auto-fixed: {url}",
       "configRequired": "Please complete the configuration first: Base URL, API Key and Model ID",
       "linkCopied": "Link copied to clipboard",
       "linkCopiedAutoTest": "Auto-test link copied to clipboard (next click will generate a plain link instead)",
@@ -431,6 +434,10 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_10_3": {
+        "autoFixApiUrl": "Automatic API URL fixing with /v1 fallback",
+        "fallbackToV1": "When the filled-in URL lacks /v1, the address is requested as-is first and /v1 is appended automatically when it fails; browser-direct and server-proxy share one logic and the corrected URL is written back to the input"
+      },
       "v0_10_2": {
         "clipboardFallback": "Clipboard permission detection for config import/export",
         "manualCopyPaste": "When the clipboard is unavailable, a dialog opens for manual copy of exported content and manual paste of imported content"

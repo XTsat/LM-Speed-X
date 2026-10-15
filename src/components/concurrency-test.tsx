@@ -138,6 +138,17 @@ const tRank = useTranslations('rank')
     return [...new Set(nums)].sort((a, b) => a - b)
   }, [])
 
+  // 失败驱动的 /v1 保底确认了修正地址时，回显给用户并同步回主表单（去重）
+  const resolvedNotifiedRef = useRef<string | null>(null)
+  const handleBaseUrlResolved = useCallback((url: string) => {
+    if (!url || resolvedNotifiedRef.current === url) return
+    resolvedNotifiedRef.current = url
+    setBaseUrl(url)
+    localStorage.setItem('speedtest_baseUrl', url)
+    window.dispatchEvent(new CustomEvent('lm-speed-base-url-resolved', { detail: url }))
+    toast.success(t('baseUrlAutoFixed', { url }))
+  }, [t])
+
   const onSubmit = useCallback(async () => {
     const liveBaseUrl = localStorage.getItem('speedtest_baseUrl') || ''
     const liveApiKey = localStorage.getItem('speedtest_apiKey') || ''
@@ -211,6 +222,7 @@ const tRank = useTranslations('rank')
                       return next
                     })
                   },
+                  onBaseUrlResolved: handleBaseUrlResolved,
                 }
               ).then(r => {
                 const ri = r.index ?? i
@@ -367,6 +379,10 @@ const response = await fetch('/api/speed/concurrency', {
               const message = JSON.parse(line)
 
               switch (message.type) {
+                case 'baseUrlResolved': {
+                  handleBaseUrlResolved(message.data.baseUrl)
+                  break
+                }
                 case 'start': {
                   totalLevels = message.data.totalLevels || levels.length
                   setProgress(0)

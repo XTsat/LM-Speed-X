@@ -1,53 +1,27 @@
 import { NextResponse } from 'next/server';
 import { modelSchema } from '@/lib/schema';
-import { isCloudflareError } from '@/lib/cloudflare';
+import { apiPathCandidates, probeModelsUrl } from '@/lib/api-path';
 
 /**
  * Probe an OpenAI-compatible API for the models list using a raw fetch so we
  * can detect Cloudflare challenge pages (which the OpenAI SDK would silently
  * turn into a generic parse error) and surface a recognizable error message.
+ * Path probing (root first, then /v1) is shared with the browser-direct path.
  */
 async function fetchModelsRaw(
   baseUrl: string,
   apiKey: string,
 ): Promise<{ models: Array<{ id: string; object?: string }> } | { cfUrl: string }> {
-  const normalized = baseUrl.replace(/\/+$/, '');
-  const attempts = [
-    { path: '', url: `${normalized}/models` },
-    { path: '/v1', url: `${normalized}/v1/models` },
-  ];
-
-  for (const { path, url } of attempts) {
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(30 * 1000),
-      });
-    } catch {
-      continue;
-    }
-
-    const body = await response.text().catch(() => '');
-    const contentType = response.headers.get('content-type') || '';
+  for (const { url } of apiPathCandidates(baseUrl)) {
+    const probe = await probeModelsUrl(url, apiKey, undefined, 30 * 1000);
 
     // Cloudflare challenge / bot-protection page — tell the client so it can
     // offer the manual verification dialog.
-    if (!contentType.includes('application/json') || isCloudflareError(body) || response.status === 403) {
-      if (isCloudflareError(body)) {
-        return { cfUrl: url };
-      }
-      continue;
+    if (probe.cfUrl) {
+      return { cfUrl: probe.cfUrl };
     }
-
-    try {
-      const data = JSON.parse(body);
-      const models = Array.isArray(data) ? data : data.data;
-      if (Array.isArray(models) && models.length > 0 && models[0]?.id) {
-        return { models: models.filter((m: { id: string }) => m && typeof m.id === 'string') };
-      }
-    } catch {
-      // not JSON — try next candidate
+    if (probe.ok && probe.models) {
+      return { models: probe.models };
     }
   }
 

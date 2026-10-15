@@ -9,6 +9,7 @@ Provides precise and reliable OpenAI API performance testing solutions for AI ap
 ## Features
 
 - ⚡ **Real-time Speed Testing**: Test any OpenAI-compatible API (DeepSeek, SiliconFlow, Tencent Cloud, etc.) with your own `baseUrl`, `apiKey` and `modelId`. Five built-in prompts run through streaming with live progress, measuring first token latency, tokens per second (TPoS) and total response time.
+- 🔧 **Automatic API URL Fixing**: if your `baseUrl` is missing the `/v1` suffix, the address is requested as-is first and `/v1` is appended automatically when it fails. Browser-direct and server-proxy modes share the same logic, and the corrected URL is written back into the input.
 - 📊 **Stability Testing**: Run configurable iterations (default 10) and get a complete statistical profile — mean, median, standard deviation, variance, min and max for latency, TPoS, output tokens and total time.
 - 🚦 **Concurrency Stress Testing**: Test with multiple concurrency levels (e.g. 1 / 5 / 10 / 20), measuring success rate, RPS, average latency, p99 latency and average TPoS per level, and automatically recommending the best-performing configuration.
 - 🛜 **Connectivity Checking**: Batch-verify model reachability before testing — including latency, retries, tier restrictions and content validity — so you can fix configuration issues upfront. Results can be filtered by status (success / warning / failed) or shown all at once (all by default), and the current filtered selection can be copied with one click.

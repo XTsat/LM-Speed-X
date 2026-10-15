@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { speedTestSchema } from '@/lib/schema';
-import OpenAI from 'openai';
+import { chatCreateWithPathFallback, makeOpenAIClient, type OpenAIProxyOptions } from '@/lib/server-llm';
 
 const TEST_PROMPTS = [
   "Explain the concept of quantum computing in simple terms.",
@@ -34,15 +34,16 @@ export async function POST(request: Request) {
         ) as Record<string, string>
       : undefined;
     
-    const openai = new OpenAI({
+    // Fail-based /v1 fallback: the client is built at the address as filled in,
+    // and only a path-type failure retries once at the /v1 alternative.
+    const proxyOpts: OpenAIProxyOptions = {
       apiKey: validatedData.apiKey,
-      baseURL: validatedData.baseUrl,
-      timeout: 60 * 1000, // 60s per-request timeout for speed tests
-      maxRetries: 1,
+      timeoutMs: 60 * 1000, // 60s per-request timeout for speed tests
       ...(safeCustomHeaders && Object.keys(safeCustomHeaders).length > 0 ? {
-        defaultHeaders: safeCustomHeaders,
+        customHeaders: safeCustomHeaders,
       } : {}),
-    });
+    };
+    let openai = makeOpenAIClient(validatedData.baseUrl, proxyOpts);
 
     // Create a TransformStream for streaming the results
     const stream = new TransformStream();
@@ -63,11 +64,23 @@ export async function POST(request: Request) {
           let totalTokens = 0;
           let content = '';
           
-          const completion = await openai.chat.completions.create({
-            model: validatedData.modelId,
-            messages: [{ role: "user", content: prompt }],
-            stream: true,
-          });
+          const create = await chatCreateWithPathFallback(openai, validatedData.baseUrl, proxyOpts, (c) =>
+            c.chat.completions.create({
+              model: validatedData.modelId,
+              messages: [{ role: "user", content: prompt }],
+              stream: true,
+            })
+          );
+          if (create.resolvedBaseUrl) {
+            // A path-type failure at the user's URL was fixed at the /v1
+            // alternative — switch the client and tell the UI to write it back.
+            openai = makeOpenAIClient(create.resolvedBaseUrl, proxyOpts);
+            await writer.write(encoder.encode(JSON.stringify({
+              type: 'baseUrlResolved',
+              data: { baseUrl: create.resolvedBaseUrl },
+            }) + '\n'));
+          }
+          const completion = create.value;
 
           // 发送开始标记
           await writer.write(encoder.encode(JSON.stringify({

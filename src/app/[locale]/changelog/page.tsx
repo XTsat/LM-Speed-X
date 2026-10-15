@@ -18,6 +18,18 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.10.3',
+      date: '2026-10-15',
+      types: ['fix'],
+      tag: 'v0.10.3',
+      changes: [
+        {
+          text: t('entries.v0_10_3.autoFixApiUrl'),
+          sub: [t('entries.v0_10_3.fallbackToV1')],
+        },
+      ],
+    },
+    {
       version: '0.10.2',
       date: '2026-10-14',
       types: ['feature'],

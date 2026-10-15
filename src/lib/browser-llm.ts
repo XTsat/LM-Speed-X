@@ -8,6 +8,7 @@
 
 import { isCloudflareError } from '@/lib/cloudflare'
 import { createTimeoutSignal } from '@/lib/timeout-signal'
+import { detectApiPath, getChatBaseUrl, getFallbackBaseUrl, isPathError, rememberChatBaseUrl } from '@/lib/api-path'
 import {
   VALIDATION_CHALLENGES,
   buildProbeContent,
@@ -38,69 +39,6 @@ export function isLocalUrl(url: string): boolean {
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
-}
-
-// ── API path detection ──
-
-/** Cache detected API path prefix per baseUrl */
-const _pathCache = new Map<string, string>()
-
-/**
- * Detect the correct API path prefix for an OpenAI-compatible API.
- * Tries /models first, falls back to /v1/models.
- * Results are cached per baseUrl for the session.
- */
-async function detectApiPath(
-  baseUrl: string,
-  apiKey: string,
-  credentials?: RequestCredentials
-): Promise<string | null> {
-  const normalized = baseUrl.replace(/\/+$/, '')
-  
-  const cached = _pathCache.get(normalized)
-  if (cached !== undefined) return cached
-  
-  const attempts = [
-    { path: '', url: `${normalized}/models` },
-    { path: '/v1', url: `${normalized}/v1/models` },
-  ]
-  
-  for (const { path, url } of attempts) {
-    let response: Response | null = null
-    try {
-      response = await fetch(url, {
-        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-        credentials,
-      })
-    } catch (e) {
-      // Chrome extensions may monkey-patch window.fetch and throw synchronously
-      if (e instanceof Error && e.name === 'TypeError' && e.message === 'Failed to fetch') {
-        throw e // Re-throw to allow fallback mechanisms in the caller to handle it properly
-      }
-      continue
-    }
-
-    if (!response?.ok) continue
-
-    try {
-      const contentType = response.headers.get('content-type') || ''
-      if (!contentType.includes('application/json')) continue
-
-      // Validate it's actually a models list
-      const text = await response.text()
-      const data = JSON.parse(text)
-      const models = Array.isArray(data) ? data : data.data
-      if (models && models.length > 0 && models[0].id) {
-        _pathCache.set(normalized, path)
-        return path
-      }
-    } catch {
-      // try next
-    }
-  }
-  
-  // All probes failed — return null so callers can fall back to /v1
-  return null
 }
 
 // ── Model listing ──
@@ -199,10 +137,16 @@ export async function testConnectivityDirect(
   retryDelayMs: number,
   signal?: AbortSignal,
   validationLevel?: ValidationLevel,
+  onBaseUrlResolved?: (url: string) => void,
 ): Promise<ConnectivityResult> {
   const normalized = baseUrl.replace(/\/+$/, '')
-  const prefix = await detectApiPath(baseUrl, apiKey) ?? (normalized.endsWith('/v1') ? '' : '/v1')
-  const apiBase = `${normalized}${prefix}`
+  // Fail-based /v1 fallback: requests go to the address as filled in first;
+  // only a path-type failure retries once at the /v1 alternative, and only a
+  // successful retry is remembered and surfaced back to the user.
+  const knownBase = getChatBaseUrl(normalized)
+  let apiBase = knownBase ?? normalized
+  let resolvedNotified = false
+  if (knownBase) onBaseUrlResolved?.(knownBase)
   const challenge = validationLevel ? VALIDATION_CHALLENGES[validationLevel] : null
   const probeContent = buildProbeContent(challenge)
 
@@ -211,12 +155,12 @@ export async function testConnectivityDirect(
     ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
   })
 
-  const probe = async (stream: boolean, abortSignal: AbortSignal): Promise<{ ok: boolean; error: string; status?: number; content?: string }> => {
+  const probe = async (stream: boolean, abortSignal: AbortSignal, base: string = apiBase): Promise<{ ok: boolean; error: string; status?: number; content?: string }> => {
     // Per-request timeout — shared logic with the server proxy route. The
     // request aborts when either the timeout elapses or the caller cancels.
     const { signal: requestSignal, done } = createTimeoutSignal(abortSignal, timeoutMs)
     try {
-      const resp = await fetch(`${apiBase}/chat/completions`, {
+      const resp = await fetch(`${base}/chat/completions`, {
         method: 'POST',
         headers: mkHeaders(),
         body: JSON.stringify({
@@ -315,7 +259,20 @@ export async function testConnectivityDirect(
       return makeResult(false, 'Cancelled', 0, 0)
     }
 
-    const streaming = await probe(true, abortSignal)
+    let streaming = await probe(true, abortSignal)
+    if (!streaming.ok && isPathError(streaming.status, streaming.error) && !resolvedNotified) {
+      // Path-type failure at the address as filled in — retry once at the /v1
+      // alternative; only a successful retry is remembered and written back.
+      const fallback = getFallbackBaseUrl(normalized)
+      const fbStreaming = await probe(true, abortSignal, fallback)
+      if (fbStreaming.ok) {
+        streaming = fbStreaming
+        apiBase = fallback
+        rememberChatBaseUrl(normalized, fallback)
+        resolvedNotified = true
+        onBaseUrlResolved?.(fallback)
+      }
+    }
     if (streaming.ok) {
       const valid = challenge ? challenge.validate(streaming.content ?? '') : null
       return makeResult(true, '', Date.now() - start, 0, valid)
@@ -404,22 +361,24 @@ export async function runBrowserStreamedChat(
       currentTokens: number
       elapsedTime: number
     }) => void
+    onBaseUrlResolved?: (url: string) => void
   },
   signal?: AbortSignal
 ): Promise<SpeedTestResult> {
   const normalized = baseUrl.replace(/\/+$/, '')
-  const detectedPrefix = await detectApiPath(baseUrl, apiKey)
-  // Fall back to /v1 (standard OpenAI path) unless baseUrl already includes it
-  const prefix = detectedPrefix ?? (normalized.endsWith('/v1') ? '' : '/v1')
-  const url = `${normalized}${prefix}/chat/completions`
+  // Fail-based /v1 fallback: the request goes to the address as filled in
+  // first; only a path-type failure retries once at the /v1 alternative, and
+  // only a successful retry is remembered and surfaced back to the user.
+  const knownBase = getChatBaseUrl(normalized)
+  let apiBase = knownBase ?? normalized
+  if (knownBase) callbacks.onBaseUrlResolved?.(knownBase)
 
   const startTime = performance.now()
   let firstTokenTime = 0
   let content = ''
 
-  let response: Response
-  try {
-    response = await fetch(url, {
+  const perform = (base: string): Promise<Response> =>
+    fetch(`${base}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -433,6 +392,10 @@ export async function runBrowserStreamedChat(
       }),
       signal,
     })
+
+  let response: Response
+  try {
+    response = await perform(apiBase)
   } catch (e) {
     const errMsg = (e as Error).message || 'Failed to fetch'
     const pageIsHttps = typeof window !== 'undefined' && window.location.protocol === 'https:'
@@ -443,16 +406,29 @@ export async function runBrowserStreamedChat(
       hint = ' — Mixed content blocked: HTTPS pages cannot fetch HTTP endpoints'
     } else if (isLocalUrl(baseUrl)) {
       hint = ' — CORS may be blocking cross-origin requests to this local address'
-    } else if (detectedPrefix === null) {
-      hint = ` — API unreachable at ${normalized} (both /models and /v1/models probes failed)`
     }
 
-    throw new Error(`Network error: ${errMsg} (${url})${hint}`)
+    throw new Error(`Network error: ${errMsg} (${apiBase})${hint}`)
   }
 
   if (!response.ok) {
+    const status = response.status
     const text = await response.text().catch(() => '')
-    throw new Error(`HTTP ${response.status}: ${text}`)
+    if (isPathError(status, text) && !knownBase) {
+      // Retry once at the /v1 alternative — only a successful retry is
+      // remembered and written back to the user (never a guess).
+      const fallback = getFallbackBaseUrl(normalized)
+      const retry = await perform(fallback).catch(() => null)
+      if (retry && retry.ok) {
+        response = retry
+        rememberChatBaseUrl(normalized, fallback)
+        callbacks.onBaseUrlResolved?.(fallback)
+      } else {
+        throw new Error(`HTTP ${status}: ${text}`)
+      }
+    } else {
+      throw new Error(`HTTP ${status}: ${text}`)
+    }
   }
 
   if (!response.body) throw new Error('No response body')

@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { copyToClipboard } from '@/lib/clipboard'
 import { toast } from 'sonner'
 import { isLocalUrl, fetchModelsDirect, testConnectivityDirect } from '@/lib/browser-llm'
+import { resolveApiBaseUrl } from '@/lib/api-path'
 import { isCloudflareError } from '@/lib/cloudflare'
 import type { ValidationLevel } from '@/lib/validation'
 import { CloudflareBypassDialog } from './cloudflare-bypass-dialog'
@@ -46,12 +47,15 @@ export function ConnectivityCheck({
   baseUrl,
   apiKey,
   useBrowserDirect = false,
+  onBaseUrlResolved,
 }: {
   onModelsFound?: (models: { id: string; latencyMs: number | null; status?: 'ok' | 'validation_failed' | 'unreachable' }[]) => void
   baseUrl: string
   apiKey: string
   /** Parent's "browser-direct" toggle — forces browser-side fetch/test */
   useBrowserDirect?: boolean
+  /** Inform the parent that the effective base URL differs from the input (e.g. /v1 appended) */
+  onBaseUrlResolved?: (url: string) => void
 }) {
   const t = useTranslations('ConnectivityCheck')
 
@@ -100,6 +104,12 @@ export function ConnectivityCheck({
     }
     setFetchingModels(true)
     try {
+      // Resolve the effective API base URL — the address as filled in is tested
+      // first, falling back to /v1 — and surface the change to the parent form.
+      const resolved = await resolveApiBaseUrl(baseUrl, apiKey)
+      if (resolved.changed) onBaseUrlResolved?.(resolved.url)
+      baseUrl = resolved.url
+
       // Browser-direct mode for local/private IPs, Cloudflare bypass, or manual toggle
       if (isLocalUrl(baseUrl) || forceBrowserDirectRef.current || useBrowserDirect) {
         try {
@@ -166,7 +176,7 @@ export function ConnectivityCheck({
     } finally {
       setFetchingModels(false)
     }
-  }, [baseUrl, apiKey, t, useBrowserDirect])
+  }, [baseUrl, apiKey, t, useBrowserDirect, onBaseUrlResolved])
 
   const handleCloudflareVerified = useCallback(() => {
     setCloudflareDialogOpen(false)
@@ -192,6 +202,9 @@ export function ConnectivityCheck({
     const effectiveDelay = delayMs ? Number(delayMs) : 0
 
     try {
+      // Fail-based /v1 fallback happens inside each probe (testConnectivityDirect
+      // or the server route) — the address as filled in is tried first, and a
+      // confirmed correction is surfaced via onBaseUrlResolved.
       // Browser-direct mode for local/private IPs, Cloudflare bypass, or manual toggle
       if (isLocalUrl(baseUrl) || forceBrowserDirectRef.current || useBrowserDirect) {
         const collectedResults: ModelTestResult[] = []
@@ -203,6 +216,7 @@ export function ConnectivityCheck({
             effectiveTimeout, effectiveRetries, effectiveDelay,
             abortController.signal,
             validationLevel,
+            onBaseUrlResolved,
           )
           collectedResults.push(result)
           setResults((prev) => {
@@ -273,6 +287,10 @@ export function ConnectivityCheck({
             if (!line.trim()) continue
             try {
               const msg = JSON.parse(line)
+              // Server confirmed a corrected base URL (fail-based /v1 fallback)
+              if (msg.baseUrlResolved) {
+                onBaseUrlResolved?.(msg.baseUrlResolved)
+              }
               if (msg.result) {
                 collectedResults.push(msg.result)
                 setResults((prev) => {
@@ -307,7 +325,7 @@ export function ConnectivityCheck({
     } finally {
       setTesting(false)
     }
-  }, [baseUrl, apiKey, allModelIds, delayMs, retries, timeoutMs, onModelsFound, t, useBrowserDirect])
+  }, [baseUrl, apiKey, allModelIds, delayMs, retries, timeoutMs, onModelsFound, t, useBrowserDirect, onBaseUrlResolved])
 
   const reachableCount = results?.filter((r) => r.reachable && r.contentValid !== false).length ?? 0
   const totalCount = results?.length ?? 0

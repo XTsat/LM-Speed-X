@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { z } from 'zod';
+import { chatCreateWithPathFallback, makeOpenAIClient, type OpenAIProxyOptions } from '@/lib/server-llm';
 
 const concurrencyTestSchema = z.object({
   baseUrl: z.string().url('Please enter a valid URL'),
@@ -104,7 +104,8 @@ function classifyContent(content: string): { valid: boolean; reason?: string } {
 
 // Run a single concurrency level (N parallel streaming requests) and emit progress via writer.
 async function runConcurrencyLevel(
-  openai: OpenAI,
+  baseUrl: string,
+  opts: OpenAIProxyOptions,
   level: number,
   modelId: string,
   prompt: string,
@@ -159,13 +160,25 @@ async function runConcurrencyLevel(
     }
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: modelId,
-        messages: [{ role: "user", content: prompt }],
-        stream: true,
-      }, {
-        signal: abortCtrl.signal,
-      });
+      // Fail-based /v1 fallback: request goes to the address as filled in, and
+      // only a path-type failure retries once at the /v1 alternative.
+      const client = makeOpenAIClient(baseUrl, opts);
+      const create = await chatCreateWithPathFallback(client, baseUrl, opts, (c) =>
+        c.chat.completions.create({
+          model: modelId,
+          messages: [{ role: "user", content: prompt }],
+          stream: true,
+        }, {
+          signal: abortCtrl.signal,
+        })
+      );
+      if (create.resolvedBaseUrl) {
+        await writer.write(encoder.encode(JSON.stringify({
+          type: 'baseUrlResolved',
+          data: { baseUrl: create.resolvedBaseUrl },
+        }) + '\n'));
+      }
+      const completion = create.value;
 
       for await (const chunk of completion) {
         if (content.length === 0) {
@@ -364,15 +377,15 @@ export async function POST(request: Request) {
         )
       : undefined;
 
-    const openai = new OpenAI({
+    // Fail-based /v1 fallback: each request builds its client at the address as
+    // filled in; a path-type failure retries once at the /v1 alternative.
+    const proxyOpts: OpenAIProxyOptions = {
       apiKey: validatedData.apiKey,
-      baseURL: validatedData.baseUrl,
-      timeout: 120 * 1000, // 120s per-request timeout for concurrency tests
-      maxRetries: 1,
+      timeoutMs: 120 * 1000, // 120s per-request timeout for concurrency tests
       ...(safeCustomHeaders && Object.keys(safeCustomHeaders).length > 0 ? {
-        defaultHeaders: safeCustomHeaders as Record<string, string>,
+        customHeaders: safeCustomHeaders as Record<string, string>,
       } : {}),
-    });
+    };
 
     // Normalize into a list of concurrency levels (sorted ascending)
     let levels: number[];
@@ -414,7 +427,8 @@ export async function POST(request: Request) {
         for (let li = 0; li < levels.length; li++) {
           const level = levels[li];
           const results = await runConcurrencyLevel(
-            openai,
+            validatedData.baseUrl,
+            proxyOpts,
             level,
             validatedData.modelId,
             validatedData.prompt,

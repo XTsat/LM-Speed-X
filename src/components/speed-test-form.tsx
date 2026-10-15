@@ -19,6 +19,7 @@ import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, S
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
+import { resolveApiBaseUrl } from '@/lib/api-path'
 import { isCloudflareError } from '@/lib/cloudflare'
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
@@ -132,6 +133,18 @@ export function SpeedTestForm() {
 		return () => window.removeEventListener('lm-speed-config-required', handleConfigRequired)
 	}, [getValues, setError, t])
 
+	// 稳定性/并发测试自动补全了 API 地址（如补上 /v1）后，回填到本表单让用户看到
+	useEffect(() => {
+		const handleBaseUrlResolved = (e: Event) => {
+			const url = (e as CustomEvent<string>).detail
+			if (typeof url === 'string' && url && getValues('baseUrl') !== url) {
+				setValue('baseUrl', url, { shouldDirty: true })
+			}
+		}
+		window.addEventListener('lm-speed-base-url-resolved', handleBaseUrlResolved)
+		return () => window.removeEventListener('lm-speed-base-url-resolved', handleBaseUrlResolved)
+	}, [getValues, setValue])
+
 	const [rememberApiKey, setRememberApiKey] = useState(true)
 	const [rememberApiKeyLoaded, setRememberApiKeyLoaded] = useState(false)
 	const [hydrated, setHydrated] = useState(false)
@@ -176,6 +189,15 @@ export function SpeedTestForm() {
 		baseUrl = baseUrl?.trim() ?? ''
 		apiKey = apiKey ?? ''
 		try {
+			// 按填入地址探测并解析最终生效的 API 地址（失败自动补全 /v1），
+			// 修正后写回表单，让用户看到实际使用的地址
+			const resolved = await resolveApiBaseUrl(baseUrl, apiKey)
+			if (resolved.changed) {
+				baseUrl = resolved.url
+				setValue('baseUrl', resolved.url, { shouldDirty: true })
+				localStorage.setItem('speedtest_baseUrl', resolved.url)
+				toast.success(t('form.baseUrlAutoFixed', { url: resolved.url }))
+			}
 			if (rememberApiKey) {
 				localStorage.setItem('speedtest_apiKey', apiKey)
 			}
@@ -333,6 +355,14 @@ export function SpeedTestForm() {
 		}
 	}, [t, commonBaseUrls, models, setValue, setCommonBaseUrls, setModels, setRememberApiKey, setCustomHeadersJson])
 
+	// 实际测试请求确认修正了 API 地址（失败驱动 /v1 保底）时，写回表单输入框并提示
+	const handleBaseUrlResolved = useCallback((url: string) => {
+		if (!url || getValues('baseUrl') === url) return
+		setValue('baseUrl', url, { shouldDirty: true })
+		localStorage.setItem('speedtest_baseUrl', url)
+		toast.success(t('form.baseUrlAutoFixed', { url }))
+	}, [getValues, setValue, t])
+
 	const onSubmit = async (data: SpeedTestInput) => {
 		try {
 			setLoading(true)
@@ -427,6 +457,7 @@ export function SpeedTestForm() {
 										return newResults
 									})
 								},
+								onBaseUrlResolved: handleBaseUrlResolved,
 							}
 						)
 
@@ -590,7 +621,10 @@ export function SpeedTestForm() {
 									})
 									setProgress(((message.data.index + 1) / TEST_PROMPTS.length) * 100)
 									break
-								case 'error':
+								case 'baseUrlResolved':
+								handleBaseUrlResolved(message.data.baseUrl)
+								break
+							case 'error':
 									throw new Error(message.error)
 								case 'complete':
 									// 保存测试结果到 localStorage
@@ -1002,6 +1036,7 @@ export function SpeedTestForm() {
 					baseUrl={watchBaseUrl || ''}
 					apiKey={watchApiKey || ''}
 					useBrowserDirect={useBrowserDirect}
+					onBaseUrlResolved={handleBaseUrlResolved}
 					onModelsFound={(found) => {
 					setModels(prev => {
 						const updated = prev.map(m => {

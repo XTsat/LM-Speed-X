@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
 import { createTimeoutSignal } from '@/lib/timeout-signal'
+import { chatCreateWithPathFallback, makeOpenAIClient, type OpenAIProxyOptions } from '@/lib/server-llm'
 import {
   VALIDATION_CHALLENGES,
   buildProbeContent,
@@ -66,14 +66,20 @@ function isTierRestricted(error: string): boolean {
  * non-streaming request with max_tokens=1.
  */
 async function testModel(
-  openai: OpenAI,
+  baseUrl: string,
+  opts: OpenAIProxyOptions,
   modelId: string,
   timeoutMs: number,
   validationLevel: ValidationLevel,
+  onResolved?: (url: string) => void,
 ): Promise<ModelTestResult> {
   const start = Date.now()
   const challenge = validationLevel ? VALIDATION_CHALLENGES[validationLevel] : null
   const probeContent = buildProbeContent(challenge)
+
+  // Fail-based /v1 fallback: the client is built at the address as filled in,
+  // and only a path-type failure retries once at the /v1 alternative.
+  let client = makeOpenAIClient(baseUrl, opts)
 
   const attempt = async (stream: boolean): Promise<AttemptResult & { content?: string }> => {
     // Per-request timeout — shared logic with the browser-direct probe
@@ -82,22 +88,30 @@ async function testModel(
     try {
       if (stream) {
         let fullContent = ''
-        const completion = await openai.chat.completions.create(
-          {
-            model: modelId,
-            messages: [{ role: 'user', content: probeContent }],
-            stream: true,
-          },
-          { signal },
+        const create = await chatCreateWithPathFallback(client, baseUrl, opts, (c) =>
+          c.chat.completions.create(
+            {
+              model: modelId,
+              messages: [{ role: 'user', content: probeContent }],
+              stream: true,
+            },
+            { signal },
+          ),
         )
+        if (create.resolvedBaseUrl) {
+          // A path-type failure at the user's URL was fixed at the /v1
+          // alternative — switch the client and tell the UI to write it back.
+          client = makeOpenAIClient(create.resolvedBaseUrl, opts)
+          onResolved?.(create.resolvedBaseUrl)
+        }
         // Read all content chunks to get the full response for validation
-        for await (const chunk of completion) {
+        for await (const chunk of create.value) {
           const delta = chunk.choices?.[0]?.delta?.content
           if (delta) fullContent += delta
         }
         return { ok: fullContent.length > 0, error: '', content: fullContent }
       } else {
-        const resp = await openai.chat.completions.create(
+        const resp = await client.chat.completions.create(
           {
             model: modelId,
             messages: [{ role: 'user', content: probeContent }],
@@ -196,12 +210,14 @@ async function testModel(
 }
 
 async function testModelWithRetry(
-  openai: OpenAI,
+  baseUrl: string,
+  opts: OpenAIProxyOptions,
   modelId: string,
   maxRetries: number,
   delayMs: number,
   timeoutMs: number,
   validationLevel: ValidationLevel,
+  onResolved?: (url: string) => void,
 ): Promise<ModelTestResult> {
   let lastResult: ModelTestResult = {
     modelId,
@@ -214,7 +230,7 @@ async function testModelWithRetry(
   const retryInterval = Math.max(500, delayMs)
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const result = await testModel(openai, modelId, timeoutMs, validationLevel)
+    const result = await testModel(baseUrl, opts, modelId, timeoutMs, validationLevel, onResolved)
     if (result.reachable) {
       return { ...result, retries: attempt }
     }
@@ -268,12 +284,12 @@ export async function POST(request: Request) {
   const timeoutMs = Math.max(1000, body.timeoutMs ?? 60_000)
   const validationLevel: ValidationLevel = body.validationLevel ?? null
 
-  const openai = new OpenAI({
+  // Fail-based /v1 fallback: each model test builds its client at the address
+  // as filled in; a path-type failure retries once at the /v1 alternative.
+  const proxyOpts: OpenAIProxyOptions = {
     apiKey: body.apiKey,
-    baseURL: body.baseUrl,
-    timeout: timeoutMs,
-    maxRetries: 0,
-  })
+    timeoutMs,
+  }
 
   const total = body.modelIds.length
 
@@ -281,12 +297,21 @@ export async function POST(request: Request) {
     async start(controller) {
       const writer = createWriter(controller)
       let completed = 0
+      let resolvedEmitted = false
+
+      // Tell the client once when a corrected base URL was confirmed, so it
+      // can write the address back into the input.
+      const onResolved = (url: string) => {
+        if (resolvedEmitted) return
+        resolvedEmitted = true
+        writer.enqueue(JSON.stringify({ baseUrlResolved: url }) + '\n')
+      }
 
       try {
         if (delayMs > 0) {
           // Sequential with delay — stream each result as it completes
           for (const id of body.modelIds) {
-            const result = await testModelWithRetry(openai, id, maxRetries, delayMs, timeoutMs, validationLevel)
+            const result = await testModelWithRetry(body.baseUrl, proxyOpts, id, maxRetries, delayMs, timeoutMs, validationLevel, onResolved)
             completed++
             const done = completed >= total
             sendResult(controller, writer, result, done, total, completed)
@@ -297,7 +322,7 @@ export async function POST(request: Request) {
         } else {
           // Parallel — stream each result as it settles
           const promises = body.modelIds.map(async (id) => {
-            const result = await testModelWithRetry(openai, id, maxRetries, delayMs, timeoutMs, validationLevel)
+            const result = await testModelWithRetry(body.baseUrl, proxyOpts, id, maxRetries, delayMs, timeoutMs, validationLevel, onResolved)
             completed++
             const done = completed >= total
             sendResult(controller, writer, result, done, total, completed)
