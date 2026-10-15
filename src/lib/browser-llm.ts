@@ -8,7 +8,7 @@
 
 import { isCloudflareError } from '@/lib/cloudflare'
 import { createTimeoutSignal } from '@/lib/timeout-signal'
-import { detectApiPath, getChatBaseUrl, getFallbackBaseUrl, isPathError, rememberChatBaseUrl } from '@/lib/api-path'
+import { detectApiPath, getChatBaseUrl, getFallbackBaseUrl, isPathError, normalizeApiBaseUrl, rememberChatBaseUrl } from '@/lib/api-path'
 import {
   VALIDATION_CHALLENGES,
   buildProbeContent,
@@ -139,7 +139,7 @@ export async function testConnectivityDirect(
   validationLevel?: ValidationLevel,
   onBaseUrlResolved?: (url: string) => void,
 ): Promise<ConnectivityResult> {
-  const normalized = baseUrl.replace(/\/+$/, '')
+  const normalized = normalizeApiBaseUrl(baseUrl)
   // Fail-based /v1 fallback: requests go to the address as filled in first;
   // only a path-type failure retries once at the /v1 alternative, and only a
   // successful retry is remembered and surfaced back to the user.
@@ -365,7 +365,7 @@ export async function runBrowserStreamedChat(
   },
   signal?: AbortSignal
 ): Promise<SpeedTestResult> {
-  const normalized = baseUrl.replace(/\/+$/, '')
+  const normalized = normalizeApiBaseUrl(baseUrl)
   // Fail-based /v1 fallback: the request goes to the address as filled in
   // first; only a path-type failure retries once at the /v1 alternative, and
   // only a successful retry is remembered and surfaced back to the user.

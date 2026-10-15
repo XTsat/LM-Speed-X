@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { chatCreateWithPathFallback, makeOpenAIClient, type OpenAIProxyOptions } from '@/lib/server-llm';
+import { normalizeApiBaseUrl } from '@/lib/api-path';
 
 const concurrencyTestSchema = z.object({
-  baseUrl: z.string().url('Please enter a valid URL'),
+  baseUrl: z.string().transform((v) => normalizeApiBaseUrl(v)).pipe(z.string().url('Please enter a valid URL')),
   apiKey: z.string().min(1, 'API Key is required'),
   modelId: z.string().min(1, 'Model ID is required'),
   prompt: z.string().min(1, 'Prompt is required'),

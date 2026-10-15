@@ -19,7 +19,7 @@ import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, S
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
-import { resolveApiBaseUrl } from '@/lib/api-path'
+import { normalizeApiBaseUrl, resolveApiBaseUrl } from '@/lib/api-path'
 import { isCloudflareError } from '@/lib/cloudflare'
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
@@ -188,6 +188,14 @@ export function SpeedTestForm() {
 		setIsFechingModel(true)
 		baseUrl = baseUrl?.trim() ?? ''
 		apiKey = apiKey ?? ''
+		// 输入归一化：无协议补全 http(s)、剥离粘贴的完整端点；修正后回填输入框
+		const normalizedInput = normalizeApiBaseUrl(baseUrl)
+		if (normalizedInput !== baseUrl) {
+			baseUrl = normalizedInput
+			setValue('baseUrl', normalizedInput, { shouldDirty: true })
+			localStorage.setItem('speedtest_baseUrl', normalizedInput)
+			toast.success(t('form.baseUrlAutoFixed', { url: normalizedInput }))
+		}
 		try {
 			// 按填入地址探测并解析最终生效的 API 地址（失败自动补全 /v1），
 			// 修正后写回表单，让用户看到实际使用的地址
@@ -323,7 +331,7 @@ export function SpeedTestForm() {
 			}
 
 			if (config.baseUrl) {
-				setValue('baseUrl', config.baseUrl, { shouldDirty: true })
+				setValue('baseUrl', normalizeApiBaseUrl(config.baseUrl), { shouldDirty: true })
 				// 如果导入的URL不在列表中，自动添加
 				if (!commonBaseUrls.some(url => url.id === config.baseUrl)) {
 					setCommonBaseUrls(prev => [...prev, { id: config.baseUrl, name: config.baseUrl }])
@@ -383,6 +391,13 @@ export function SpeedTestForm() {
 			setProgress(0)
 			setStreamContents({})
 		data.baseUrl = data.baseUrl.trim()
+		// 输入归一化：无协议补全 http(s)、剥离完整端点；与输入框不一致时回填显示
+		const rawBaseUrl = getValues('baseUrl')
+		if (data.baseUrl !== rawBaseUrl) {
+			setValue('baseUrl', data.baseUrl, { shouldDirty: true })
+			localStorage.setItem('speedtest_baseUrl', data.baseUrl)
+			toast.success(t('form.baseUrlAutoFixed', { url: data.baseUrl }))
+		}
 		localStorage.setItem('speedtest_baseUrl', data.baseUrl)
 		localStorage.setItem('speedtest_modelId', data.modelId)
 		if (rememberApiKey) {
@@ -706,9 +721,9 @@ export function SpeedTestForm() {
 		const urlParams = getUrlParams();
 		
 		if (urlParams.baseUrl) {
-			setValue('baseUrl', urlParams.baseUrl);
+			setValue('baseUrl', normalizeApiBaseUrl(urlParams.baseUrl));
 		} else if (savedBaseUrl) {
-			setValue('baseUrl', savedBaseUrl);
+			setValue('baseUrl', normalizeApiBaseUrl(savedBaseUrl));
 		}
 		
 		if (urlParams.modelId) {
@@ -807,7 +822,7 @@ export function SpeedTestForm() {
 														if (e.key === 'Enter') {
 															e.preventDefault()
 															e.stopPropagation()
-															const customUrl = baseUrlSearch.trim()
+															const customUrl = normalizeApiBaseUrl(baseUrlSearch.trim())
 															if (customUrl) {
 																if (!commonBaseUrls.some(url => url.id === customUrl)) {
 																	setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])

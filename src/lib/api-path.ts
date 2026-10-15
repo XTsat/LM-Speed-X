@@ -34,7 +34,7 @@ export interface ModelsProbe {
 
 /** Candidate URLs to probe, in preference order */
 export function apiPathCandidates(baseUrl: string): Array<{ path: string; url: string }> {
-  const normalized = baseUrl.replace(/\/+$/, '')
+  const normalized = normalizeApiBaseUrl(baseUrl)
   if (normalized.endsWith('/v1')) {
     return [{ path: '', url: `${normalized}/models` }]
   }
@@ -117,7 +117,7 @@ export async function detectApiPath(
   credentials?: RequestCredentials,
   timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
 ): Promise<string | null> {
-  const normalized = baseUrl.replace(/\/+$/, '')
+  const normalized = normalizeApiBaseUrl(baseUrl)
   const cached = _pathCache.get(normalized)
   if (cached !== undefined) return cached
 
@@ -151,7 +151,7 @@ export async function resolveApiBaseUrl(
   credentials?: RequestCredentials,
   timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
 ): Promise<ResolvedApiBase> {
-  const normalized = baseUrl.replace(/\/+$/, '')
+  const normalized = normalizeApiBaseUrl(baseUrl)
   const prefix = await detectApiPath(normalized, apiKey, credentials, timeoutMs)
   const url =
     prefix === null
@@ -170,9 +170,48 @@ export async function resolveApiBaseUrl(
 // succeeds, and callers surface it back to the user (write-back into the
 // input) — a correct user URL is never "fixed" by a guess.
 
-/** Trim trailing slashes — the only neutral normalization applied to user input */
+/**
+ * Normalize a base URL: trim trailing slashes and strip a pasted full
+ * endpoint (e.g. https://x/v1/chat/completions → https://x/v1).
+ */
 export function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, '')
+  return baseUrl
+    .replace(/\/+$/, '')
+    .replace(/\/chat\/completions$/i, '')
+    .replace(/\/models$/i, '')
+}
+
+/**
+ * Prepend a scheme when missing — http:// for private / CGNAT hosts
+ * (localhost, RFC1918, 100.64.0.0/10), https:// otherwise. Pure string logic.
+ */
+export function normalizeScheme(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed) return trimmed
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed
+  let host = ''
+  try {
+    host = new URL(`http://${trimmed}`).hostname
+  } catch {
+    host = trimmed.split(/[/:]/)[0] ?? ''
+  }
+  const octets = host.split('.')
+  const first = octets[0] ?? ''
+  const second = Number(octets[1])
+  const privateHost =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host.startsWith('192.168.') ||
+    host.startsWith('10.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    (first === '100' && !Number.isNaN(second) && second >= 64 && second <= 127) // CGNAT 100.64.0.0/10
+  return `${privateHost ? 'http' : 'https'}://${trimmed}`
+}
+
+/** One-shot input cleanup: scheme completion + trailing slashes + endpoint stripping */
+export function normalizeApiBaseUrl(baseUrl: string): string {
+  return normalizeScheme(normalizeBaseUrl(baseUrl))
 }
 
 /**
@@ -180,7 +219,7 @@ export function normalizeBaseUrl(baseUrl: string): string {
  * append /v1 when missing, strip /v1 when present. Pure string logic.
  */
 export function getFallbackBaseUrl(baseUrl: string): string {
-  const normalized = normalizeBaseUrl(baseUrl)
+  const normalized = normalizeApiBaseUrl(baseUrl)
   if (normalized.endsWith('/v1') && normalized.length > 4) {
     return normalized.slice(0, -3)
   }
@@ -204,11 +243,11 @@ const _chatBaseCache = new Map<string, string>()
 
 /** Cached chat-confirmed base URL (from a previous successful fallback), if any */
 export function getChatBaseUrl(baseUrl: string): string | null {
-  const url = _chatBaseCache.get(normalizeBaseUrl(baseUrl))
+  const url = _chatBaseCache.get(normalizeApiBaseUrl(baseUrl))
   return url === undefined ? null : url
 }
 
 /** Remember that chat requests succeeded at `resolvedUrl` for this input */
 export function rememberChatBaseUrl(baseUrl: string, resolvedUrl: string): void {
-  _chatBaseCache.set(normalizeBaseUrl(baseUrl), normalizeBaseUrl(resolvedUrl))
+  _chatBaseCache.set(normalizeApiBaseUrl(baseUrl), normalizeApiBaseUrl(resolvedUrl))
 }

@@ -20,9 +20,13 @@ const entries: ChangelogEntry[] = [
     {
       version: '0.10.3',
       date: '2026-10-15',
-      types: ['fix'],
+      types: ['improvement', 'fix'],
       tag: 'v0.10.3',
       changes: [
+        {
+          text: t('entries.v0_10_3.autoFixUrlInput'),
+          sub: [t('entries.v0_10_3.schemeEndpoint')],
+        },
         {
           text: t('entries.v0_10_3.autoFixApiUrl'),
           sub: [t('entries.v0_10_3.fallbackToV1')],

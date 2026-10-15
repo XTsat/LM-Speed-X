@@ -11,7 +11,7 @@ import {
   getChatBaseUrl,
   getFallbackBaseUrl,
   isPathError,
-  normalizeBaseUrl,
+  normalizeApiBaseUrl,
   rememberChatBaseUrl,
 } from '@/lib/api-path'
 
@@ -27,7 +27,7 @@ export interface OpenAIProxyOptions {
  * reused so subsequent runs don't repeat the failed first attempt.
  */
 export function makeOpenAIClient(baseUrl: string, opts: OpenAIProxyOptions): OpenAI {
-  const normalized = normalizeBaseUrl(baseUrl)
+  const normalized = normalizeApiBaseUrl(baseUrl)
   const baseURL = getChatBaseUrl(normalized) ?? normalized
   return new OpenAI({
     apiKey: opts.apiKey,

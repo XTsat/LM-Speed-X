@@ -435,6 +435,8 @@
     "noDetails": "No details available",
     "entries": {
       "v0_10_3": {
+        "autoFixUrlInput": "Automatic normalization of API URL input",
+        "schemeEndpoint": "Scheme-less addresses get http(s) auto-completed (http for private/CGNAT hosts); pasted full endpoints (/chat/completions, /models) are stripped back to the base address",
         "autoFixApiUrl": "Automatic API URL fixing with /v1 fallback",
         "fallbackToV1": "When the filled-in URL lacks /v1, the address is requested as-is first and /v1 is appended automatically when it fails; browser-direct and server-proxy share one logic and the corrected URL is written back to the input"
       },
