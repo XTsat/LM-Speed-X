@@ -18,6 +18,18 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.10.6',
+      date: '2026-10-17',
+      types: ['improvement'],
+      tag: 'v0.10.6',
+      changes: [
+        {
+          text: t('entries.v0_10_6.removeInstallButton'),
+          sub: [t('entries.v0_10_6.removeInstallButtonDetail')],
+        },
+      ],
+    },
+    {
       version: '0.10.5',
       date: '2026-10-17',
       types: ['fix', 'improvement'],

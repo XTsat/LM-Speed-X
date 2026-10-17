@@ -3,7 +3,6 @@
 import { Link, usePathname } from '@/i18n/routing'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/general/theme-toggle'
-import { InstallPrompt } from '@/components/general/install-prompt'
 import { useTranslations, useLocale } from 'next-intl'
 import {
 	DropdownMenu,
@@ -66,7 +65,6 @@ export default function Header() {
 								<Link href={item.path}>{item.label}</Link>
 							</Button>
 						))}
-						<InstallPrompt />
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button variant="ghost" size="icon">
@@ -108,7 +106,6 @@ export default function Header() {
 								<Link href={item.path}>{item.label}</Link>
 							</Button>
 						))}
-						<InstallPrompt className="w-full justify-start" size="default" />
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button variant="ghost" size="icon" className="w-full justify-start">

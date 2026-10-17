@@ -32,19 +32,7 @@
     "theme": "Theme",
     "themeSystem": "System",
     "themeLight": "Light",
-    "themeDark": "Dark",
-    "install": "Install app",
-    "installInsecure": "This page is served over HTTP, so the browser won't offer an install entry and PWA offline caching can't be enabled. Open it over HTTPS to install.",
-    "installManual": "The browser hasn't shown an install entry yet. Here's how to install it:",
-    "installBrowserReady": "Your browser is showing the install entry: click the install icon on the right side of the address bar, or open the browser menu → \"Install LM Speed X\".",
-    "installChrome": "Chrome / Edge and other Chromium browsers: click the install icon on the right side of the address bar, or open the browser menu → \"Install LM Speed X\". If the icon isn't there yet, reload and give the browser a moment to finish its installability check.",
-    "installAndroid": "Chrome on Android: open the ⋮ menu → \"Install app\" or \"Add to Home screen\". If neither is there, reload the page and check again.",
-    "installSafari": "Safari: tap Share → Add to Home Screen.",
-    "installIosOther": "iPhone / iPad: open this page in Safari, then tap Share → Add to Home Screen.",
-    "installSafariDesktop": "Safari on macOS: choose File → Add to Dock from the menu bar.",
-    "installFirefox": "Firefox can't install web apps. Open this page in Chrome or Edge instead.",
-    "installInApp": "This page is open in an in-app browser, which can't install web apps. Use the \"…\" menu to open it in your browser, then install from there.",
-    "installClose": "Got it"
+    "themeDark": "Dark"
   },
   "HomePage": {
     "about": "Go to About page",
@@ -426,6 +414,10 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_10_6": {
+        "removeInstallButton": "Removed the \"Install app\" button from the header",
+        "removeInstallButtonDetail": "The install entry now lives entirely in the browser (address-bar install icon / the install item in the browser menu); the page no longer duplicates it"
+      },
       "v0_10_5": {
         "installGuideByBrowser": "Browser-specific install guidance",
         "installGuideByBrowserDetail": "Chrome / Edge, Android Chrome, iOS Safari, macOS Safari, Firefox and in-app browsers now each get accurate instructions instead of the generic \"look for the address-bar icon\" hint",
