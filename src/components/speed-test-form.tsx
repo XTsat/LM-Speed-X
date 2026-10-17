@@ -185,9 +185,15 @@ export function SpeedTestForm() {
 	};
 
 	const fetchModels = async (baseUrl?: string, apiKey?: string) => {
-		setIsFechingModel(true)
 		baseUrl = baseUrl?.trim() ?? ''
 		apiKey = apiKey ?? ''
+		// 空地址不发起探测：否则归一化会把它变成 /v1 并回填，等于替用户编造地址
+		if (!baseUrl) {
+			setError('baseUrl', { type: 'required', message: t('errors.baseUrlRequired') })
+			document.getElementById('speedtest-field-baseUrl')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+			return
+		}
+		setIsFechingModel(true)
 		// 输入归一化：无协议补全 http(s)、剥离粘贴的完整端点；修正后回填输入框
 		const normalizedInput = normalizeApiBaseUrl(baseUrl)
 		if (normalizedInput !== baseUrl) {

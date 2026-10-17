@@ -18,6 +18,26 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.10.4',
+      date: '2026-10-17',
+      types: ['feature', 'fix'],
+      tag: 'v0.10.4',
+      changes: [
+        {
+          text: t('entries.v0_10_4.installPrompt'),
+          sub: [t('entries.v0_10_4.installButton')],
+        },
+        {
+          text: t('entries.v0_10_4.offlineStartFix'),
+          sub: [t('entries.v0_10_4.offlineStartFixDetail')],
+        },
+        {
+          text: t('entries.v0_10_4.emptyBaseUrlFix'),
+          sub: [t('entries.v0_10_4.emptyBaseUrlFixDetail')],
+        },
+      ],
+    },
+    {
       version: '0.10.3',
       date: '2026-10-15',
       types: ['improvement', 'fix'],

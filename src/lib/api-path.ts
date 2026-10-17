@@ -35,6 +35,9 @@ export interface ModelsProbe {
 /** Candidate URLs to probe, in preference order */
 export function apiPathCandidates(baseUrl: string): Array<{ path: string; url: string }> {
   const normalized = normalizeApiBaseUrl(baseUrl)
+  // An empty base URL has no candidates: probing would hit relative paths on
+  // the app's own origin and could be mistaken for a valid API endpoint.
+  if (!normalized) return []
   if (normalized.endsWith('/v1')) {
     return [{ path: '', url: `${normalized}/models` }]
   }
@@ -118,6 +121,7 @@ export async function detectApiPath(
   timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
 ): Promise<string | null> {
   const normalized = normalizeApiBaseUrl(baseUrl)
+  if (!normalized) return null
   const cached = _pathCache.get(normalized)
   if (cached !== undefined) return cached
 
@@ -152,6 +156,9 @@ export async function resolveApiBaseUrl(
   timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
 ): Promise<ResolvedApiBase> {
   const normalized = normalizeApiBaseUrl(baseUrl)
+  // Never manufacture a URL from nothing: an empty input stays empty instead
+  // of becoming '/v1' and being written back into the form as a "fix".
+  if (!normalized) return { url: '', prefix: null, changed: false }
   const prefix = await detectApiPath(normalized, apiKey, credentials, timeoutMs)
   const url =
     prefix === null

@@ -32,7 +32,13 @@
     "theme": "Theme",
     "themeSystem": "System",
     "themeLight": "Light",
-    "themeDark": "Dark"
+    "themeDark": "Dark",
+    "install": "Install app",
+    "installInsecure": "This page is served over HTTP, so PWA offline caching can't be enabled. Open it over HTTPS if you need offline access.",
+    "installManual": "The browser isn't offering a one-click install right now. You can install it manually:",
+    "installChrome": "Chrome / Edge: click the install icon on the right side of the address bar, or open the browser menu and choose \"Install LM Speed X\".",
+    "installSafari": "Safari: tap Share → Add to Home Screen.",
+    "installClose": "Got it"
   },
   "HomePage": {
     "about": "Go to About page",
@@ -414,6 +420,14 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_10_4": {
+        "installPrompt": "In-app install entry: new \"Install app\" button in the header that opens the browser's native install dialog",
+        "installButton": "Opens the browser's native install dialog when available; when no install event is offered (HTTP non-secure context, iOS / Firefox), it shows step-by-step manual install guidance instead; hidden once installed",
+        "offlineStartFix": "Fixed blank screen when launching offline",
+        "offlineStartFixDetail": "The installed app's start_url is /; offline, the service worker's fallback returned a redirect response, which browsers reject (net::ERR_FAILED). The response is now rebuilt and the cache version bumped",
+        "emptyBaseUrlFix": "Fixed the API URL being auto-filled with /v1 when opening the model list with an empty address",
+        "emptyBaseUrlFixDetail": "An empty address is no longer normalized to /v1 and written back into the input; the form now asks for the Base URL and skips probing the current site"
+      },
       "v0_10_3": {
         "autoFixUrlInput": "Automatic normalization of API URL input",
         "schemeEndpoint": "Scheme-less addresses get http(s) auto-completed (http for private/CGNAT hosts); pasted full endpoints (/chat/completions, /models) are stripped back to the base address",

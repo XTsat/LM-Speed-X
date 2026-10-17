@@ -32,7 +32,13 @@
     "theme": "主题",
     "themeSystem": "跟随系统",
     "themeLight": "浅色",
-    "themeDark": "深色"
+    "themeDark": "深色",
+    "install": "安装应用",
+    "installInsecure": "当前页面通过 HTTP 访问，无法启用 PWA 的离线缓存。需要离线使用请改用 HTTPS 地址打开。",
+    "installManual": "浏览器当前没有提供一键安装入口，可以手动安装：",
+    "installChrome": "Chrome / Edge：点击地址栏右侧的安装图标，或打开浏览器菜单选择「安装 LM Speed X」。",
+    "installSafari": "Safari：点击「分享」→「添加到主屏幕」。",
+    "installClose": "知道了"
   },
   "HomePage": {
     "about": "前往关于页面",
@@ -414,6 +420,14 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_10_4": {
+        "installPrompt": "应用内安装引导：顶栏新增「安装应用」按钮，点击直接唤起浏览器原生安装框",
+        "installButton": "可安装时点击唤起浏览器原生安装框；HTTP 非安全上下文、iOS / Firefox 等拿不到安装事件时，弹出对应的手动安装指引；已安装后按钮自动隐藏",
+        "offlineStartFix": "修复断网启动白屏",
+        "offlineStartFixDetail": "安装后的启动页 start_url 为 /，断网时 Service Worker 回退到「重定向响应」会被浏览器拒绝（net::ERR_FAILED）；现已重建响应并升级缓存版本",
+        "emptyBaseUrlFix": "修复未填写 API 地址时点击模型列表会被自动填入 /v1",
+        "emptyBaseUrlFixDetail": "空地址不再被归一化成 /v1 回填到输入框；现在会提示需要先填写基础 URL，也不会向当前站点发起探测请求"
+      },
       "v0_10_3": {
         "autoFixUrlInput": "API 地址输入自动归一化",
         "schemeEndpoint": "无协议地址自动补全 http(s)（内网/CGNAT 补 http://）；粘贴的完整端点（/chat/completions、/models）自动剥离回基础地址",

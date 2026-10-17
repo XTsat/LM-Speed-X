@@ -5,7 +5,7 @@
  *  - 静态资源(JS/CSS/字体/图片):stale-while-revalidate,先取缓存再后台更新
  *  - API / RSC / Next Image 请求:永不拦截,始终走网络(避免过期数据)
  */
-const CACHE_NAME = 'lm-speed-x-v1'
+const CACHE_NAME = 'lm-speed-x-v2'
 const APP_SHELL = [
   '/',
   '/en',
@@ -86,11 +86,21 @@ function isStaticAsset(request, url) {
 
 /* 断网回退:先匹配同 URL 缓存,再回退到根页面(经 middleware 会重定向到默认语言) */
 async function offlineShell(request) {
-  const cached = await caches.match(request)
-  if (cached) return cached
-  const root = await caches.match('/')
-  if (root) return root
-  return fetch(request)
+  const cached = (await caches.match(request)) || (await caches.match('/'))
+  if (!cached) return fetch(request)
+
+  // 预缓存 '/' 时会被 307 重定向到 /en 或 /zh-CN,存下来的是「重定向响应」。
+  // 浏览器禁止 Service Worker 用重定向响应回复导航请求(会 net::ERR_FAILED,安装后的
+  // start_url 正是 '/',断网启动就会白屏),因此重建一次 Response 清掉 redirected 标记;
+  // 同时去掉缓存 body 上残留的压缩头,避免已解码的内容被二次解码。
+  const headers = new Headers(cached.headers)
+  headers.delete('content-encoding')
+  headers.delete('content-length')
+  return new Response(cached.body, {
+    status: cached.status,
+    statusText: cached.statusText,
+    headers,
+  })
 }
 
 /* stale-while-revalidate:优先返回缓存,同时后台请求网络更新缓存 */
