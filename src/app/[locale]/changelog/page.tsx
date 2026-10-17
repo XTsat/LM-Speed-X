@@ -18,6 +18,22 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.10.5',
+      date: '2026-10-17',
+      types: ['fix', 'improvement'],
+      tag: 'v0.10.5',
+      changes: [
+        {
+          text: t('entries.v0_10_5.installEntryRestore'),
+          sub: [t('entries.v0_10_5.installEntryRestoreDetail')],
+        },
+        {
+          text: t('entries.v0_10_5.installGuideByBrowser'),
+          sub: [t('entries.v0_10_5.installGuideByBrowserDetail')],
+        },
+      ],
+    },
+    {
       version: '0.10.4',
       date: '2026-10-17',
       types: ['feature', 'fix'],

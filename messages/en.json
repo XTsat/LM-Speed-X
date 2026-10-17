@@ -34,10 +34,16 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "install": "Install app",
-    "installInsecure": "This page is served over HTTP, so PWA offline caching can't be enabled. Open it over HTTPS if you need offline access.",
-    "installManual": "The browser isn't offering a one-click install right now. You can install it manually:",
-    "installChrome": "Chrome / Edge: click the install icon on the right side of the address bar, or open the browser menu and choose \"Install LM Speed X\".",
+    "installInsecure": "This page is served over HTTP, so the browser won't offer an install entry and PWA offline caching can't be enabled. Open it over HTTPS to install.",
+    "installManual": "The browser hasn't shown an install entry yet. Here's how to install it:",
+    "installBrowserReady": "Your browser is showing the install entry: click the install icon on the right side of the address bar, or open the browser menu → \"Install LM Speed X\".",
+    "installChrome": "Chrome / Edge and other Chromium browsers: click the install icon on the right side of the address bar, or open the browser menu → \"Install LM Speed X\". If the icon isn't there yet, reload and give the browser a moment to finish its installability check.",
+    "installAndroid": "Chrome on Android: open the ⋮ menu → \"Install app\" or \"Add to Home screen\". If neither is there, reload the page and check again.",
     "installSafari": "Safari: tap Share → Add to Home Screen.",
+    "installIosOther": "iPhone / iPad: open this page in Safari, then tap Share → Add to Home Screen.",
+    "installSafariDesktop": "Safari on macOS: choose File → Add to Dock from the menu bar.",
+    "installFirefox": "Firefox can't install web apps. Open this page in Chrome or Edge instead.",
+    "installInApp": "This page is open in an in-app browser, which can't install web apps. Use the \"…\" menu to open it in your browser, then install from there.",
     "installClose": "Got it"
   },
   "HomePage": {
@@ -331,7 +337,7 @@
       "all": "All Models"
     },
     "table": {
-    "rank": "Ranking",
+      "rank": "Ranking",
       "avgLatency": "Avg First Token Latency",
       "avgTokens": "Avg Tokens/s",
       "avgTotalTime": "Avg Total Time (s)",
@@ -420,6 +426,12 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_10_5": {
+        "installGuideByBrowser": "Browser-specific install guidance",
+        "installGuideByBrowserDetail": "Chrome / Edge, Android Chrome, iOS Safari, macOS Safari, Firefox and in-app browsers now each get accurate instructions instead of the generic \"look for the address-bar icon\" hint",
+        "installEntryRestore": "Handed the install entry back to the browser: the address-bar install icon and the browser menu install item show up again",
+        "installEntryRestoreDetail": "The beforeinstallprompt event is no longer intercepted; the \"Install app\" button now explains where the entry is and notes when the browser has offered it"
+      },
       "v0_10_4": {
         "installPrompt": "In-app install entry: new \"Install app\" button in the header that opens the browser's native install dialog",
         "installButton": "Opens the browser's native install dialog when available; when no install event is offered (HTTP non-secure context, iOS / Firefox), it shows step-by-step manual install guidance instead; hidden once installed",

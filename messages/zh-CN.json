@@ -34,10 +34,16 @@
     "themeLight": "浅色",
     "themeDark": "深色",
     "install": "安装应用",
-    "installInsecure": "当前页面通过 HTTP 访问，无法启用 PWA 的离线缓存。需要离线使用请改用 HTTPS 地址打开。",
-    "installManual": "浏览器当前没有提供一键安装入口，可以手动安装：",
-    "installChrome": "Chrome / Edge：点击地址栏右侧的安装图标，或打开浏览器菜单选择「安装 LM Speed X」。",
+    "installInsecure": "当前页面通过 HTTP 访问，浏览器不会提供安装入口，离线缓存也无法启用。请改用 HTTPS 地址打开后再安装。",
+    "installManual": "浏览器还没有显示安装入口，可以按下面的方式安装：",
+    "installBrowserReady": "浏览器已显示安装入口：点击地址栏右侧的安装图标，或打开浏览器菜单 →「安装 LM Speed X」。",
+    "installChrome": "Chrome / Edge 等 Chromium 浏览器：点击地址栏右侧的安装图标，或打开浏览器菜单 →「安装 LM Speed X」。暂时没有图标时，刷新页面稍等片刻，浏览器会先完成可安装判定再显示入口。",
+    "installAndroid": "Android Chrome：点击右上角菜单 →「安装应用」或「添加到主屏幕」；菜单里没有时，刷新页面后再找一次。",
     "installSafari": "Safari：点击「分享」→「添加到主屏幕」。",
+    "installIosOther": "iPhone / iPad：请用 Safari 打开本页，再点击「分享」→「添加到主屏幕」。",
+    "installSafariDesktop": "macOS Safari：菜单栏「文件」→「添加到程序坞」。",
+    "installFirefox": "Firefox 不支持把网页安装为应用，请改用 Chrome 或 Edge 打开本页。",
+    "installInApp": "当前在 App 的内置浏览器中打开，无法安装。请点击右上角「…」选择「在浏览器中打开」，再回到本页安装。",
     "installClose": "知道了"
   },
   "HomePage": {
@@ -420,6 +426,12 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_10_5": {
+        "installGuideByBrowser": "安装引导按浏览器区分",
+        "installGuideByBrowserDetail": "Chrome / Edge、Android Chrome、iOS Safari、macOS Safari、Firefox、App 内置浏览器各自给出准确入口，不再统一让用户去找地址栏安装图标",
+        "installEntryRestore": "安装入口交还浏览器：地址栏安装图标与浏览器菜单安装项恢复显示",
+        "installEntryRestoreDetail": "不再拦截 beforeinstallprompt 事件；「安装应用」按钮改为说明入口位置，浏览器派发安装事件时提示「已在地址栏提供安装入口」"
+      },
       "v0_10_4": {
         "installPrompt": "应用内安装引导：顶栏新增「安装应用」按钮，点击直接唤起浏览器原生安装框",
         "installButton": "可安装时点击唤起浏览器原生安装框；HTTP 非安全上下文、iOS / Firefox 等拿不到安装事件时，弹出对应的手动安装指引；已安装后按钮自动隐藏",
