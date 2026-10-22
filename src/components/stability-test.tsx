@@ -87,7 +87,7 @@ const tRank = useTranslations('rank')
   const [liveOpen, setLiveOpen] = useState(true)
   // 每轮展开状态按索引记录：测试中与结果页用同一套点击折叠
   const [openLive, setOpenLive] = useState<{ [key: number]: boolean }>({})
-  // 结果明细默认展开、每轮记录默认折叠：轮数最多 50，全部展开会把页面拉得很长
+  // 结果明细默认展开、每轮记录默认折叠：轮数可以很多，全部展开会把页面拉得很长
   const [detailsOpen, setDetailsOpen] = useState(true)
   const [failuresOpen, setFailuresOpen] = useState(false)
   const [openIterations, setOpenIterations] = useState<{ [key: number]: boolean }>({})
@@ -456,9 +456,9 @@ const tRank = useTranslations('rank')
           <div className="space-y-2">
             <label className="text-sm text-gray-600">{t('count.label')}</label>
             <Input
-              type="number" min={3} max={50}
+              type="number" min={1} max={10000}
               value={count}
-              onChange={(e) => setCount(Math.max(3, Math.min(50, parseInt(e.target.value) || 10)))}
+              onChange={(e) => setCount(Math.max(1, Math.min(10000, parseInt(e.target.value) || 1)))}
               className="w-full p-2 border-2 rounded-md bg-transparent text-gray-700"
             />
             <p className="text-xs text-gray-400">{t('count.hint')}</p>

@@ -68,7 +68,7 @@
     },
     "count": {
       "label": "测试次数",
-      "hint": "最少 3 次，最多 50 次"
+      "hint": "次数越多，平均值、标准差这些统计量越可信"
     },
     "connection": {
       "baseUrl": "API 地址",

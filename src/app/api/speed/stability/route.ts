@@ -11,8 +11,8 @@ const makeStabilityTestSchema = (autoCompleteBaseUrl: boolean) => z.object({
   prompt: z.string().min(1, 'Prompt is required'),
   count: z.number()
     .int('Count must be an integer')
-    .min(3, 'Minimum count is 3')
-    .max(50, 'Maximum count is 50')
+    .min(1, 'Minimum count is 1')
+    .max(10000, 'Maximum count is 10000')
     .default(10),
   customHeaders: z.record(z.string(), z.string()).optional(),
 });

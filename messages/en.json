@@ -68,7 +68,7 @@
     },
     "count": {
       "label": "Iterations",
-      "hint": "Minimum 3, maximum 50"
+      "hint": "More runs make the average and standard deviation more reliable"
     },
     "connection": {
       "baseUrl": "API Base URL",
