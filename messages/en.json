@@ -73,7 +73,10 @@
     "connection": {
       "baseUrl": "API Base URL",
       "apiKey": "API Key",
-      "modelId": "Model ID"
+      "modelId": "Model ID",
+      "transport": "Transport",
+      "transportDirect": "Browser direct",
+      "transportProxy": "Server proxy"
     },
     "summary": {
       "title": "Stability Test Summary",
@@ -94,7 +97,8 @@
     "status": {
       "pending": "Pending",
       "running": "Running",
-      "completed": "Completed"
+      "completed": "Completed",
+      "failed": "Failed"
     },
     "details": {
       "title": "Individual Runs",
@@ -105,11 +109,17 @@
       "toggleContent": "View output",
       "loading": "Loading...",
       "waiting": "Waiting...",
-      "iteration": "Iteration"
+      "iteration": "Iteration",
+      "waitingSeconds": "Waiting {seconds}s"
     },
     "errors": {
       "noConfig": "Please configure API connection in the speed test form first",
-      "unknown": "Unknown error, please try again"
+      "unknown": "Unknown error, please try again",
+      "timeout": "Request timed out: no completion after {seconds}s",
+      "firstTokenTimeout": "First token timed out: nothing received within {seconds}s",
+      "allFailed": "Every run failed. Check the API URL, key and CORS/direct-connect settings",
+      "partialFailure": "{count} of {total} runs failed; statistics cover the successful runs only",
+      "customHeadersInvalid": "Custom headers are not valid JSON"
     }
   },
   "ConcurrencyTest": {
@@ -130,7 +140,10 @@
     "connection": {
       "baseUrl": "API Base URL",
       "apiKey": "API Key",
-      "modelId": "Model ID"
+      "modelId": "Model ID",
+      "transport": "Transport",
+      "transportDirect": "Browser direct",
+      "transportProxy": "Server proxy"
     },
     "benchmark": {
       "concurrency": "Concurrency",
@@ -170,12 +183,16 @@
       "outputToken": "Tokens",
       "toggleContent": "View output",
       "loading": "Loading...",
-      "waiting": "Waiting..."
+      "waiting": "Waiting...",
+      "waitingSeconds": "Waiting {seconds}s"
     },
     "errors": {
       "noConfig": "Please configure API connection in the speed test form first",
       "invalidLevels": "Please enter at least one valid concurrency level (1-200)",
-      "unknown": "Unknown error, please try again"
+      "unknown": "Unknown error, please try again",
+      "timeout": "Request timed out: no completion after {seconds}s",
+      "firstTokenTimeout": "First token timed out: nothing received within {seconds}s",
+      "customHeadersInvalid": "Custom headers are not valid JSON"
     },
     "maxFirstTokenLatency": {
       "label": "Max First Token Latency (ms)",

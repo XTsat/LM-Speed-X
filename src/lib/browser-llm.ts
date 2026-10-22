@@ -365,6 +365,39 @@ export interface SpeedTestResult {
 
 type Message = { role: string; content: string }
 
+/** 浏览器直连单次流式请求的可选项，语义与服务端代理路由保持一致 */
+export interface BrowserChatOptions {
+  autoCompleteBaseUrl?: boolean
+  /** 自定义请求头（authorization 已在上游被过滤，避免覆盖 apiKey） */
+  customHeaders?: Record<string, string>
+  /** Cloudflare 手工验证后需要带 Cookie 才能通过，走 fetch 的 credentials: 'include' */
+  credentials?: RequestCredentials
+  /** 单请求总超时；数值与服务端路由一致：测速/稳定性 60s，并发 120s */
+  timeoutMs?: number
+  /** 首个 token 的等待上限；超过即按请求失败计入（服务端 maxFirstTokenLatency 的浏览器端等价实现） */
+  maxFirstTokenLatency?: number
+}
+
+/**
+ * 超时类失败单独成类：组件需要按 kind 给出本地化文案，
+ * 而普通网络/HTTP 错误继续使用原始 message。
+ */
+export class RequestTimeoutError extends Error {
+  readonly kind: 'timeout' | 'firstToken'
+  readonly limitMs: number
+
+  constructor(kind: 'timeout' | 'firstToken', limitMs: number) {
+    super(
+      kind === 'timeout'
+        ? `Request timed out after ${limitMs}ms`
+        : `No first token within ${limitMs}ms`,
+    )
+    this.name = 'RequestTimeoutError'
+    this.kind = kind
+    this.limitMs = limitMs
+  }
+}
+
 /**
  * Run one streamed chat completion from the browser.
  * Emits events via callbacks that mirror the server SSE message format.
@@ -387,8 +420,8 @@ export async function runBrowserStreamedChat(
     }) => void
     onBaseUrlResolved?: (url: string) => void
   },
-  signal?: AbortSignal,
-  options?: { autoCompleteBaseUrl?: boolean },
+  externalSignal?: AbortSignal,
+  options?: BrowserChatOptions,
 ): Promise<SpeedTestResult> {
   const autoComplete = options?.autoCompleteBaseUrl !== false
   const normalized = normalizeApiBaseUrl(baseUrl, autoComplete)
@@ -404,12 +437,45 @@ export async function runBrowserStreamedChat(
   let firstTokenTime = 0
   let content = ''
 
+  // 三条中断来源要给出不同语义（外部取消 / 总超时 / 首字超时），所以不用
+  // createTimeoutSignal —— 它只暴露一个合成信号，分不清是被谁中断的。
+  let abortKind: 'external' | 'timeout' | 'firstToken' | null = null
+  const controller = new AbortController()
+  const abortWith = (kind: 'external' | 'timeout' | 'firstToken') => {
+    if (!abortKind) abortKind = kind
+    controller.abort()
+  }
+  const onExternalAbort = () => abortWith('external')
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort()
+    else externalSignal.addEventListener('abort', onExternalAbort)
+  }
+  const timeoutMs = options?.timeoutMs
+  const timeoutTimer = timeoutMs ? setTimeout(() => abortWith('timeout'), timeoutMs) : null
+  const firstTokenLimitMs = options?.maxFirstTokenLatency
+  const firstTokenTimer = firstTokenLimitMs
+    ? setTimeout(() => abortWith('firstToken'), firstTokenLimitMs)
+    : null
+  const releaseScope = () => {
+    if (timeoutTimer !== null) clearTimeout(timeoutTimer)
+    if (firstTokenTimer !== null) clearTimeout(firstTokenTimer)
+    externalSignal?.removeEventListener('abort', onExternalAbort)
+  }
+  const timeoutFailure = (): RequestTimeoutError | null => {
+    if (abortKind === 'timeout' && timeoutMs) return new RequestTimeoutError('timeout', timeoutMs)
+    if (abortKind === 'firstToken' && firstTokenLimitMs) {
+      return new RequestTimeoutError('firstToken', firstTokenLimitMs)
+    }
+    return null
+  }
+
   const perform = (base: string): Promise<Response> =>
     fetch(`${base}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        ...(options?.customHeaders ?? {}),
       },
       body: JSON.stringify({
         model: modelId,
@@ -417,123 +483,139 @@ export async function runBrowserStreamedChat(
         stream: true,
         stream_options: { include_usage: true },
       }),
-      signal,
+      signal: controller.signal,
+      ...(options?.credentials ? { credentials: options.credentials } : {}),
     })
 
-  let response: Response
   try {
-    response = await perform(apiBase)
-  } catch (e) {
-    const errMsg = (e as Error).message || 'Failed to fetch'
-    const pageIsHttps = typeof window !== 'undefined' && window.location.protocol === 'https:'
-    const apiIsHttp = baseUrl.startsWith('http://')
+    let response: Response
+    try {
+      response = await perform(apiBase)
+    } catch (e) {
+      const timedOut = timeoutFailure()
+      if (timedOut) throw timedOut
+      const errMsg = (e as Error).message || 'Failed to fetch'
+      const pageIsHttps = typeof window !== 'undefined' && window.location.protocol === 'https:'
+      const apiIsHttp = baseUrl.startsWith('http://')
 
-    let hint = ''
-    if (pageIsHttps && apiIsHttp) {
-      hint = ' — Mixed content blocked: HTTPS pages cannot fetch HTTP endpoints'
-    } else if (isLocalUrl(baseUrl)) {
-      hint = ' — CORS may be blocking cross-origin requests to this local address'
+      let hint = ''
+      if (pageIsHttps && apiIsHttp) {
+        hint = ' — Mixed content blocked: HTTPS pages cannot fetch HTTP endpoints'
+      } else if (isLocalUrl(baseUrl)) {
+        hint = ' — CORS may be blocking cross-origin requests to this local address'
+      }
+
+      throw new Error(`Network error: ${errMsg} (${apiBase})${hint}`)
     }
 
-    throw new Error(`Network error: ${errMsg} (${apiBase})${hint}`)
-  }
-
-  if (!response.ok) {
-    const status = response.status
-    const text = await response.text().catch(() => '')
-    if (autoComplete && isPathError(status, text) && !knownBase) {
-      // Retry once at the /v1 alternative — only a successful retry is
-      // remembered and written back to the user (never a guess).
-      const fallback = getFallbackBaseUrl(normalized)
-      const retry = await perform(fallback).catch(() => null)
-      if (retry && retry.ok) {
-        response = retry
-        rememberChatBaseUrl(normalized, fallback)
-        callbacks.onBaseUrlResolved?.(fallback)
+    if (!response.ok) {
+      const status = response.status
+      const text = await response.text().catch(() => '')
+      if (autoComplete && isPathError(status, text) && !knownBase) {
+        // Retry once at the /v1 alternative — only a successful retry is
+        // remembered and written back to the user (never a guess).
+        const fallback = getFallbackBaseUrl(normalized)
+        const retry = await perform(fallback).catch(() => null)
+        if (retry && retry.ok) {
+          response = retry
+          rememberChatBaseUrl(normalized, fallback)
+          callbacks.onBaseUrlResolved?.(fallback)
+        } else {
+          const timedOut = timeoutFailure()
+          if (timedOut) throw timedOut
+          throw new Error(`HTTP ${status}: ${text}`)
+        }
       } else {
         throw new Error(`HTTP ${status}: ${text}`)
       }
-    } else {
-      throw new Error(`HTTP ${status}: ${text}`)
     }
-  }
 
-  if (!response.body) throw new Error('No response body')
+    if (!response.body) throw new Error('No response body')
 
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
 
-  try {
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
+    try {
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
 
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      // Keep the last incomplete line in buffer
-      buffer = lines.pop() || ''
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        // Keep the last incomplete line in buffer
+        buffer = lines.pop() || ''
 
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || !trimmed.startsWith('data:')) continue
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data:')) continue
 
-        const jsonStr = trimmed.slice(5).trim()
-        if (jsonStr === '[DONE]') continue
+          const jsonStr = trimmed.slice(5).trim()
+          if (jsonStr === '[DONE]') continue
 
-        try {
-          const chunk = JSON.parse(jsonStr)
-          const delta = chunk.choices?.[0]?.delta
+          try {
+            const chunk = JSON.parse(jsonStr)
+            const delta = chunk.choices?.[0]?.delta
 
-          if (delta?.content) {
-            if (content.length === 0) {
-              firstTokenTime = performance.now() - startTime
+            if (delta?.content) {
+              if (content.length === 0) {
+                firstTokenTime = performance.now() - startTime
+                // 首字已到，看门狗不再有意义，及时清掉避免长回答被误杀
+                if (firstTokenTimer !== null) clearTimeout(firstTokenTimer)
+              }
+              content += delta.content
+
+              const currentTime = performance.now()
+              const elapsedTime = currentTime - startTime
+              const currentTokens = estimateTokens(content)
+              const currentSpeed =
+                currentTokens > 0 && elapsedTime > firstTokenTime
+                  ? (currentTokens / (elapsedTime - firstTokenTime)) * 1000
+                  : 0
+              const currentTotalSpeed =
+                currentTokens > 0 ? (currentTokens / elapsedTime) * 1000 : 0
+
+              callbacks.onContent({
+                index,
+                content: delta.content,
+                currentSpeed,
+                currentTotalSpeed,
+                currentTokens,
+                elapsedTime,
+              })
             }
-            content += delta.content
-
-            const currentTime = performance.now()
-            const elapsedTime = currentTime - startTime
-            const currentTokens = estimateTokens(content)
-            const currentSpeed =
-              currentTokens > 0 && elapsedTime > firstTokenTime
-                ? (currentTokens / (elapsedTime - firstTokenTime)) * 1000
-                : 0
-            const currentTotalSpeed =
-              currentTokens > 0 ? (currentTokens / elapsedTime) * 1000 : 0
-
-            callbacks.onContent({
-              index,
-              content: delta.content,
-              currentSpeed,
-              currentTotalSpeed,
-              currentTokens,
-              elapsedTime,
-            })
+          } catch {
+            // Skip unparseable chunks
           }
-        } catch {
-          // Skip unparseable chunks
         }
       }
+    } catch (e) {
+      // 流中途被超时/外部取消：转成对应的失败语义，而不是抛裸 AbortError
+      const timedOut = timeoutFailure()
+      if (timedOut) throw timedOut
+      throw e
+    } finally {
+      reader.releaseLock()
+    }
+
+    const totalTokens = estimateTokens(content)
+    const endTime = performance.now()
+    const totalTime = endTime - startTime
+    const outputTime = totalTime - firstTokenTime
+
+    return {
+      prompt,
+      model: modelId,
+      firstTokenLatency: firstTokenTime,
+      tokensPerSecond: outputTime > 0 ? (totalTokens / outputTime) * 1000 : 0,
+      tokensPerSecondTotal: totalTime > 0 ? (totalTokens / totalTime) * 1000 : 0,
+      outputToken: totalTokens,
+      outputTime,
+      totalTime,
+      content,
+      index,
     }
   } finally {
-    reader.releaseLock()
-  }
-
-  const totalTokens = estimateTokens(content)
-  const endTime = performance.now()
-  const totalTime = endTime - startTime
-  const outputTime = totalTime - firstTokenTime
-
-  return {
-    prompt,
-    model: modelId,
-    firstTokenLatency: firstTokenTime,
-    tokensPerSecond: outputTime > 0 ? (totalTokens / outputTime) * 1000 : 0,
-    tokensPerSecondTotal: totalTime > 0 ? (totalTokens / totalTime) * 1000 : 0,
-    outputToken: totalTokens,
-    outputTime,
-    totalTime,
-    content,
-    index,
+    releaseScope()
   }
 }

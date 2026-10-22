@@ -21,6 +21,14 @@ import { saveTestResult } from '@/lib/local-storage'
 import { isLocalUrl, hasExplicitPort, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
 import { normalizeApiBaseUrl, normalizeScheme, resolveApiBaseUrl } from '@/lib/api-path'
 import { readAutoCompleteBaseUrl, writeAutoCompleteBaseUrl } from '@/lib/api-completion'
+import {
+	REQUEST_TIMEOUT_MS,
+	buildConnection,
+	directRequestOptions,
+	proxyRequestBody,
+	readStoredConnection,
+	writeConnection,
+} from '@/lib/test-connection'
 import { isCloudflareError } from '@/lib/cloudflare'
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
@@ -158,9 +166,9 @@ export function SpeedTestForm() {
 	const watchBaseUrl = watch('baseUrl')
 	const watchApiKey = watch('apiKey')
 	const watchModelId = watch('modelId')
-	useEffect(() => { if (watchBaseUrl) localStorage.setItem('speedtest_baseUrl', watchBaseUrl) }, [watchBaseUrl])
-	useEffect(() => { if (watchApiKey) localStorage.setItem('speedtest_apiKey', watchApiKey) }, [watchApiKey])
-	useEffect(() => { if (watchModelId) localStorage.setItem('speedtest_modelId', watchModelId) }, [watchModelId])
+	useEffect(() => { if (watchBaseUrl) writeConnection({ baseUrl: watchBaseUrl }) }, [watchBaseUrl])
+	useEffect(() => { if (watchApiKey) writeConnection({ apiKey: watchApiKey }) }, [watchApiKey])
+	useEffect(() => { if (watchModelId) writeConnection({ modelId: watchModelId }) }, [watchModelId])
 
 	useEffect(() => {
 		setHydrated(true)
@@ -366,6 +374,7 @@ export function SpeedTestForm() {
 			}
 			if (config.customHeadersJson !== undefined) {
 				setCustomHeadersJson(config.customHeadersJson)
+				writeConnection({ customHeadersJson: config.customHeadersJson })
 			}
 			// 强制刷新UI显示
 			setConfigRefreshKey(prev => prev + 1)
@@ -383,7 +392,7 @@ export function SpeedTestForm() {
 	const handleBaseUrlResolved = useCallback((url: string) => {
 		if (!url || getValues('baseUrl') === url) return
 		setValue('baseUrl', url, { shouldDirty: true })
-		localStorage.setItem('speedtest_baseUrl', url)
+		writeConnection({ baseUrl: url })
 		toast.success(t('form.baseUrlAutoFixed', { url }))
 	}, [getValues, setValue, t])
 
@@ -414,26 +423,29 @@ export function SpeedTestForm() {
 			localStorage.setItem('speedtest_baseUrl', data.baseUrl)
 			toast.success(t('form.baseUrlAutoFixed', { url: data.baseUrl }))
 		}
-		localStorage.setItem('speedtest_baseUrl', data.baseUrl)
-		localStorage.setItem('speedtest_modelId', data.modelId)
+		writeConnection({ baseUrl: data.baseUrl, modelId: data.modelId })
 		if (rememberApiKey) {
-			localStorage.setItem('speedtest_apiKey', data.apiKey)
+			writeConnection({ apiKey: data.apiKey })
 		} else {
 		localStorage.removeItem('speedtest_apiKey')
 			}
 
-			if (useBrowserDirect) {
-				// Parse custom headers
-				let customHeaders: Record<string, string> | undefined
-				if (customHeadersJson.trim()) {
-					try {
-						customHeaders = JSON.parse(customHeadersJson)
-					} catch (e) {
-						toast.error(t('form.customHeaders.invalid'))
-						return
-					}
-				}
+			// 用表单当前值 + 已存设置合成一次请求的形态（与稳定性/并发同一套传输层）
+			const liveConnection = buildConnection({
+				baseUrl: data.baseUrl,
+				apiKey: data.apiKey,
+				modelId: data.modelId,
+				browserDirect: useBrowserDirect,
+				customHeadersJson,
+				autoCompleteBaseUrl,
+				forceDirect: forceBrowserDirectRef.current,
+			})
+			if (liveConnection.customHeadersInvalid) {
+				toast.error(t('form.customHeaders.invalid'))
+				return
+			}
 
+			if (useBrowserDirect) {
 				// 流式内容 UI 同步定时器（browser-direct 模式）
 				const updateTimer = window.setInterval(() => {
 					setStreamContents({ ...contentRef.current })
@@ -491,7 +503,7 @@ export function SpeedTestForm() {
 								onBaseUrlResolved: handleBaseUrlResolved,
 							},
 							undefined,
-							{ autoCompleteBaseUrl },
+							directRequestOptions(liveConnection, { timeoutMs: REQUEST_TIMEOUT_MS.speed }),
 						)
 
 						allResults.push(result)
@@ -536,21 +548,9 @@ export function SpeedTestForm() {
 					if (updateTimer !== undefined) clearInterval(updateTimer)
 				}
 			} else {
-			// 解析自定义请求头
-		let customHeaders: Record<string, string> | undefined
-		if (customHeadersJson.trim()) {
-			try {
-				customHeaders = JSON.parse(customHeadersJson)
-			} catch (e) {
-				toast.error(t('form.customHeaders.invalid'))
-				return
-			}
-		}
-
 		const requestData = {
 			...data,
-			autoCompleteBaseUrl,
-			...(customHeaders && Object.keys(customHeaders).length > 0 ? { customHeaders } : {})
+			...proxyRequestBody(liveConnection),
 		}
 
 		const response = await fetch('/api/speed/test', {
@@ -765,6 +765,10 @@ export function SpeedTestForm() {
 			});
 		}
 		
+		const storedConnection = readStoredConnection()
+		if (storedConnection.customHeadersJson) setCustomHeadersJson(storedConnection.customHeadersJson)
+		if (storedConnection.browserDirect !== null) setUseBrowserDirect(storedConnection.browserDirect)
+
 		if (urlParams.apiKey) {
 			setValue('apiKey', urlParams.apiKey);
 		} else if (savedApiKey && storedRemember !== 'false') {
@@ -791,7 +795,8 @@ export function SpeedTestForm() {
 				return
 			}
 			const local = isLocalUrl(watchBaseUrl)
-			setUseBrowserDirect(local)
+			// 用户显式选过开关就尊重用户选择，否则按地址自动判定（与 resolveConnection 一致）
+			setUseBrowserDirect(readStoredConnection().browserDirect ?? local)
 
 			// 只在用户刚选/填地址时提示，避免刷新页面重复打扰
 			const pickedByUser = baseUrlPickedByUserRef.current
@@ -1132,7 +1137,11 @@ export function SpeedTestForm() {
 									<Checkbox
 										id="browser-direct"
 										checked={useBrowserDirect}
-										onCheckedChange={(checked) => setUseBrowserDirect(!!checked)}
+										onCheckedChange={(checked) => {
+											const enabled = !!checked
+											setUseBrowserDirect(enabled)
+											writeConnection({ browserDirect: enabled })
+										}}
 									/>
 									<label htmlFor="browser-direct" className="text-sm text-gray-600 cursor-pointer select-none">
 										{t('form.browserDirect.label')}
@@ -1159,7 +1168,10 @@ export function SpeedTestForm() {
 									<label className="text-sm text-gray-600 mb-1 block">{t('form.customHeaders.label') || '自定义请求头'}</label>
 									<textarea
 									value={customHeadersJson}
-									onChange={(e) => setCustomHeadersJson(e.target.value)}
+									onChange={(e) => {
+										setCustomHeadersJson(e.target.value)
+										writeConnection({ customHeadersJson: e.target.value })
+									}}
 									placeholder={`{\"X-Custom-Auth\": \"your-token\"}`}
 									className="w-full h-24 p-2 text-sm font-mono border rounded-md bg-white dark:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
 								/>

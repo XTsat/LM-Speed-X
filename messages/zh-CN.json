@@ -73,7 +73,10 @@
     "connection": {
       "baseUrl": "API 地址",
       "apiKey": "API 密钥",
-      "modelId": "模型 ID"
+      "modelId": "模型 ID",
+      "transport": "连接方式",
+      "transportDirect": "浏览器直连",
+      "transportProxy": "服务器代理"
     },
     "summary": {
       "title": "稳定性测试汇总",
@@ -94,7 +97,8 @@
     "status": {
       "pending": "等待中",
       "running": "运行中",
-      "completed": "已完成"
+      "completed": "已完成",
+      "failed": "已失败"
     },
     "details": {
       "title": "详细运行记录",
@@ -105,11 +109,17 @@
       "outputToken": "Token 数",
       "toggleContent": "查看输出内容",
       "loading": "加载中...",
-      "waiting": "等待中..."
+      "waiting": "等待中...",
+      "waitingSeconds": "已等待 {seconds}s"
     },
     "errors": {
       "noConfig": "请先在速度测试中配置 API 连接信息",
-      "unknown": "未知错误，请重试"
+      "unknown": "未知错误，请重试",
+      "timeout": "请求超时：超过 {seconds} 秒仍未完成",
+      "firstTokenTimeout": "首字等待超时：{seconds} 秒内没有收到任何输出",
+      "allFailed": "本次测试全部失败，请检查 API 地址、Key 与跨域/直连设置",
+      "partialFailure": "{total} 次请求中有 {count} 次失败，统计只包含成功的那部分",
+      "customHeadersInvalid": "自定义请求头 JSON 格式错误"
     }
   },
   "ConcurrencyTest": {
@@ -130,7 +140,10 @@
     "connection": {
       "baseUrl": "API 地址",
       "apiKey": "API 密钥",
-      "modelId": "模型 ID"
+      "modelId": "模型 ID",
+      "transport": "连接方式",
+      "transportDirect": "浏览器直连",
+      "transportProxy": "服务器代理"
     },
     "benchmark": {
       "concurrency": "并发数",
@@ -170,12 +183,16 @@
       "outputToken": "Token 数",
       "toggleContent": "查看输出内容",
       "loading": "加载中...",
-      "waiting": "等待中..."
+      "waiting": "等待中...",
+      "waitingSeconds": "已等待 {seconds}s"
     },
     "errors": {
       "noConfig": "请先在速度测试中配置 API 连接信息",
       "invalidLevels": "请至少输入一个有效并发档位（1-200）",
-      "unknown": "未知错误，请重试"
+      "unknown": "未知错误，请重试",
+      "timeout": "请求超时：超过 {seconds} 秒仍未完成",
+      "firstTokenTimeout": "首字等待超时：{seconds} 秒内没有收到任何输出",
+      "customHeadersInvalid": "自定义请求头 JSON 格式错误"
     },
     "maxFirstTokenLatency": {
       "label": "最大首字延迟 (ms)",

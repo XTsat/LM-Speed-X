@@ -1,13 +1,21 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, TrendingUp, Activity } from 'lucide-react'
-import { isLocalUrl, runBrowserStreamedChat } from '@/lib/browser-llm'
-import { readAutoCompleteBaseUrl } from '@/lib/api-completion'
+import { RequestTimeoutError, runBrowserStreamedChat } from '@/lib/browser-llm'
 import { copyToClipboard } from '@/lib/clipboard'
+import {
+  REQUEST_TIMEOUT_MS,
+  directRequestOptions,
+  missingConnectionFields,
+  proxyRequestBody,
+  resolveConnection,
+  useStoredConnection,
+  writeConnection,
+} from '@/lib/test-connection'
 
 // ── Types ──
 
@@ -23,7 +31,9 @@ interface IterationResult {
 }
 
 interface IterationStatus extends IterationResult {
-  status: 'pending' | 'running' | 'completed'
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  /** 失败原因（本地化文案），仅 status === 'failed' 时有值 */
+  error?: string
 }
 
 interface StatsResult {
@@ -56,10 +66,12 @@ const tRank = useTranslations('rank')
   const [results, setResults] = useState<StabilityResults | null>(null)
   const [prompt, setPrompt] = useState('Explain the concept of quantum computing in simple terms.')
   const [count, setCount] = useState(10)
-  const [baseUrl, setBaseUrl] = useState('')
-  const [apiKey, setApiKey] = useState('')
-  const [modelId, setModelId] = useState('')
-  const [useBrowserDirect, setUseBrowserDirect] = useState(false)
+  // 连接配置与测速表单共用一份（含直连开关、自定义请求头、自动补全开关）
+  const stored = useStoredConnection()
+  const connection = useMemo(() => resolveConnection({ stored }), [stored])
+  const { baseUrl, apiKey, modelId } = connection
+  // 运行中已等待秒数：稳定测要跑多轮，没有这个提示时整轮静默看起来像卡死
+  const [waitedSeconds, setWaitedSeconds] = useState(0)
 
   // Live iteration status cards
   const [iterations, setIterations] = useState<IterationStatus[]>([])
@@ -67,66 +79,54 @@ const tRank = useTranslations('rank')
   const [streamContents, setStreamContents] = useState<{ [key: number]: string }>({})
   const contentRef = useRef<{ [key: number]: string }>({})
 
-  // Read connection config from localStorage (synced from SpeedTestForm above)
   useEffect(() => {
-    setBaseUrl(localStorage.getItem('speedtest_baseUrl') || '')
-    setApiKey(localStorage.getItem('speedtest_apiKey') || '')
-    setModelId(localStorage.getItem('speedtest_modelId') || '')
-    const storedBrowserDirect = localStorage.getItem('speedtest_browserDirect')
-    const baseUrlFromStorage = localStorage.getItem('speedtest_baseUrl') || ''
-    if (storedBrowserDirect !== null) {
-      setUseBrowserDirect(storedBrowserDirect === 'true')
-    } else if (baseUrlFromStorage && isLocalUrl(baseUrlFromStorage)) {
-      setUseBrowserDirect(true)
-      localStorage.setItem('speedtest_browserDirect', 'true')
+    if (!loading) {
+      setWaitedSeconds(0)
+      return
     }
-  }, [])
+    const startedAt = Date.now()
+    const timer = window.setInterval(() => {
+      setWaitedSeconds(Math.round((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [loading])
 
-  // Re-sync when SpeedTestForm saves new values
-  useEffect(() => {
-    const handleStorage = () => {
-      setBaseUrl(localStorage.getItem('speedtest_baseUrl') || '')
-      setApiKey(localStorage.getItem('speedtest_apiKey') || '')
-      setModelId(localStorage.getItem('speedtest_modelId') || '')
-      const bd = localStorage.getItem('speedtest_browserDirect')
-      if (bd !== null) setUseBrowserDirect(bd === 'true')
+  /** 单次请求失败原因：超时类给出本地化文案，其它沿用原始 message */
+  const failureMessage = useCallback((error: unknown): string => {
+    if (error instanceof RequestTimeoutError) {
+      const seconds = (error.limitMs / 1000).toFixed(0)
+      return error.kind === 'timeout'
+        ? t('errors.timeout', { seconds })
+        : t('errors.firstTokenTimeout', { seconds })
     }
-    window.addEventListener('storage', handleStorage)
-    const interval = setInterval(handleStorage, 500)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      clearInterval(interval)
-    }
-  }, [])
+    return error instanceof Error ? error.message : t('errors.unknown')
+  }, [t])
 
   // 失败驱动的 /v1 保底确认了修正地址时，回显给用户并同步回主表单（去重）
   const resolvedNotifiedRef = useRef<string | null>(null)
   const handleBaseUrlResolved = useCallback((url: string) => {
     if (!url || resolvedNotifiedRef.current === url) return
     resolvedNotifiedRef.current = url
-    setBaseUrl(url)
-    localStorage.setItem('speedtest_baseUrl', url)
+    writeConnection({ baseUrl: url })
     window.dispatchEvent(new CustomEvent('lm-speed-base-url-resolved', { detail: url }))
     toast.success(t('baseUrlAutoFixed', { url }))
   }, [t])
 
   const onSubmit = useCallback(async () => {
-    const liveBaseUrl = localStorage.getItem('speedtest_baseUrl') || ''
-    const liveApiKey = localStorage.getItem('speedtest_apiKey') || ''
-    const liveModelId = localStorage.getItem('speedtest_modelId') || ''
-    // 「自动补全 API 地址」开关与主表单共用同一个 localStorage 设置
-    const autoCompleteBaseUrl = readAutoCompleteBaseUrl()
-    setBaseUrl(liveBaseUrl)
-    setApiKey(liveApiKey)
-    setModelId(liveModelId)
+    // 提交时重新读一次共享设置：主表单可能刚改过地址/请求头
+    const live = resolveConnection()
 
-    if (!liveBaseUrl || !liveApiKey || !liveModelId) {
+    if (missingConnectionFields(live).length > 0) {
       // 通知上方的速度测试表单：跳回配置区并让缺失的输入框显示错误提示
       window.dispatchEvent(new CustomEvent('lm-speed-config-required'))
       return
     }
+    if (live.customHeadersInvalid) {
+      toast.error(t('errors.customHeadersInvalid'))
+      return
+    }
 
-    if (useBrowserDirect) {
+    if (live.browserDirect) {
       setLoading(true); setProgress(0); setResults(null)
       contentRef.current = {}
 
@@ -141,54 +141,73 @@ const tRank = useTranslations('rank')
 
       try {
         const iterationResults: IterationResult[] = []
+        let failedCount = 0
 
         for (let i = 0; i < count; i++) {
-          setProgress((i / count) * 100)
+          // 进度按「已完成 + 在飞」推进：开跑先吃掉半格，整轮等待就不会看起来卡在 0%
+          setProgress(((i + 0.5) / count) * 100)
           setIterations(prev => { const next = [...prev]; if (next[i]) next[i] = { ...next[i], status: 'running' as const }; return next })
           setExpandedIteration(i)
           contentRef.current[i] = ''
 
-          const result = await runBrowserStreamedChat(
-            liveBaseUrl, liveApiKey, liveModelId,
-            [{ role: 'user', content: prompt }],
-            i, prompt,
-            { onContent: (cd) => {
-              contentRef.current[i] = (contentRef.current[i] || '') + cd.content
-              setIterations(prev => {
-                const next = [...prev]
-                if (next[i]) {
-                  next[i] = { ...next[i],
-                    tokensPerSecond: cd.currentSpeed, tokensPerSecondTotal: cd.currentTotalSpeed,
-                    outputToken: cd.currentTokens, outputTime: cd.elapsedTime }
-                }
-                return next
-              })
+          try {
+            const result = await runBrowserStreamedChat(
+              live.baseUrl, live.apiKey, live.modelId,
+              [{ role: 'user', content: prompt }],
+              i, prompt,
+              { onContent: (cd) => {
+                contentRef.current[i] = (contentRef.current[i] || '') + cd.content
+                setIterations(prev => {
+                  const next = [...prev]
+                  if (next[i]) {
+                    next[i] = { ...next[i],
+                      tokensPerSecond: cd.currentSpeed, tokensPerSecondTotal: cd.currentTotalSpeed,
+                      outputToken: cd.currentTokens, outputTime: cd.elapsedTime }
+                  }
+                  return next
+                })
+              },
+              onBaseUrlResolved: handleBaseUrlResolved,
             },
-            onBaseUrlResolved: handleBaseUrlResolved,
-          },
-          undefined,
-          { autoCompleteBaseUrl },
-          )
+            undefined,
+            directRequestOptions(live, { timeoutMs: REQUEST_TIMEOUT_MS.stability }),
+            )
 
-          const iterResult: IterationResult = {
-            iteration: i + 1,
-            firstTokenLatency: result.firstTokenLatency,
-            tokensPerSecond: result.tokensPerSecond,
-            tokensPerSecondTotal: result.tokensPerSecondTotal,
-            outputToken: result.outputToken,
-            totalTime: result.totalTime,
-            outputTime: result.outputTime,
-            content: result.content,
+            const iterResult: IterationResult = {
+              iteration: i + 1,
+              firstTokenLatency: result.firstTokenLatency,
+              tokensPerSecond: result.tokensPerSecond,
+              tokensPerSecondTotal: result.tokensPerSecondTotal,
+              outputToken: result.outputToken,
+              totalTime: result.totalTime,
+              outputTime: result.outputTime,
+              content: result.content,
+            }
+            iterationResults.push(iterResult)
+
+            setIterations(prev => {
+              const next = [...prev]
+              if (next[i]) next[i] = { ...iterResult, status: 'completed' as const }
+              return next
+            })
+            setTimeout(() => setExpandedIteration(null), 800)
+          } catch (error) {
+            // 单次失败不中断整轮：稳定性测的就是抖动，失败率本身也是结论
+            failedCount += 1
+            const message = failureMessage(error)
+            setIterations(prev => {
+              const next = [...prev]
+              if (next[i]) next[i] = { ...next[i], status: 'failed' as const, error: message }
+              return next
+            })
+            setExpandedIteration(null)
           }
-          iterationResults.push(iterResult)
 
           setProgress(((i + 1) / count) * 100)
-          setIterations(prev => {
-            const next = [...prev]
-            if (next[i]) next[i] = { ...iterResult, status: 'completed' as const }
-            return next
-          })
-          setTimeout(() => setExpandedIteration(null), 800)
+        }
+
+        if (iterationResults.length === 0) {
+          throw new Error(t('errors.allFailed'))
         }
 
         function calcStats(vals: number[]) {
@@ -211,10 +230,14 @@ const tRank = useTranslations('rank')
 
         setResults({ results: iterationResults, stats })
         setProgress(100)
-        toast.success(t('complete'))
+        if (failedCount > 0) {
+          toast.error(t('errors.partialFailure', { count: failedCount, total: count }), { duration: 30000 })
+        } else {
+          toast.success(t('complete'))
+        }
       } catch (error) {
         console.error('Browser direct stability error:', error)
-        toast.error(error instanceof Error ? error.message : t('errors.unknown'), { duration: 30000 })
+        toast.error(failureMessage(error), { duration: 30000 })
       } finally {
         clearInterval(timer)
         setLoading(false)
@@ -246,7 +269,7 @@ const tRank = useTranslations('rank')
       const response = await fetch('/api/speed/stability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ baseUrl: liveBaseUrl, apiKey: liveApiKey, modelId: liveModelId, prompt, count, autoCompleteBaseUrl }),
+        body: JSON.stringify(proxyRequestBody(live, { prompt, count })),
       })
 
       if (!response.ok) {
@@ -360,11 +383,11 @@ const tRank = useTranslations('rank')
       }
     } catch (error) {
       console.error('Stability test error:', error)
-      toast.error(error instanceof Error ? error.message : t('errors.unknown'), { duration: 30000 })
+      toast.error(failureMessage(error), { duration: 30000 })
     } finally {
       setLoading(false)
     }
-  }, [prompt, count, t, useBrowserDirect])
+  }, [prompt, count, t, failureMessage])
 
   // ── Render ──
 
@@ -406,6 +429,7 @@ const tRank = useTranslations('rank')
               <p><span className="text-gray-500">{t('connection.baseUrl')}:</span> <span className="text-gray-700">{baseUrl || '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.apiKey')}:</span> <span className="text-gray-700">{apiKey ? '••••••' + apiKey.slice(-4) : '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.modelId')}:</span> <span className="text-gray-700">{modelId || '-'}</span></p>
+              <p><span className="text-gray-500">{t('connection.transport')}:</span> <span className="text-gray-700">{connection.browserDirect ? t('connection.transportDirect') : t('connection.transportProxy')}</span></p>
             </div>
           )}
 
@@ -543,7 +567,12 @@ const tRank = useTranslations('rank')
       {/* ── Iteration Cards (only visible during run, hidden after completion) ── */}
       {iterations.length > 0 && !results && (
         <div className="mt-8">
-          <h3 className="text-xl text-center font-bold mb-4">{t('details.title')}</h3>
+          <h3 className="text-xl text-center font-bold mb-4">
+            {t('details.title')}
+            {loading && waitedSeconds > 0 && (
+              <span className="ml-2 text-sm font-normal text-gray-400">{t('details.waitingSeconds', { seconds: waitedSeconds })}</span>
+            )}
+          </h3>
           <div className="space-y-4">
             {iterations.map((it, idx) => (
               <div
@@ -558,6 +587,8 @@ const tRank = useTranslations('rank')
                     ? 'bg-gray-100 cursor-default'
                     : it.status === 'running'
                     ? 'bg-blue-50 dark:bg-blue-500/15'
+                    : it.status === 'failed'
+                    ? 'bg-red-50 dark:bg-red-500/10'
                     : 'bg-gray-200'
                 }`}
               >
@@ -579,6 +610,9 @@ const tRank = useTranslations('rank')
                     )}
                     {it.status === 'completed' && (
                       <span className="text-green-400">{t('status.completed')}</span>
+                    )}
+                    {it.status === 'failed' && (
+                      <span className="text-red-400">{t('status.failed')}</span>
                     )}
                   </div>
                 </div>
@@ -609,6 +643,10 @@ const tRank = useTranslations('rank')
                       </p>
                     </div>
                   </div>
+
+                {it.status === 'failed' && it.error && (
+                  <p className="mt-2 text-xs text-red-400 break-all">{it.error}</p>
+                )}
 
                 <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${expandedIteration === idx ? 'block' : 'hidden'}`}>
                   <div className="flex justify-between items-center mb-2">

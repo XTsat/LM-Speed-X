@@ -1,12 +1,20 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, BarChart3, TrendingUp, Zap } from 'lucide-react'
-import { isLocalUrl, runBrowserStreamedChat } from '@/lib/browser-llm'
-import { readAutoCompleteBaseUrl } from '@/lib/api-completion'
+import { RequestTimeoutError, runBrowserStreamedChat } from '@/lib/browser-llm'
+import {
+  REQUEST_TIMEOUT_MS,
+  directRequestOptions,
+  missingConnectionFields,
+  proxyRequestBody,
+  resolveConnection,
+  useStoredConnection,
+  writeConnection,
+} from '@/lib/test-connection'
 import { copyToClipboard } from '@/lib/clipboard'
 
 // ── Types ──
@@ -87,11 +95,13 @@ const tRank = useTranslations('rank')
   const [prompt, setPrompt] = useState('Explain the concept of quantum computing in simple terms.')
   // Multi-level concurrency input: free-text comma separated, parsed to a sorted unique integer list
   const [concurrencyLevelsText, setConcurrencyLevelsText] = useState('1, 5, 10, 20')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [apiKey, setApiKey] = useState('')
-  const [modelId, setModelId] = useState('')
   const [maxFirstTokenLatency, setMaxFirstTokenLatency] = useState<number | ''>('')
-  const [useBrowserDirect, setUseBrowserDirect] = useState(false)
+  // 连接配置与测速表单共用一份（含直连开关、自定义请求头、自动补全开关）
+  const stored = useStoredConnection()
+  const connection = useMemo(() => resolveConnection({ stored }), [stored])
+  const { baseUrl, apiKey, modelId } = connection
+  // 运行中已等待秒数：并发要整轮跑完才出结果，没有这个提示时看起来像卡死
+  const [waitedSeconds, setWaitedSeconds] = useState(0)
 
   // Live per-level request status cards
   const [activeLevel, setActiveLevel] = useState<number | null>(null)
@@ -100,37 +110,28 @@ const tRank = useTranslations('rank')
   const [streamContents, setStreamContents] = useState<{ [key: number]: string }>({})
   const contentRef = useRef<{ [key: number]: string }>({})
 
-  // Read connection config from localStorage (synced from SpeedTestForm above)
   useEffect(() => {
-    setBaseUrl(localStorage.getItem('speedtest_baseUrl') || '')
-    setApiKey(localStorage.getItem('speedtest_apiKey') || '')
-    setModelId(localStorage.getItem('speedtest_modelId') || '')
-    const storedBrowserDirect = localStorage.getItem('speedtest_browserDirect')
-    const baseUrl = localStorage.getItem('speedtest_baseUrl') || ''
-    if (storedBrowserDirect !== null) {
-      setUseBrowserDirect(storedBrowserDirect === 'true')
-    } else if (baseUrl && isLocalUrl(baseUrl)) {
-      setUseBrowserDirect(true)
-      localStorage.setItem('speedtest_browserDirect', 'true')
+    if (!loading) {
+      setWaitedSeconds(0)
+      return
     }
-  }, [])
+    const startedAt = Date.now()
+    const timer = window.setInterval(() => {
+      setWaitedSeconds(Math.round((Date.now() - startedAt) / 1000))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [loading])
 
-  // Re-sync when SpeedTestForm saves new values
-  useEffect(() => {
-    const handleStorage = () => {
-      setBaseUrl(localStorage.getItem('speedtest_baseUrl') || '')
-      setApiKey(localStorage.getItem('speedtest_apiKey') || '')
-      setModelId(localStorage.getItem('speedtest_modelId') || '')
-      const bd = localStorage.getItem('speedtest_browserDirect')
-      if (bd !== null) setUseBrowserDirect(bd === 'true')
+  /** 单次请求失败原因：超时类给出本地化文案，其它沿用原始 message */
+  const failureMessage = useCallback((error: unknown): string => {
+    if (error instanceof RequestTimeoutError) {
+      const seconds = (error.limitMs / 1000).toFixed(0)
+      return error.kind === 'timeout'
+        ? t('errors.timeout', { seconds })
+        : t('errors.firstTokenTimeout', { seconds })
     }
-    window.addEventListener('storage', handleStorage)
-    const interval = setInterval(handleStorage, 500)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      clearInterval(interval)
-    }
-  }, [])
+    return error instanceof Error ? error.message : t('errors.unknown')
+  }, [t])
 
   // Parse the comma-separated concurrency levels text into a sorted unique integer list
   const parseLevels = useCallback((text: string): number[] => {
@@ -144,25 +145,22 @@ const tRank = useTranslations('rank')
   const handleBaseUrlResolved = useCallback((url: string) => {
     if (!url || resolvedNotifiedRef.current === url) return
     resolvedNotifiedRef.current = url
-    setBaseUrl(url)
-    localStorage.setItem('speedtest_baseUrl', url)
+    writeConnection({ baseUrl: url })
     window.dispatchEvent(new CustomEvent('lm-speed-base-url-resolved', { detail: url }))
     toast.success(t('baseUrlAutoFixed', { url }))
   }, [t])
 
   const onSubmit = useCallback(async () => {
-    const liveBaseUrl = localStorage.getItem('speedtest_baseUrl') || ''
-    const liveApiKey = localStorage.getItem('speedtest_apiKey') || ''
-    const liveModelId = localStorage.getItem('speedtest_modelId') || ''
-    // 「自动补全 API 地址」开关与主表单共用同一个 localStorage 设置
-    const autoCompleteBaseUrl = readAutoCompleteBaseUrl()
-    setBaseUrl(liveBaseUrl)
-    setApiKey(liveApiKey)
-    setModelId(liveModelId)
+    // 提交时重新读一次共享设置：主表单可能刚改过地址/请求头
+    const live = resolveConnection()
 
-    if (!liveBaseUrl || !liveApiKey || !liveModelId) {
+    if (missingConnectionFields(live).length > 0) {
       // 通知上方的速度测试表单：跳回配置区并让缺失的输入框显示错误提示
       window.dispatchEvent(new CustomEvent('lm-speed-config-required'))
+      return
+    }
+    if (live.customHeadersInvalid) {
+      toast.error(t('errors.customHeadersInvalid'))
       return
     }
 
@@ -184,7 +182,7 @@ const tRank = useTranslations('rank')
       setExpandedRequest(null)
       setStreamContents({})
 
-      if (useBrowserDirect) {
+      if (live.browserDirect) {
         const allSummaries: LevelSummary[] = []
         const allDetails: RequestResult[][] = []
 
@@ -198,6 +196,13 @@ const tRank = useTranslations('rank')
           for (let li = 0; li < levels.length; li++) {
             const level = levels[li]
             setActiveLevel(level)
+            // 进度按「本档已完成请求数」推进：整档并发要全部完成才出结果，否则进度条长时间不动
+            setProgress((li / levels.length) * 100)
+            let settled = 0
+            const advanceProgress = () => {
+              settled += 1
+              setProgress(((li + settled / level) / levels.length) * 100)
+            }
             const init: RequestStatus[] = Array.from({ length: level }, (_, i) => ({
               requestId: i + 1, status: 'running' as const,
               firstTokenLatency: 0, tokensPerSecond: 0, tokensPerSecondTotal: 0,
@@ -210,7 +215,7 @@ const tRank = useTranslations('rank')
 
             const levelStartTime = performance.now()
             const tasks = Array.from({ length: level }, (_, i) =>
-              runBrowserStreamedChat(liveBaseUrl, liveApiKey, liveModelId,
+              runBrowserStreamedChat(live.baseUrl, live.apiKey, live.modelId,
                 [{ role: 'user' as const, content: prompt }], i, prompt,
                 {
                   onContent: (cd) => {
@@ -228,9 +233,13 @@ const tRank = useTranslations('rank')
                   onBaseUrlResolved: handleBaseUrlResolved,
                 },
                 undefined,
-                { autoCompleteBaseUrl },
+                directRequestOptions(live, {
+                  timeoutMs: REQUEST_TIMEOUT_MS.concurrency,
+                  maxFirstTokenLatency: typeof maxFirstTokenLatency === 'number' ? maxFirstTokenLatency : undefined,
+                }),
               ).then(r => {
                 const ri = r.index ?? i
+                advanceProgress()
                 setActiveLevelRequests(prev => {
                   const next = [...prev]
                   next[ri] = { ...r, status: 'completed' as const, success: true, requestId: ri + 1 }
@@ -248,9 +257,10 @@ const tRank = useTranslations('rank')
                   success: true,
                 } satisfies RequestResult
               }).catch(err => {
+                advanceProgress()
                 setActiveLevelRequests(prev => {
                   const next = [...prev]
-                  next[i] = { ...next[i], status: 'failed' as const, success: false, error: err instanceof Error ? err.message : String(err) }
+                  next[i] = { ...next[i], status: 'failed' as const, success: false, error: failureMessage(err) }
                   return next
                 })
                 return {
@@ -263,7 +273,7 @@ const tRank = useTranslations('rank')
                   outputTime: 0,
                   content: '',
                   success: false,
-                  error: err instanceof Error ? err.message : String(err),
+                  error: failureMessage(err),
                 } satisfies RequestResult
               })
             )
@@ -339,11 +349,11 @@ const tRank = useTranslations('rank')
 const response = await fetch('/api/speed/concurrency', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-            baseUrl: liveBaseUrl, apiKey: liveApiKey, modelId: liveModelId, prompt, concurrencyLevels: levels,
-            autoCompleteBaseUrl,
-            ...(maxFirstTokenLatency !== '' && maxFirstTokenLatency > 0 ? { maxFirstTokenLatency } : {}),
-            }),
+            body: JSON.stringify(proxyRequestBody(live, {
+              prompt,
+              concurrencyLevels: levels,
+              ...(maxFirstTokenLatency !== '' && maxFirstTokenLatency > 0 ? { maxFirstTokenLatency } : {}),
+            })),
           })
 
       if (!response.ok) {
@@ -474,11 +484,11 @@ const response = await fetch('/api/speed/concurrency', {
       }
     } catch (error) {
       console.error('Concurrency test error:', error)
-      toast.error(error instanceof Error ? error.message : t('errors.unknown'), { duration: 30000 })
+      toast.error(failureMessage(error), { duration: 30000 })
     } finally {
       setLoading(false)
     }
-  }, [prompt, concurrencyLevelsText, t, parseLevels, useBrowserDirect, maxFirstTokenLatency])
+  }, [prompt, concurrencyLevelsText, t, parseLevels, maxFirstTokenLatency, failureMessage])
 
   // ── Render ──
 
@@ -541,6 +551,7 @@ const response = await fetch('/api/speed/concurrency', {
               <p><span className="text-gray-500">{t('connection.baseUrl')}:</span> <span className="text-gray-700">{baseUrl || '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.apiKey')}:</span> <span className="text-gray-700">{apiKey ? '••••••' + apiKey.slice(-4) : '-'}</span></p>
               <p><span className="text-gray-500">{t('connection.modelId')}:</span> <span className="text-gray-700">{modelId || '-'}</span></p>
+              <p><span className="text-gray-500">{t('connection.transport')}:</span> <span className="text-gray-700">{connection.browserDirect ? t('connection.transportDirect') : t('connection.transportProxy')}</span></p>
             </div>
           )}
 
@@ -743,6 +754,9 @@ const response = await fetch('/api/speed/concurrency', {
           <h3 className="text-xl text-center font-bold mb-4">
             {t('details.title')} — {t('details.level')} {activeLevel}
             <span className="ml-3 text-gray-500 text-base">({progress.toFixed(0)}%)</span>
+            {loading && waitedSeconds > 0 && (
+              <span className="ml-3 text-gray-400 text-sm font-normal">{t('details.waitingSeconds', { seconds: waitedSeconds })}</span>
+            )}
           </h3>
           <div className="space-y-4">
             {activeLevelRequests.map((it, idx) => {
@@ -816,6 +830,10 @@ const response = await fetch('/api/speed/concurrency', {
                       </p>
                     </div>
                   </div>
+
+                {it.status === 'failed' && it.error && (
+                  <p className="mt-2 text-xs text-red-400 break-all">{it.error}</p>
+                )}
 
                 <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${expandedRequest === activeKey ? 'block' : 'hidden'}`}>
                   <div className="flex justify-between items-center mb-2">
