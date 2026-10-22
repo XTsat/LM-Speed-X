@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 const PIXEL_RATIO = 2;
 
-const roundRect = (
+const roundRectPath = (
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
@@ -21,7 +21,6 @@ const roundRect = (
   ctx.lineTo(0, r);
   ctx.quadraticCurveTo(0, 0, r, 0);
   ctx.closePath();
-  ctx.fill();
 };
 
 const loadImage = (src: string) =>
@@ -32,10 +31,15 @@ const loadImage = (src: string) =>
     image.src = src;
   });
 
-/** 面板左上角圆角（CSS px），转换失败时退回 0（即不裁切） */
+/** 面板四个角里最大的圆角（CSS px）；四个角都是 0 说明本来就没有圆角，不需要裁切 */
 const readRadius = (node: HTMLElement): number => {
-  const value = Number.parseFloat(getComputedStyle(node).borderTopLeftRadius);
-  return Number.isFinite(value) ? value : 0;
+  const style = getComputedStyle(node);
+  return Math.max(
+    Number.parseFloat(style.borderTopLeftRadius) || 0,
+    Number.parseFloat(style.borderTopRightRadius) || 0,
+    Number.parseFloat(style.borderBottomLeftRadius) || 0,
+    Number.parseFloat(style.borderBottomRightRadius) || 0
+  );
 };
 
 export const handleToImage = async (id: string, name = "lm-speed-test"): Promise<void> => {
@@ -45,9 +49,13 @@ export const handleToImage = async (id: string, name = "lm-speed-test"): Promise
     return;
   }
 
+  const background = getComputedStyle(node).backgroundColor;
+
   const options: Record<string, unknown> = {
     quality: 1,
     pixelRatio: PIXEL_RATIO,
+    // 圆角边缘的合成像素会与底色混合：垫上面板自身底色，边缘就不会混出白边
+    ...(background && background !== "rgba(0, 0, 0, 0)" ? { bgcolor: background } : {}),
     width: node.scrollWidth,
     height: node.scrollHeight,
     style: {
@@ -59,7 +67,6 @@ export const handleToImage = async (id: string, name = "lm-speed-test"): Promise
   };
 
   try {
-    // 不传 bgcolor，PNG 默认透明；圆角之外的像素下面再按面板圆角裁一次
     const raw = await toPng(node, options);
     const image = await loadImage(raw);
 
@@ -70,11 +77,16 @@ export const handleToImage = async (id: string, name = "lm-speed-test"): Promise
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas is unavailable");
 
+    // dom-to-image 把克隆画进 SVG 再栅格化，圆角之外的抗锯齿像素可能混进不透明颜色（表现为四角白点），
+    // 所以这里按面板自身的圆角重新 clip 一次：画布本身透明，圆角外不落笔，四角自然是纯 alpha=0
+    const radius = readRadius(node) * PIXEL_RATIO;
+    if (radius > 0) {
+      ctx.save();
+      roundRectPath(ctx, canvas.width, canvas.height, radius);
+      ctx.clip();
+    }
     ctx.drawImage(image, 0, 0);
-    // dom-to-image 克隆时圆角外的抗锯齿像素会混进不透明颜色（表现为四角白点），
-    // 这里用面板自身的圆角重做一次 alpha 裁切，保证四角是纯透明
-    ctx.globalCompositeOperation = "destination-in";
-    roundRect(ctx, canvas.width, canvas.height, readRadius(node) * PIXEL_RATIO);
+    if (radius > 0) ctx.restore();
 
     const link = document.createElement("a");
     link.download = `${name}-${new Date().toISOString().split("T")[0]}.png`;
