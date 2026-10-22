@@ -421,6 +421,12 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_10_7": {
+        "autoCompleteSwitch": "额外设置新增「自动补全 API 地址」开关",
+        "autoCompleteSwitchDetail": "关闭后地址按填入原样使用：不补 http(s):// 前缀、不剥离粘贴的端点、也不自动追加 /v1",
+        "browserDirectHint": "浏览器直连覆盖隧道地址并主动提示",
+        "browserDirectHintDetail": "内网与隧道地址（含 100.64.0.0/10 网段）自动开启浏览器直连；选好地址后右下角提示当前直连状态，带自定义端口时可直接在提示里一键开启"
+      },
       "v0_10_6": {
         "removeInstallButton": "移除顶栏「安装应用」按钮",
         "removeInstallButtonDetail": "安装入口完全交给浏览器（地址栏安装图标 / 浏览器菜单里的安装项），页面不再重复提供安装入口和说明"

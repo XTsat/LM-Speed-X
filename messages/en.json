@@ -421,6 +421,12 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_10_7": {
+        "autoCompleteSwitch": "New \"Auto-complete API URL\" switch in Extra Settings",
+        "autoCompleteSwitchDetail": "When off, the address is used exactly as typed: no http(s):// prefix, no endpoint stripping and no automatic /v1 suffix",
+        "browserDirectHint": "Browser direct mode covers tunnel addresses and tells you when it kicks in",
+        "browserDirectHintDetail": "Intranet and tunnel addresses (including the 100.64.0.0/10 range) enable browser direct mode automatically; after you pick an address, a notice in the bottom-right corner reports the current mode and offers one-click enabling when the address uses a custom port"
+      },
       "v0_10_6": {
         "removeInstallButton": "Removed the \"Install app\" button from the header",
         "removeInstallButtonDetail": "The install entry now lives entirely in the browser (address-bar install icon / the install item in the browser menu); the page no longer duplicates it"

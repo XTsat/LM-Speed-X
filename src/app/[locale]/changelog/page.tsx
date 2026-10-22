@@ -18,6 +18,22 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.10.7',
+      date: '2026-10-22',
+      types: ['feature'],
+      tag: 'v0.10.7',
+      changes: [
+        {
+          text: t('entries.v0_10_7.autoCompleteSwitch'),
+          sub: [t('entries.v0_10_7.autoCompleteSwitchDetail')],
+        },
+        {
+          text: t('entries.v0_10_7.browserDirectHint'),
+          sub: [t('entries.v0_10_7.browserDirectHintDetail')],
+        },
+      ],
+    },
+    {
       version: '0.10.6',
       date: '2026-10-17',
       types: ['improvement'],
