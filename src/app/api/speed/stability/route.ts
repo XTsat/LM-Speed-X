@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { chatCreateWithPathFallback, makeOpenAIClient, type OpenAIProxyOptions } from '@/lib/server-llm';
 import { normalizeApiBaseUrl } from '@/lib/api-path';
+import { calculateStats } from '@/lib/stats';
 
 const makeStabilityTestSchema = (autoCompleteBaseUrl: boolean) => z.object({
   // 「自动补全 API 地址」关闭时只做 trim，不补协议、不剥离端点
@@ -19,24 +20,6 @@ const makeStabilityTestSchema = (autoCompleteBaseUrl: boolean) => z.object({
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
-}
-
-function calculateStats(values: number[]) {
-  const n = values.length;
-  if (n === 0) return { mean: 0, stdDev: 0, min: 0, max: 0, variance: 0, median: 0 };
-
-  const sorted = [...values].sort((a, b) => a - b);
-  const sum = sorted.reduce((acc, v) => acc + v, 0);
-  const mean = sum / n;
-  const median = n % 2 === 0
-    ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2
-    : sorted[Math.floor(n / 2)];
-  const variance = sorted.reduce((acc, v) => acc + (v - mean) ** 2, 0) / n;
-  const stdDev = Math.sqrt(variance);
-  const min = sorted[0];
-  const max = sorted[n - 1];
-
-  return { mean, stdDev, min, max, variance, median };
 }
 
 export async function POST(request: Request) {

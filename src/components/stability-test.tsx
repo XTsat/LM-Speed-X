@@ -11,6 +11,7 @@ import { handleToImage } from '@/lib/tool'
 import { COLLAPSE_BAR_CLASS, COLLAPSE_ITEM_CLASS, CollapsiblePanel } from './collapsible-panel'
 import { ResultBody } from './result-body'
 import { cn } from '@/lib/utils'
+import { calculateStats } from '@/lib/stats'
 import {
   REQUEST_TIMEOUT_MS,
   directRequestOptions,
@@ -126,6 +127,24 @@ const tRank = useTranslations('rank')
     window.dispatchEvent(new CustomEvent('lm-speed-base-url-resolved', { detail: url }))
     toast.success(t('baseUrlAutoFixed', { url }))
   }, [t])
+
+  /** 运行中也算一份实时汇总：一万次测试中途中断时，已完成的轮次不该白跑 */
+  const liveSummary = useMemo<StabilityResults | null>(() => {
+    if (results) return results
+    const done = iterations.filter((it) => it.status === 'completed')
+    const failed = iterations.filter((it) => it.status === 'failed')
+    if (!loading || (done.length === 0 && failed.length === 0)) return null
+    return {
+      results: done,
+      failures: failed.map((it) => ({ iteration: it.iteration, error: it.error ?? '' })),
+      stats: {
+        firstTokenLatency: calculateStats(done.map((it) => it.firstTokenLatency)),
+        tokensPerSecond: calculateStats(done.map((it) => it.tokensPerSecond)),
+        totalTime: calculateStats(done.map((it) => it.totalTime)),
+        outputToken: calculateStats(done.map((it) => it.outputToken)),
+      },
+    }
+  }, [results, iterations, loading])
 
   const onSubmit = useCallback(async () => {
     // 提交时重新读一次共享设置：主表单可能刚改过地址/请求头
@@ -488,7 +507,7 @@ const tRank = useTranslations('rank')
 
       {/* ── Summary (shown on top after completion) ── */}
       <div className="px-4 sm:px-6">
-        {results && (
+        {liveSummary && (
           <div className="mb-8">
             <div id="stability-summary" className={cn('group pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
               <div className="flex items-center gap-2">
@@ -528,9 +547,11 @@ const tRank = useTranslations('rank')
                 <span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
                 <span className="text-white mr-8">{(() => { try { return new URL(baseUrl).host } catch { return baseUrl || '-' } })()}</span>
                 <span className="text-gray-400 mr-2">{t('summary.iterations')}:</span>
-                <span className="text-white mr-8">{results.results.length}</span>
+                <span className="text-white mr-8">
+                  {loading ? `${liveSummary.results.length}/${count}` : liveSummary.results.length}
+                </span>
                 <span className="text-gray-400 mr-2">{t('summary.prompt')}:</span>
-                <span className="text-white">{results.results[0]?.content.length ?? 0} chars</span>
+                <span className="text-white">{liveSummary.results[0]?.content.length ?? 0} chars</span>
               </div>
 
               <div className="overflow-x-auto">
@@ -552,7 +573,7 @@ const tRank = useTranslations('rank')
                       { label: t('summary.totalTime'), key: 'totalTime' as const, fmt: formatMs },
                       { label: t('summary.outputToken'), key: 'outputToken' as const, fmt: (v: number) => v.toFixed(0) },
                     ]).map(({ label, key, fmt }, i) => {
-                      const s = results.stats[key]
+                      const s = liveSummary.stats[key]
                       return (
                         <tr key={key} className={i < 3 ? 'border-b border-gray-800' : ''}>
                           <td className="py-3 px-3 text-gray-300">{label}</td>
@@ -577,7 +598,7 @@ const tRank = useTranslations('rank')
             </div>
 
             {/* Results list (matching SpeedTest ResultsList style exactly) */}
-            {results.results.length > 0 && (
+            {results && results.results.length > 0 && (
               <CollapsiblePanel
                 open={detailsOpen}
                 onToggle={() => setDetailsOpen(!detailsOpen)}
@@ -636,7 +657,7 @@ const tRank = useTranslations('rank')
               </div>
               </CollapsiblePanel>
             )}
-          {results.failures && results.failures.length > 0 && (
+          {results?.failures && results.failures.length > 0 && (
             <CollapsiblePanel
               open={failuresOpen}
               onToggle={() => setFailuresOpen(!failuresOpen)}
