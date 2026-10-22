@@ -109,7 +109,7 @@
       "toggleContent": "View output",
       "loading": "Loading...",
       "waiting": "Waiting...",
-      "iteration": "Iteration",
+      "iteration": "Run {index}",
       "waitingSeconds": "Waiting {seconds}s",
       "failures": "Failed Runs"
     },

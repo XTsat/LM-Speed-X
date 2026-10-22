@@ -102,7 +102,7 @@
       "failed": "已失败"
     },
     "details": {
-      "iteration": "第",
+      "iteration": "第 {index} 轮",
       "firstTokenLatency": "首字延迟",
       "tokensPerSecond": "速度 (t/s)",
       "totalTime": "总耗时",

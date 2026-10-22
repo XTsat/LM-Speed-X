@@ -774,19 +774,29 @@ const response = await fetch('/api/speed/concurrency', {
                               headerClassName={COLLAPSE_ITEM_CLASS}
                               bodyClassName="mt-4"
                               header={
-                                <div className="flex justify-between items-center">
-                                  <p className="text-gray-600 text-sm">
-                                    {t('details.request')} {r.requestId}
-                                  </p>
-                                  <div className="pr-2">
+                                <div className="flex w-full items-center justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <span className="text-base font-semibold text-gray-700">
+                                      {t('details.request')} {r.requestId}
+                                    </span>
                                     {r.success ? (
-                                      <span className="text-green-400">{t('status.completed')}</span>
+                                      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                                        {t('status.completed')}
+                                      </span>
                                     ) : (
-                                      <span className="text-red-400">{t('status.failed')}</span>
+                                      <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
+                                        {t('status.failed')}
+                                      </span>
                                     )}
+                                  </div>
+                                  <div className="flex shrink-0 items-center gap-3 pr-2 text-xs font-mono text-gray-500">
+                                    {r.outputToken > 0 && (
+                                      <span>{r.outputToken} · {r.tokensPerSecond.toFixed(2)} t/s</span>
+                                    )}
+                                    {r.totalTime > 0 && <span>{(r.totalTime / 1000).toFixed(2)} s</span>}
+                                  </div>
                                 </div>
-                              </div>
-                            }
+                              }
                           >
                             <ResultBody
                               metrics={[
@@ -860,10 +870,10 @@ const response = await fetch('/api/speed/concurrency', {
                 it.status === 'pending'
                   ? 'p-4 rounded-lg bg-gray-100 border border-gray-200'
                   : it.status === 'running'
-                    ? 'p-4 rounded-lg bg-blue-50 dark:bg-blue-500/15'
+                    ? 'p-4 rounded-lg bg-blue-50 border-l-4 border-blue-400 dark:bg-blue-500/15'
                     : it.status === 'failed'
-                      ? 'p-4 rounded-lg bg-red-50 dark:bg-red-500/15'
-                      : COLLAPSE_ITEM_CLASS
+                      ? 'p-4 rounded-lg bg-red-50 border-l-4 border-red-400 dark:bg-red-500/15'
+                      : 'p-4 rounded-lg bg-gray-200 border-l-4 border-cyan-400'
               return (
                 <CollapsiblePanel
                   key={idx}
@@ -873,25 +883,40 @@ const response = await fetch('/api/speed/concurrency', {
                   headerClassName={itemClass}
                   bodyClassName="mt-4"
                   header={
-                    <div className="flex justify-between items-center">
-                      <p className="text-gray-600 text-sm">
-                        {t('details.request')} {it.requestId}
-                      </p>
-                      <div className="flex items-center gap-3 pr-2">
-                        {it.status !== 'pending' && it.outputToken > 0 && (
-                          <span className="text-gray-500 text-xs font-mono">
-                            {it.outputToken} · {it.tokensPerSecond.toFixed(2)} t/s
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="text-base font-semibold text-gray-700">
+                          {t('details.request')} {it.requestId}
+                        </span>
+                        {it.status === 'pending' && (
+                          <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">
+                            {t('status.pending')}
                           </span>
                         )}
-                        {it.status === 'pending' && <span className="text-gray-500">{t('status.pending')}</span>}
                         {it.status === 'running' && (
-                          <span className="text-blue-400 flex items-center gap-1">
+                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-600">
                             <Loader2 className="w-3 h-3 animate-spin" />
                             {t('status.running')}
                           </span>
                         )}
-                        {it.status === 'completed' && <span className="text-green-400">{t('status.completed')}</span>}
-                        {it.status === 'failed' && <span className="text-red-400">{t('status.failed')}</span>}
+                        {it.status === 'completed' && (
+                          <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                            {t('status.completed')}
+                          </span>
+                        )}
+                        {it.status === 'failed' && (
+                          <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
+                            {t('status.failed')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3 pr-2 text-xs font-mono text-gray-500">
+                        {it.status !== 'pending' && it.outputToken > 0 && (
+                          <span>{it.outputToken} · {it.tokensPerSecond.toFixed(2)} t/s</span>
+                        )}
+                        {it.status !== 'pending' && it.totalTime > 0 && (
+                          <span>{(it.totalTime / 1000).toFixed(2)} s</span>
+                        )}
                       </div>
                     </div>
                   }

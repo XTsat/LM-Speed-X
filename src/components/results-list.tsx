@@ -48,8 +48,8 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle }
             result.status === "pending"
               ? "p-4 rounded-lg bg-gray-100 border border-gray-200"
               : result.status === "running"
-                ? "p-4 rounded-lg bg-blue-50 dark:bg-blue-500/15"
-                : COLLAPSE_ITEM_CLASS;
+                ? "p-4 rounded-lg bg-blue-50 border-l-4 border-blue-400 dark:bg-blue-500/15"
+                : "p-4 rounded-lg bg-gray-200 border-l-4 border-cyan-400";
           return (
           <CollapsiblePanel
             key={index}
@@ -59,32 +59,35 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle }
             headerClassName={itemClass}
             bodyClassName="mt-4"
             header={
-              <div className="flex justify-between items-center">
-                <div className="flex-1">
-                  <h3 className="text-gray-700 font-medium">
+              <div className="flex w-full items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h3 className="truncate text-base font-semibold text-gray-700">
                     {t("results.prompt")}: {result.prompt}
                   </h3>
-                </div>
-                <div className="ml-4 flex items-center gap-3">
-                  {result.status === "completed" && result.outputToken > 0 && (
-                    <span className="text-gray-500 text-xs font-mono">
-                      {result.outputToken} · {result.tokensPerSecond.toFixed(2)} t/s
-                    </span>
-                  )}
                   {result.status === "pending" && (
-                    <span className="text-gray-500">
+                    <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">
                       {t("results.status.pending")}
                     </span>
                   )}
                   {result.status === "running" && (
-                    <span className="text-blue-400">
+                    <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-600">
                       {t("results.status.running")}
                     </span>
                   )}
                   {result.status === "completed" && (
-                    <span className="text-green-400">
+                    <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
                       {t("results.status.completed")}
                     </span>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-3 pr-2 text-xs font-mono text-gray-500">
+                  {result.status !== "pending" && result.outputToken > 0 && (
+                    <span>
+                      {result.outputToken} · {result.tokensPerSecond.toFixed(2)} t/s
+                    </span>
+                  )}
+                  {result.status !== "pending" && result.totalTime > 0 && (
+                    <span>{(result.totalTime / 1000).toFixed(2)} s</span>
                   )}
                 </div>
               </div>
