@@ -33,6 +33,8 @@ interface RequestBody {
   timeoutMs?: number
   /** Challenge-response validation level: 'repeat' | 'self' | 'math' | 'vision' (null = no validation) */
   validationLevel?: ValidationLevel
+  /** 「自动补全 API 地址」开关：false 时按填写地址原样请求，且不做 /v1 回退 */
+  autoCompleteBaseUrl?: boolean
 }
 
 interface AttemptResult {
@@ -288,6 +290,7 @@ export async function POST(request: Request) {
   // as filled in; a path-type failure retries once at the /v1 alternative.
   const proxyOpts: OpenAIProxyOptions = {
     apiKey: body.apiKey,
+    autoCompleteBaseUrl: body.autoCompleteBaseUrl !== false,
     timeoutMs,
   }
 

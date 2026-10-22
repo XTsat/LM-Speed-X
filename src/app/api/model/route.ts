@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { modelSchema } from '@/lib/schema';
+import { makeModelSchema } from '@/lib/schema';
 import { apiPathCandidates, probeModelsUrl } from '@/lib/api-path';
 
 /**
@@ -11,8 +11,9 @@ import { apiPathCandidates, probeModelsUrl } from '@/lib/api-path';
 async function fetchModelsRaw(
   baseUrl: string,
   apiKey: string,
+  autoCompleteBaseUrl: boolean,
 ): Promise<{ models: Array<{ id: string; object?: string }> } | { cfUrl: string }> {
-  for (const { url } of apiPathCandidates(baseUrl)) {
+  for (const { url } of apiPathCandidates(baseUrl, autoCompleteBaseUrl)) {
     const probe = await probeModelsUrl(url, apiKey, undefined, 30 * 1000);
 
     // Cloudflare challenge / bot-protection page — tell the client so it can
@@ -33,11 +34,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
+    // 「自动补全 API 地址」开关：关闭时只探测用户填写的地址本身，不试 /v1
+    const autoCompleteBaseUrl = body?.autoCompleteBaseUrl !== false;
+
     // Validate input
-    const validatedData = modelSchema.parse(body);
+    const validatedData = makeModelSchema(autoCompleteBaseUrl).parse(body);
 
     baseUrl = validatedData.baseUrl;
-    const result = await fetchModelsRaw(validatedData.baseUrl, validatedData.apiKey);
+    const result = await fetchModelsRaw(validatedData.baseUrl, validatedData.apiKey, autoCompleteBaseUrl);
 
     if ('cfUrl' in result) {
       return NextResponse.json(

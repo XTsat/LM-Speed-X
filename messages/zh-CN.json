@@ -225,6 +225,10 @@
         "label": "浏览器直连模式（本地/内网 API）",
         "description": "当 API 地址为本地或内网 IP 时自动启用，浏览器直接连接 API 绕过服务器代理"
       },
+      "autoCompleteBaseUrl": {
+        "label": "自动补全 API 地址",
+        "help": "开启时自动补全 http(s):// 前缀、剥离粘贴的完整端点，并在需要时补上 /v1；关闭后所有请求按填入地址原样发送，不做任何改写"
+      },
       "currentSite": "当前站点 ({origin})",
       "customHeaders": {
         "label": "自定义请求头",

@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, BarChart3, TrendingUp, Zap } from 'lucide-react'
 import { isLocalUrl, runBrowserStreamedChat } from '@/lib/browser-llm'
+import { readAutoCompleteBaseUrl } from '@/lib/api-completion'
 import { copyToClipboard } from '@/lib/clipboard'
 
 // ── Types ──
@@ -153,6 +154,8 @@ const tRank = useTranslations('rank')
     const liveBaseUrl = localStorage.getItem('speedtest_baseUrl') || ''
     const liveApiKey = localStorage.getItem('speedtest_apiKey') || ''
     const liveModelId = localStorage.getItem('speedtest_modelId') || ''
+    // 「自动补全 API 地址」开关与主表单共用同一个 localStorage 设置
+    const autoCompleteBaseUrl = readAutoCompleteBaseUrl()
     setBaseUrl(liveBaseUrl)
     setApiKey(liveApiKey)
     setModelId(liveModelId)
@@ -223,7 +226,9 @@ const tRank = useTranslations('rank')
                     })
                   },
                   onBaseUrlResolved: handleBaseUrlResolved,
-                }
+                },
+                undefined,
+                { autoCompleteBaseUrl },
               ).then(r => {
                 const ri = r.index ?? i
                 setActiveLevelRequests(prev => {
@@ -336,6 +341,7 @@ const response = await fetch('/api/speed/concurrency', {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
             baseUrl: liveBaseUrl, apiKey: liveApiKey, modelId: liveModelId, prompt, concurrencyLevels: levels,
+            autoCompleteBaseUrl,
             ...(maxFirstTokenLatency !== '' && maxFirstTokenLatency > 0 ? { maxFirstTokenLatency } : {}),
             }),
           })

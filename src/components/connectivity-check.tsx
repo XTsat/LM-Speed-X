@@ -47,6 +47,7 @@ export function ConnectivityCheck({
   baseUrl,
   apiKey,
   useBrowserDirect = false,
+  autoCompleteBaseUrl = true,
   onBaseUrlResolved,
 }: {
   onModelsFound?: (models: { id: string; latencyMs: number | null; status?: 'ok' | 'validation_failed' | 'unreachable' }[]) => void
@@ -54,6 +55,8 @@ export function ConnectivityCheck({
   apiKey: string
   /** Parent's "browser-direct" toggle — forces browser-side fetch/test */
   useBrowserDirect?: boolean
+  /** Parent's 「自动补全 API 地址」toggle — false 时按填入地址原样请求 */
+  autoCompleteBaseUrl?: boolean
   /** Inform the parent that the effective base URL differs from the input (e.g. /v1 appended) */
   onBaseUrlResolved?: (url: string) => void
 }) {
@@ -106,7 +109,8 @@ export function ConnectivityCheck({
     try {
       // Resolve the effective API base URL — the address as filled in is tested
       // first, falling back to /v1 — and surface the change to the parent form.
-      const resolved = await resolveApiBaseUrl(baseUrl, apiKey)
+      // With auto-complete off the input is used verbatim and nothing is probed.
+      const resolved = await resolveApiBaseUrl(baseUrl, apiKey, undefined, undefined, autoCompleteBaseUrl)
       if (resolved.changed) onBaseUrlResolved?.(resolved.url)
       baseUrl = resolved.url
 
@@ -116,7 +120,10 @@ export function ConnectivityCheck({
           const models = await fetchModelsDirect(
             baseUrl,
             apiKey,
-            forceBrowserDirectRef.current ? { credentials: 'include' } : undefined,
+            {
+              ...(forceBrowserDirectRef.current ? { credentials: 'include' as const } : {}),
+              autoCompleteBaseUrl,
+            },
           )
           const ids: string[] = models.map((m) => m.id).filter(Boolean)
           setModelIds(ids)
@@ -176,7 +183,7 @@ export function ConnectivityCheck({
     } finally {
       setFetchingModels(false)
     }
-  }, [baseUrl, apiKey, t, useBrowserDirect, onBaseUrlResolved])
+  }, [baseUrl, apiKey, t, useBrowserDirect, onBaseUrlResolved, autoCompleteBaseUrl])
 
   const handleCloudflareVerified = useCallback(() => {
     setCloudflareDialogOpen(false)
@@ -217,6 +224,7 @@ export function ConnectivityCheck({
             abortController.signal,
             validationLevel,
             onBaseUrlResolved,
+            autoCompleteBaseUrl,
           )
           collectedResults.push(result)
           setResults((prev) => {
@@ -262,6 +270,7 @@ export function ConnectivityCheck({
           retries: retries ? Number(retries) : 0,
           timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
           validationLevel: validationLevel || undefined,
+          autoCompleteBaseUrl,
         }),
       })
       if (!resp.ok) {
@@ -325,7 +334,7 @@ export function ConnectivityCheck({
     } finally {
       setTesting(false)
     }
-  }, [baseUrl, apiKey, allModelIds, delayMs, retries, timeoutMs, onModelsFound, t, useBrowserDirect, onBaseUrlResolved])
+  }, [baseUrl, apiKey, allModelIds, delayMs, retries, timeoutMs, onModelsFound, t, useBrowserDirect, onBaseUrlResolved, autoCompleteBaseUrl])
 
   const reachableCount = results?.filter((r) => r.reachable && r.contentValid !== false).length ?? 0
   const totalCount = results?.length ?? 0

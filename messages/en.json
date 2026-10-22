@@ -225,6 +225,10 @@
         "label": "Browser Direct Mode (Local/Intranet API)",
         "description": "Auto-enabled when the API address is a local or intranet IP. The browser connects directly, bypassing the server proxy."
       },
+      "autoCompleteBaseUrl": {
+        "label": "Auto-complete API URL",
+        "help": "When on, the http(s):// prefix is filled in, a pasted full endpoint is stripped, and /v1 is appended when needed. When off, every request goes to the address exactly as typed."
+      },
       "currentSite": "Current site ({origin})",
       "customHeaders": {
         "label": "Custom Headers",

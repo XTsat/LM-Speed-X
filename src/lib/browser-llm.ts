@@ -54,14 +54,15 @@ export interface ModelsListResult {
 export async function fetchModelsDirect(
   baseUrl: string,
   apiKey: string,
-  options?: { credentials?: RequestCredentials }
+  options?: { credentials?: RequestCredentials; autoCompleteBaseUrl?: boolean }
 ): Promise<ModelsListResult[]> {
-  const normalized = baseUrl.replace(/\/+$/, '')
+  const autoComplete = options?.autoCompleteBaseUrl !== false
+  const normalized = normalizeApiBaseUrl(baseUrl, autoComplete)
 
   // Detect the correct API path prefix, fall back to /v1 if unreachable
-  const prefix =
-    (await detectApiPath(baseUrl, apiKey)) ??
-    (normalized.endsWith('/v1') ? '' : '/v1')
+  const prefix = autoComplete
+    ? (await detectApiPath(baseUrl, apiKey)) ?? (normalized.endsWith('/v1') ? '' : '/v1')
+    : ''
   const url = `${normalized}${prefix}/models`
 
   // Try without credentials first — avoids CORS issues when the API responds
@@ -138,12 +139,14 @@ export async function testConnectivityDirect(
   signal?: AbortSignal,
   validationLevel?: ValidationLevel,
   onBaseUrlResolved?: (url: string) => void,
+  autoCompleteBaseUrl: boolean = true,
 ): Promise<ConnectivityResult> {
-  const normalized = normalizeApiBaseUrl(baseUrl)
+  const normalized = normalizeApiBaseUrl(baseUrl, autoCompleteBaseUrl)
   // Fail-based /v1 fallback: requests go to the address as filled in first;
   // only a path-type failure retries once at the /v1 alternative, and only a
-  // successful retry is remembered and surfaced back to the user.
-  const knownBase = getChatBaseUrl(normalized)
+  // successful retry is remembered and surfaced back to the user. With
+  // completion off there is no fallback and no cached correction.
+  const knownBase = autoCompleteBaseUrl ? getChatBaseUrl(normalized) : null
   let apiBase = knownBase ?? normalized
   let resolvedNotified = false
   if (knownBase) onBaseUrlResolved?.(knownBase)
@@ -260,7 +263,12 @@ export async function testConnectivityDirect(
     }
 
     let streaming = await probe(true, abortSignal)
-    if (!streaming.ok && isPathError(streaming.status, streaming.error) && !resolvedNotified) {
+    if (
+      autoCompleteBaseUrl &&
+      !streaming.ok &&
+      isPathError(streaming.status, streaming.error) &&
+      !resolvedNotified
+    ) {
       // Path-type failure at the address as filled in — retry once at the /v1
       // alternative; only a successful retry is remembered and written back.
       const fallback = getFallbackBaseUrl(normalized)
@@ -363,13 +371,16 @@ export async function runBrowserStreamedChat(
     }) => void
     onBaseUrlResolved?: (url: string) => void
   },
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: { autoCompleteBaseUrl?: boolean },
 ): Promise<SpeedTestResult> {
-  const normalized = normalizeApiBaseUrl(baseUrl)
+  const autoComplete = options?.autoCompleteBaseUrl !== false
+  const normalized = normalizeApiBaseUrl(baseUrl, autoComplete)
   // Fail-based /v1 fallback: the request goes to the address as filled in
   // first; only a path-type failure retries once at the /v1 alternative, and
-  // only a successful retry is remembered and surfaced back to the user.
-  const knownBase = getChatBaseUrl(normalized)
+  // only a successful retry is remembered and surfaced back to the user. With
+  // completion off both the retry and the cached correction are disabled.
+  const knownBase = autoComplete ? getChatBaseUrl(normalized) : null
   let apiBase = knownBase ?? normalized
   if (knownBase) callbacks.onBaseUrlResolved?.(knownBase)
 
@@ -414,7 +425,7 @@ export async function runBrowserStreamedChat(
   if (!response.ok) {
     const status = response.status
     const text = await response.text().catch(() => '')
-    if (isPathError(status, text) && !knownBase) {
+    if (autoComplete && isPathError(status, text) && !knownBase) {
       // Retry once at the /v1 alternative — only a successful retry is
       // remembered and written back to the user (never a guess).
       const fallback = getFallbackBaseUrl(normalized)

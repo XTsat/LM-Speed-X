@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { speedTestSchema } from '@/lib/schema';
+import { makeSpeedTestSchema } from '@/lib/schema';
 import { chatCreateWithPathFallback, makeOpenAIClient, type OpenAIProxyOptions } from '@/lib/server-llm';
 
 const TEST_PROMPTS = [
@@ -20,9 +20,12 @@ function estimateTokens(text: string): number {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    
+
+    // 「自动补全 API 地址」开关：关闭时 baseUrl 原样使用，且不做 /v1 回退
+    const autoCompleteBaseUrl = body?.autoCompleteBaseUrl !== false;
+
     // Validate input
-    const validatedData = speedTestSchema.parse(body);
+    const validatedData = makeSpeedTestSchema(autoCompleteBaseUrl).parse(body);
     
     // Create OpenAI client with optional custom headers
     // Filter out 'Authorization' and 'authorization' to avoid overriding the API key
@@ -39,6 +42,7 @@ export async function POST(request: Request) {
     const proxyOpts: OpenAIProxyOptions = {
       apiKey: validatedData.apiKey,
       timeoutMs: 60 * 1000, // 60s per-request timeout for speed tests
+      autoCompleteBaseUrl,
       ...(safeCustomHeaders && Object.keys(safeCustomHeaders).length > 0 ? {
         customHeaders: safeCustomHeaders,
       } : {}),

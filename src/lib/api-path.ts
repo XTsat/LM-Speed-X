@@ -32,12 +32,20 @@ export interface ModelsProbe {
   cfUrl?: string
 }
 
-/** Candidate URLs to probe, in preference order */
-export function apiPathCandidates(baseUrl: string): Array<{ path: string; url: string }> {
-  const normalized = normalizeApiBaseUrl(baseUrl)
+/**
+ * Candidate URLs to probe, in preference order.
+ * With autoComplete off only the address as typed is probed — the user asked
+ * for their URL to be used verbatim, so no /v1 alternative is invented.
+ */
+export function apiPathCandidates(
+  baseUrl: string,
+  autoComplete: boolean = true,
+): Array<{ path: string; url: string }> {
+  const normalized = normalizeApiBaseUrl(baseUrl, autoComplete)
   // An empty base URL has no candidates: probing would hit relative paths on
   // the app's own origin and could be mistaken for a valid API endpoint.
   if (!normalized) return []
+  if (!autoComplete) return [{ path: '', url: `${normalized}/models` }]
   if (normalized.endsWith('/v1')) {
     return [{ path: '', url: `${normalized}/models` }]
   }
@@ -119,9 +127,17 @@ export async function detectApiPath(
   apiKey: string,
   credentials?: RequestCredentials,
   timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
+  autoComplete: boolean = true,
 ): Promise<string | null> {
-  const normalized = normalizeApiBaseUrl(baseUrl)
+  const normalized = normalizeApiBaseUrl(baseUrl, autoComplete)
   if (!normalized) return null
+  // With autoComplete off the answer is trivially '' (the URL as typed works,
+  // or it is simply wrong) — probing twice for a /v1 the user did not ask for
+  // would contradict the setting.
+  if (!autoComplete) {
+    const probe = await probeModelsUrl(`${normalized}/models`, apiKey, credentials, timeoutMs)
+    return probe.ok ? '' : null
+  }
   const cached = _pathCache.get(normalized)
   if (cached !== undefined) return cached
 
@@ -147,18 +163,21 @@ export interface ResolvedApiBase {
 /**
  * Resolve the effective API base URL for an OpenAI-compatible API.
  * Defaults to appending /v1 when detection fails — the standard OpenAI path —
- * unless the input already includes /v1.
+ * unless the input already includes /v1. With autoComplete off the input is
+ * returned as typed (only trimmed) and nothing is written back.
  */
 export async function resolveApiBaseUrl(
   baseUrl: string,
   apiKey: string,
   credentials?: RequestCredentials,
   timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
+  autoComplete: boolean = true,
 ): Promise<ResolvedApiBase> {
-  const normalized = normalizeApiBaseUrl(baseUrl)
+  const normalized = normalizeApiBaseUrl(baseUrl, autoComplete)
   // Never manufacture a URL from nothing: an empty input stays empty instead
   // of becoming '/v1' and being written back into the form as a "fix".
   if (!normalized) return { url: '', prefix: null, changed: false }
+  if (!autoComplete) return { url: normalized, prefix: null, changed: false }
   const prefix = await detectApiPath(normalized, apiKey, credentials, timeoutMs)
   const url =
     prefix === null
@@ -216,8 +235,14 @@ export function normalizeScheme(url: string): string {
   return `${privateHost ? 'http' : 'https'}://${trimmed}`
 }
 
-/** One-shot input cleanup: scheme completion + trailing slashes + endpoint stripping */
-export function normalizeApiBaseUrl(baseUrl: string): string {
+/**
+ * One-shot input cleanup: scheme completion + trailing slashes + endpoint stripping.
+ * With autoComplete off only whitespace and trailing slashes are trimmed — a
+ * trailing slash is never meaningful and would double up into `//models`, so
+ * removing it is cleanup rather than completing the user's address.
+ */
+export function normalizeApiBaseUrl(baseUrl: string, autoComplete: boolean = true): string {
+  if (!autoComplete) return baseUrl.trim().replace(/\/+$/, '')
   return normalizeScheme(normalizeBaseUrl(baseUrl))
 }
 

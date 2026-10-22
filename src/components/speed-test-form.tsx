@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
 import { normalizeApiBaseUrl, resolveApiBaseUrl } from '@/lib/api-path'
+import { readAutoCompleteBaseUrl, writeAutoCompleteBaseUrl } from '@/lib/api-completion'
 import { isCloudflareError } from '@/lib/cloudflare'
 import { COMMON_PROVIDERS } from '@/lib/providers'
 import { ConnectivityCheck } from './connectivity-check'
@@ -53,6 +54,8 @@ export function SpeedTestForm() {
 	const [customHeadersJson, setCustomHeadersJson] = useState('')
 	const [showCustomHeaders, setShowCustomHeaders] = useState(false)
 	const [useBrowserDirect, setUseBrowserDirect] = useState(false)
+	// 「自动补全 API 地址」开关：关闭后 baseUrl 原样使用，不探测也不回填 /v1
+	const [autoCompleteBaseUrl, setAutoCompleteBaseUrl] = useState(true)
 	const [cloudflareDialogOpen, setCloudflareDialogOpen] = useState(false)
 	const [cloudflarePendingUrl, setCloudflarePendingUrl] = useState('')
 	// 剪贴板权限不可用时的兜底弹窗：copy=导出内容手动复制；input=手动粘贴导入
@@ -159,6 +162,7 @@ export function SpeedTestForm() {
 
 	useEffect(() => {
 		setHydrated(true)
+		setAutoCompleteBaseUrl(readAutoCompleteBaseUrl())
 	}, [])
 
 	// 自动添加当前页面域名到基础 URL 候选列表
@@ -195,7 +199,8 @@ export function SpeedTestForm() {
 		}
 		setIsFechingModel(true)
 		// 输入归一化：无协议补全 http(s)、剥离粘贴的完整端点；修正后回填输入框
-		const normalizedInput = normalizeApiBaseUrl(baseUrl)
+		// （「自动补全 API 地址」关闭时保留用户输入原样）
+		const normalizedInput = normalizeApiBaseUrl(baseUrl, autoCompleteBaseUrl)
 		if (normalizedInput !== baseUrl) {
 			baseUrl = normalizedInput
 			setValue('baseUrl', normalizedInput, { shouldDirty: true })
@@ -205,7 +210,7 @@ export function SpeedTestForm() {
 		try {
 			// 按填入地址探测并解析最终生效的 API 地址（失败自动补全 /v1），
 			// 修正后写回表单，让用户看到实际使用的地址
-			const resolved = await resolveApiBaseUrl(baseUrl, apiKey)
+			const resolved = await resolveApiBaseUrl(baseUrl, apiKey, undefined, undefined, autoCompleteBaseUrl)
 			if (resolved.changed) {
 				baseUrl = resolved.url
 				setValue('baseUrl', resolved.url, { shouldDirty: true })
@@ -219,7 +224,10 @@ export function SpeedTestForm() {
 			localStorage.setItem('speedtest_baseUrl', baseUrl)
 			if (useBrowserDirect || forceBrowserDirectRef.current) {
 				try {
-					const directModels = await fetchModelsDirect(baseUrl, apiKey, forceBrowserDirectRef.current ? { credentials: 'include' } : undefined)
+					const directModels = await fetchModelsDirect(baseUrl, apiKey, {
+						...(forceBrowserDirectRef.current ? { credentials: 'include' as const } : {}),
+						autoCompleteBaseUrl,
+					})
 					const uniqueModels = directModels.filter(
 						(m: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === m.id) === i
 					)
@@ -243,7 +251,7 @@ export function SpeedTestForm() {
 			const response = await fetch('/api/model', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ baseUrl, apiKey }),
+				body: JSON.stringify({ baseUrl, apiKey, autoCompleteBaseUrl }),
 			})
 
 			if (!response.ok) {
@@ -337,7 +345,7 @@ export function SpeedTestForm() {
 			}
 
 			if (config.baseUrl) {
-				setValue('baseUrl', normalizeApiBaseUrl(config.baseUrl), { shouldDirty: true })
+				setValue('baseUrl', normalizeApiBaseUrl(config.baseUrl, autoCompleteBaseUrl), { shouldDirty: true })
 				// 如果导入的URL不在列表中，自动添加
 				if (!commonBaseUrls.some(url => url.id === config.baseUrl)) {
 					setCommonBaseUrls(prev => [...prev, { id: config.baseUrl, name: config.baseUrl }])
@@ -367,7 +375,7 @@ export function SpeedTestForm() {
 			toast.error(t('form.configImportError'))
 			return false
 		}
-	}, [t, commonBaseUrls, models, setValue, setCommonBaseUrls, setModels, setRememberApiKey, setCustomHeadersJson])
+	}, [t, commonBaseUrls, models, setValue, setCommonBaseUrls, setModels, setRememberApiKey, setCustomHeadersJson, autoCompleteBaseUrl])
 
 	// 实际测试请求确认修正了 API 地址（失败驱动 /v1 保底）时，写回表单输入框并提示
 	const handleBaseUrlResolved = useCallback((url: string) => {
@@ -479,7 +487,9 @@ export function SpeedTestForm() {
 									})
 								},
 								onBaseUrlResolved: handleBaseUrlResolved,
-							}
+							},
+							undefined,
+							{ autoCompleteBaseUrl },
 						)
 
 						allResults.push(result)
@@ -537,6 +547,7 @@ export function SpeedTestForm() {
 
 		const requestData = {
 			...data,
+			autoCompleteBaseUrl,
 			...(customHeaders && Object.keys(customHeaders).length > 0 ? { customHeaders } : {})
 		}
 
@@ -726,10 +737,12 @@ export function SpeedTestForm() {
 		// Check URL parameters first
 		const urlParams = getUrlParams();
 		
+		// 补全开关从这里直接读 localStorage：初始化时 state 可能还没 hydrate
+		const autoCompleteOnLoad = readAutoCompleteBaseUrl()
 		if (urlParams.baseUrl) {
-			setValue('baseUrl', normalizeApiBaseUrl(urlParams.baseUrl));
+			setValue('baseUrl', normalizeApiBaseUrl(urlParams.baseUrl, autoCompleteOnLoad));
 		} else if (savedBaseUrl) {
-			setValue('baseUrl', normalizeApiBaseUrl(savedBaseUrl));
+			setValue('baseUrl', normalizeApiBaseUrl(savedBaseUrl, autoCompleteOnLoad));
 		}
 		
 		if (urlParams.modelId) {
@@ -828,7 +841,7 @@ export function SpeedTestForm() {
 														if (e.key === 'Enter') {
 															e.preventDefault()
 															e.stopPropagation()
-															const customUrl = normalizeApiBaseUrl(baseUrlSearch.trim())
+															const customUrl = normalizeApiBaseUrl(baseUrlSearch.trim(), autoCompleteBaseUrl)
 															if (customUrl) {
 																if (!commonBaseUrls.some(url => url.id === customUrl)) {
 																	setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
@@ -1057,6 +1070,7 @@ export function SpeedTestForm() {
 					baseUrl={watchBaseUrl || ''}
 					apiKey={watchApiKey || ''}
 					useBrowserDirect={useBrowserDirect}
+					autoCompleteBaseUrl={autoCompleteBaseUrl}
 					onBaseUrlResolved={handleBaseUrlResolved}
 					onModelsFound={(found) => {
 					setModels(prev => {
@@ -1099,6 +1113,23 @@ export function SpeedTestForm() {
 									<label htmlFor="browser-direct" className="text-sm text-gray-600 cursor-pointer select-none">
 										{t('form.browserDirect.label')}
 									</label>
+								</div>
+								<div className="space-y-1">
+									<div className="flex items-center gap-2">
+										<Checkbox
+											id="auto-complete-base-url"
+											checked={autoCompleteBaseUrl}
+											onCheckedChange={(checked) => {
+												const enabled = !!checked
+												setAutoCompleteBaseUrl(enabled)
+												writeAutoCompleteBaseUrl(enabled)
+											}}
+										/>
+										<label htmlFor="auto-complete-base-url" className="text-sm text-gray-600 cursor-pointer select-none">
+											{t('form.autoCompleteBaseUrl.label')}
+										</label>
+									</div>
+									<p className="text-xs text-gray-400">{t('form.autoCompleteBaseUrl.help')}</p>
 								</div>
 								<div>
 									<label className="text-sm text-gray-600 mb-1 block">{t('form.customHeaders.label') || '自定义请求头'}</label>

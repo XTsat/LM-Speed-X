@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { chatCreateWithPathFallback, makeOpenAIClient, type OpenAIProxyOptions } from '@/lib/server-llm';
 import { normalizeApiBaseUrl } from '@/lib/api-path';
 
-const concurrencyTestSchema = z.object({
-  baseUrl: z.string().transform((v) => normalizeApiBaseUrl(v)).pipe(z.string().url('Please enter a valid URL')),
+const makeConcurrencyTestSchema = (autoCompleteBaseUrl: boolean) => z.object({
+  // 「自动补全 API 地址」关闭时只做 trim，不补协议、不剥离端点
+  baseUrl: z.string().transform((v) => normalizeApiBaseUrl(v, autoCompleteBaseUrl)).pipe(z.string().url('Please enter a valid URL')),
   apiKey: z.string().min(1, 'API Key is required'),
   modelId: z.string().min(1, 'Model ID is required'),
   prompt: z.string().min(1, 'Prompt is required'),
@@ -368,7 +369,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const validatedData = concurrencyTestSchema.parse(body);
+    // 「自动补全 API 地址」开关：关闭时 baseUrl 原样使用，且不做 /v1 回退
+    const autoCompleteBaseUrl = body?.autoCompleteBaseUrl !== false;
+
+    const validatedData = makeConcurrencyTestSchema(autoCompleteBaseUrl).parse(body);
 
     const safeCustomHeaders = validatedData.customHeaders
       ? Object.fromEntries(
@@ -383,6 +387,7 @@ export async function POST(request: Request) {
     const proxyOpts: OpenAIProxyOptions = {
       apiKey: validatedData.apiKey,
       timeoutMs: 120 * 1000, // 120s per-request timeout for concurrency tests
+      autoCompleteBaseUrl,
       ...(safeCustomHeaders && Object.keys(safeCustomHeaders).length > 0 ? {
         customHeaders: safeCustomHeaders as Record<string, string>,
       } : {}),

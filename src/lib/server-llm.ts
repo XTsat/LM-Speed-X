@@ -19,6 +19,11 @@ export interface OpenAIProxyOptions {
   apiKey: string
   timeoutMs: number
   customHeaders?: Record<string, string>
+  /**
+   * 「自动补全 API 地址」开关（默认开启）。关闭后请求发往用户填写的地址本身：
+   * 不补协议、不剥离粘贴的端点、不在路径类失败后重试 /v1。
+   */
+  autoCompleteBaseUrl?: boolean
 }
 
 /**
@@ -27,8 +32,11 @@ export interface OpenAIProxyOptions {
  * reused so subsequent runs don't repeat the failed first attempt.
  */
 export function makeOpenAIClient(baseUrl: string, opts: OpenAIProxyOptions): OpenAI {
-  const normalized = normalizeApiBaseUrl(baseUrl)
-  const baseURL = getChatBaseUrl(normalized) ?? normalized
+  const autoComplete = opts.autoCompleteBaseUrl !== false
+  const normalized = normalizeApiBaseUrl(baseUrl, autoComplete)
+  // A cached fallback was itself produced by completion, so it is ignored when
+  // the user turned completion off.
+  const baseURL = autoComplete ? getChatBaseUrl(normalized) ?? normalized : normalized
   return new OpenAI({
     apiKey: opts.apiKey,
     baseURL,
@@ -63,6 +71,7 @@ export async function chatCreateWithPathFallback<T>(
   try {
     return { value: await request(client) }
   } catch (e) {
+    if (opts.autoCompleteBaseUrl === false) throw e
     const message = e instanceof Error ? e.message : String(e)
     if (!isPathError(apiErrorStatus(e), message)) throw e
 
