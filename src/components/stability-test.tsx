@@ -44,6 +44,8 @@ interface StatsResult {
 
 interface StabilityResults {
   results: IterationResult[]
+  /** 失败的轮次：不计入统计，但要原样留痕，否则失败样本被静默丢弃 */
+  failures?: Array<{ iteration: number; error: string }>
   stats: {
     firstTokenLatency: StatsResult
     tokensPerSecond: StatsResult
@@ -84,6 +86,7 @@ const tRank = useTranslations('rank')
   const [openLive, setOpenLive] = useState<{ [key: number]: boolean }>({})
   // 结果明细默认展开、每轮记录默认折叠：轮数最多 50，全部展开会把页面拉得很长
   const [detailsOpen, setDetailsOpen] = useState(true)
+  const [failuresOpen, setFailuresOpen] = useState(false)
   const [openIterations, setOpenIterations] = useState<{ [key: number]: boolean }>({})
   const [streamContents, setStreamContents] = useState<{ [key: number]: string }>({})
   const contentRef = useRef<{ [key: number]: string }>({})
@@ -151,6 +154,7 @@ const tRank = useTranslations('rank')
 
       try {
         const iterationResults: IterationResult[] = []
+        const failures: Array<{ iteration: number; error: string }> = []
         let failedCount = 0
 
         for (let i = 0; i < count; i++) {
@@ -203,6 +207,7 @@ const tRank = useTranslations('rank')
             // 单次失败不中断整轮：稳定性测的就是抖动，失败率本身也是结论
             failedCount += 1
             const message = failureMessage(error)
+            failures.push({ iteration: i + 1, error: message })
             setIterations(prev => {
               const next = [...prev]
               if (next[i]) next[i] = { ...next[i], status: 'failed' as const, error: message }
@@ -235,7 +240,7 @@ const tRank = useTranslations('rank')
           outputToken: calcStats(iterationResults.map(r => r.outputToken)),
         }
 
-        setResults({ results: iterationResults, stats })
+        setResults({ results: iterationResults, stats, failures })
         setProgress(100)
         if (failedCount > 0) {
           toast.error(t('errors.partialFailure', { count: failedCount, total: count }), { duration: 30000 })
@@ -378,7 +383,11 @@ const tRank = useTranslations('rank')
                 case 'complete':
                   setResults(message.data)
                   setProgress(100)
-                  toast.success(t('complete'))
+                  if (message.data.failures?.length > 0) {
+                    toast.error(t('errors.partialFailure', { count: message.data.failures.length, total: count }), { duration: 30000 })
+                  } else {
+                    toast.success(t('complete'))
+                  }
                   break
                 case 'error':
                   throw new Error(message.error)
@@ -615,6 +624,32 @@ const tRank = useTranslations('rank')
             </div>
             </CollapsiblePanel>
           )}
+        {results.failures && results.failures.length > 0 && (
+          <CollapsiblePanel
+            open={failuresOpen}
+            onToggle={() => setFailuresOpen(!failuresOpen)}
+            className="mt-4"
+            headerClassName={COLLAPSE_BAR_CLASS}
+            header={
+              <span>
+                {t('details.failures')}
+                <span className="ml-2 text-sm font-normal text-gray-500">({results.failures.length})</span>
+              </span>
+            }
+            bodyClassName="mt-4"
+          >
+            <div className="space-y-2">
+              {results.failures.map((f) => (
+                <div key={f.iteration} className="px-4 py-3 rounded-lg bg-gray-200">
+                  <p className="text-sm font-medium text-gray-700">
+                    {t('details.iteration')} {f.iteration}
+                  </p>
+                  <p className="mt-1 break-all text-xs text-red-500">{f.error}</p>
+                </div>
+              ))}
+            </div>
+          </CollapsiblePanel>
+        )}
       </div>
     )}
 

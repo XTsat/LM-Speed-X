@@ -85,6 +85,9 @@ export async function POST(request: Request) {
           content: string;
         }> = [];
 
+        // 失败的轮次单独收集：稳定性测的就是抖动，失败样本本身是结论，不能丢
+        const failures: Array<{ iteration: number; error: string }> = [];
+
         for (let i = 0; i < validatedData.count; i++) {
           const startTime = performance.now();
           let firstTokenTime = 0;
@@ -95,80 +98,90 @@ export async function POST(request: Request) {
             data: { iteration: i + 1, total: validatedData.count, prompt: validatedData.prompt }
           }) + '\n'));
 
-          const create = await chatCreateWithPathFallback(openai, validatedData.baseUrl, proxyOpts, (c) =>
-            c.chat.completions.create({
-              model: validatedData.modelId,
-              messages: [{ role: "user", content: validatedData.prompt }],
-              stream: true,
-            })
-          );
-          if (create.resolvedBaseUrl) {
-            // A path-type failure at the user's URL was fixed at the /v1
-            // alternative — switch the client and tell the UI to write it back.
-            openai = makeOpenAIClient(create.resolvedBaseUrl, proxyOpts);
-            await writer.write(encoder.encode(JSON.stringify({
-              type: 'baseUrlResolved',
-              data: { baseUrl: create.resolvedBaseUrl },
-            }) + '\n'));
-          }
-          const completion = create.value;
-
-          for await (const chunk of completion) {
-            if (content.length === 0) {
-              firstTokenTime = performance.now() - startTime;
-            }
-            if (chunk.choices[0]?.delta?.content) {
-              content += chunk.choices[0].delta.content;
-
-              // Stream real-time metrics during iteration
-              const currentTime = performance.now();
-              const elapsedTime = currentTime - startTime;
-              const currentTokens = estimateTokens(content);
-              const currentSpeed = currentTokens > 0 && elapsedTime > firstTokenTime
-                ? (currentTokens / (elapsedTime - firstTokenTime)) * 1000
-                : 0;
-              const currentTotalSpeed = currentTokens > 0
-                ? (currentTokens / elapsedTime) * 1000
-                : 0;
-
+          // 单轮失败不中断整轮：把原因带回 UI，其余轮次继续跑
+          try {
+            const create = await chatCreateWithPathFallback(openai, validatedData.baseUrl, proxyOpts, (c) =>
+              c.chat.completions.create({
+                model: validatedData.modelId,
+                messages: [{ role: "user", content: validatedData.prompt }],
+                stream: true,
+              })
+            );
+            if (create.resolvedBaseUrl) {
+              // A path-type failure at the user's URL was fixed at the /v1
+              // alternative — switch the client and tell the UI to write it back.
+              openai = makeOpenAIClient(create.resolvedBaseUrl, proxyOpts);
               await writer.write(encoder.encode(JSON.stringify({
-                type: 'content',
-                data: {
-                  iteration: i + 1,
-                  content: chunk.choices[0].delta.content,
-                  currentSpeed,
-                  currentTotalSpeed,
-                  currentTokens,
-                  elapsedTime,
-                }
+                type: 'baseUrlResolved',
+                data: { baseUrl: create.resolvedBaseUrl },
               }) + '\n'));
             }
+            const completion = create.value;
+
+            for await (const chunk of completion) {
+              if (content.length === 0) {
+                firstTokenTime = performance.now() - startTime;
+              }
+              if (chunk.choices[0]?.delta?.content) {
+                content += chunk.choices[0].delta.content;
+
+                // Stream real-time metrics during iteration
+                const currentTime = performance.now();
+                const elapsedTime = currentTime - startTime;
+                const currentTokens = estimateTokens(content);
+                const currentSpeed = currentTokens > 0 && elapsedTime > firstTokenTime
+                  ? (currentTokens / (elapsedTime - firstTokenTime)) * 1000
+                  : 0;
+                const currentTotalSpeed = currentTokens > 0
+                  ? (currentTokens / elapsedTime) * 1000
+                  : 0;
+
+                await writer.write(encoder.encode(JSON.stringify({
+                  type: 'content',
+                  data: {
+                    iteration: i + 1,
+                    content: chunk.choices[0].delta.content,
+                    currentSpeed,
+                    currentTotalSpeed,
+                    currentTokens,
+                    elapsedTime,
+                  }
+                }) + '\n'));
+              }
+            }
+
+            const totalTokens = estimateTokens(content);
+            const endTime = performance.now();
+            const totalTime = endTime - startTime;
+            const outputTime = totalTime - firstTokenTime;
+            const tps = outputTime > 0 ? (totalTokens / outputTime) * 1000 : 0;
+            const tpsTotal = totalTime > 0 ? (totalTokens / totalTime) * 1000 : 0;
+
+            const result = {
+              iteration: i + 1,
+              firstTokenLatency: firstTokenTime,
+              tokensPerSecond: tps,
+              tokensPerSecondTotal: tpsTotal,
+              outputToken: totalTokens,
+              totalTime,
+              outputTime,
+              content,
+            };
+
+            iterationResults.push(result);
+
+            await writer.write(encoder.encode(JSON.stringify({
+              type: 'result',
+              data: result
+            }) + '\n'));
+          } catch (iterationError) {
+            const message = iterationError instanceof Error ? iterationError.message : String(iterationError)
+            failures.push({ iteration: i + 1, error: message })
+            await writer.write(encoder.encode(JSON.stringify({
+              type: 'iterationError',
+              data: { iteration: i + 1, error: message }
+            }) + '\n'));
           }
-
-          const totalTokens = estimateTokens(content);
-          const endTime = performance.now();
-          const totalTime = endTime - startTime;
-          const outputTime = totalTime - firstTokenTime;
-          const tps = outputTime > 0 ? (totalTokens / outputTime) * 1000 : 0;
-          const tpsTotal = totalTime > 0 ? (totalTokens / totalTime) * 1000 : 0;
-
-          const result = {
-            iteration: i + 1,
-            firstTokenLatency: firstTokenTime,
-            tokensPerSecond: tps,
-            tokensPerSecondTotal: tpsTotal,
-            outputToken: totalTokens,
-            totalTime,
-            outputTime,
-            content,
-          };
-
-          iterationResults.push(result);
-
-          await writer.write(encoder.encode(JSON.stringify({
-            type: 'result',
-            data: result
-          }) + '\n'));
         }
 
         // Calculate comprehensive statistics
@@ -186,7 +199,7 @@ export async function POST(request: Request) {
 
         await writer.write(encoder.encode(JSON.stringify({
           type: 'complete',
-          data: { results: iterationResults, stats }
+          data: { results: iterationResults, stats, failures }
         }) + '\n'));
 
         await writer.close();

@@ -109,7 +109,8 @@
       "toggleContent": "查看输出内容",
       "loading": "加载中...",
       "waiting": "等待中...",
-      "waitingSeconds": "已等待 {seconds}s"
+      "waitingSeconds": "已等待 {seconds}s",
+      "failures": "失败记录"
     },
     "errors": {
       "noConfig": "请先在速度测试中配置 API 连接信息",

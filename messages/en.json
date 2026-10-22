@@ -109,7 +109,8 @@
       "loading": "Loading...",
       "waiting": "Waiting...",
       "iteration": "Iteration",
-      "waitingSeconds": "Waiting {seconds}s"
+      "waitingSeconds": "Waiting {seconds}s",
+      "failures": "Failed Runs"
     },
     "errors": {
       "noConfig": "Please configure API connection in the speed test form first",
