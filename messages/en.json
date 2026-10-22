@@ -439,6 +439,26 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_12_0": {
+        "resultsCollapsible": "Test results fold level by level",
+        "resultsCollapsibleDetail": "The whole result block, each concurrency level, run and request collapse on their own, so long result lists show a one-line summary instead of scrolling forever",
+        "resultsCollapsibleNaming": "Stability and concurrency results now share the same title, Test Results",
+        "saveSummaryImage": "Save a summary as an image in one click",
+        "saveSummaryImageDetail": "Hover the summary bar to reveal a save icon that downloads the current summary",
+        "saveSummaryImageTransparent": "Exported images keep rounded corners with transparent edges and are named lm-speed-x-…",
+        "saveSummaryImageButtons": "The two download buttons at the top were removed",
+        "liveSummary": "Watch the stability summary while the test runs",
+        "liveSummaryDetail": "Average, standard deviation, minimum and maximum update with every run, and the full statistics expand when the test finishes",
+        "cardStatus": "Run and request cards now show status and metrics",
+        "cardStatusDetail": "Each card states whether it is waiting, running, completed or failed, and shows output tokens, speed and total time",
+        "stabilityFailures": "Failed stability runs are grouped separately",
+        "stabilityFailuresDetail": "Failed runs sit together in one collapsible group with the reason, instead of being mixed into the result list",
+        "stabilityCountLimit": "Stability test runs up to 10000 times",
+        "testParamsMemory": "Prompts, run counts and concurrency levels are remembered",
+        "testParamsMemoryDetail": "Refreshing restores the last values you entered; clearing a field falls back to the default",
+        "resultsLayout": "Result layout lines up with the form",
+        "resultsLayoutDetail": "Result cards share the form's width, request bodies use one consistent layout for metrics and output, and the duplicated model ID is gone"
+      },
       "v0_11_0": {
         "sharedConnection": "Stability and concurrency tests now share the connection settings with the speed test",
         "sharedConnectionDetail": "The direct-connect switch and custom headers take effect there: headers entered here used to be ignored, and requests still went through the server proxy even with direct connect on",

@@ -18,6 +18,52 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.12.0',
+      date: '2026-10-22',
+      types: ['feature', 'improvement', 'fix'],
+      tag: 'v0.12.0',
+      changes: [
+        {
+          text: t('entries.v0_12_0.resultsCollapsible'),
+          sub: [
+            t('entries.v0_12_0.resultsCollapsibleDetail'),
+            t('entries.v0_12_0.resultsCollapsibleNaming'),
+          ],
+        },
+        {
+          text: t('entries.v0_12_0.saveSummaryImage'),
+          sub: [
+            t('entries.v0_12_0.saveSummaryImageDetail'),
+            t('entries.v0_12_0.saveSummaryImageTransparent'),
+            t('entries.v0_12_0.saveSummaryImageButtons'),
+          ],
+        },
+        {
+          text: t('entries.v0_12_0.liveSummary'),
+          sub: [t('entries.v0_12_0.liveSummaryDetail')],
+        },
+        {
+          text: t('entries.v0_12_0.cardStatus'),
+          sub: [t('entries.v0_12_0.cardStatusDetail')],
+        },
+        {
+          text: t('entries.v0_12_0.stabilityFailures'),
+          sub: [t('entries.v0_12_0.stabilityFailuresDetail')],
+        },
+        {
+          text: t('entries.v0_12_0.stabilityCountLimit'),
+        },
+        {
+          text: t('entries.v0_12_0.testParamsMemory'),
+          sub: [t('entries.v0_12_0.testParamsMemoryDetail')],
+        },
+        {
+          text: t('entries.v0_12_0.resultsLayout'),
+          sub: [t('entries.v0_12_0.resultsLayoutDetail')],
+        },
+      ],
+    },
+    {
       version: '0.11.0',
       date: '2026-10-22',
       types: ['feature', 'improvement', 'fix'],

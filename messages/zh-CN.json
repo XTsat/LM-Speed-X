@@ -439,6 +439,26 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_12_0": {
+        "resultsCollapsible": "测试结果可以逐级折叠",
+        "resultsCollapsibleDetail": "整份结果、每个档位、每一轮和每条请求都能单独收起，默认只显示一行状态摘要，长列表不用再一路往下滚",
+        "resultsCollapsibleNaming": "稳定性测试与并发测试的结果区统一叫「测试结果」",
+        "saveSummaryImage": "汇总结果可以一键保存成图片",
+        "saveSummaryImageDetail": "鼠标移到汇总条上会显示保存图标，点击直接下载当前汇总",
+        "saveSummaryImageTransparent": "导出的图片保留圆角、四角透明，文件名以 lm-speed-x 开头",
+        "saveSummaryImageButtons": "顶部原来的两个下载按钮已移除",
+        "liveSummary": "稳定性测试进行中就能看到汇总统计",
+        "liveSummaryDetail": "平均值、标准差、最小值、最大值随每轮结果实时更新，跑完自动展开完整统计",
+        "cardStatus": "轮次与请求卡片补充状态和指标",
+        "cardStatusDetail": "卡片上直接标出等待中、运行中、已完成或已失败，并显示输出 token 数、速度与总耗时",
+        "stabilityFailures": "稳定性测试的失败轮次单独成组",
+        "stabilityFailuresDetail": "失败轮次集中收在一个折叠组里并写明原因，不再混在结果列表里",
+        "stabilityCountLimit": "稳定性测试次数上限提高到 10000 次",
+        "testParamsMemory": "提示词、测试次数、并发档位会被记住",
+        "testParamsMemoryDetail": "刷新页面后自动恢复上次填的值，清空则回到默认值",
+        "resultsLayout": "结果区排版与表单对齐",
+        "resultsLayoutDetail": "结果卡片宽度与上方表单一致，请求正文的指标与输出统一成同一套排版，并去掉了列表里重复的模型 ID"
+      },
       "v0_11_0": {
         "sharedConnection": "稳定性测试与并发测试现在和测速共用同一份连接设置",
         "sharedConnectionDetail": "直连开关、自定义请求头都会生效：此前在这里填的请求头不生效，开启直连后请求仍走服务器代理",
