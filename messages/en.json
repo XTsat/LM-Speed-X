@@ -438,6 +438,16 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_11_0": {
+        "sharedConnection": "Stability and concurrency tests now share the connection settings with the speed test",
+        "sharedConnectionDetail": "The direct-connect switch and custom headers take effect there: headers entered here used to be ignored, and requests still went through the server proxy even with direct connect on",
+        "sharedConnectionTimeout": "Request timeouts now match the speed test, so a stalled upstream reports a clear timeout instead of spinning forever",
+        "stabilityPartialFailure": "A failed run no longer aborts the whole stability test",
+        "stabilityPartialFailureDetail": "Failed runs are marked in red with the reason, the summary counts only successful runs, and the number of failures is reported at the end",
+        "concurrencyFirstToken": "The first-token wait limit now applies to browser-direct concurrency tests too",
+        "concurrencyFirstTokenDetail": "The setting used to work only through the server proxy and was ignored in direct mode",
+        "concurrencyProgress": "Progress advances per completed request in each level and shows the elapsed wait time"
+      },
       "v0_10_7": {
         "autoCompleteSwitch": "New \"Auto-complete API URL\" switch in Extra Settings",
         "autoCompleteSwitchDetail": "When off, the address is used exactly as typed: no http(s):// prefix, no endpoint stripping and no automatic /v1 suffix",

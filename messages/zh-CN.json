@@ -438,6 +438,16 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_11_0": {
+        "sharedConnection": "稳定性测试与并发测试现在和测速共用同一份连接设置",
+        "sharedConnectionDetail": "直连开关、自定义请求头都会生效：此前在这里填的请求头不生效，开启直连后请求仍走服务器代理",
+        "sharedConnectionTimeout": "请求超时判定与测速一致，中转站长时间不返回时会明确提示超时，不再一直转圈",
+        "stabilityPartialFailure": "稳定性测试单次失败不再中断整轮",
+        "stabilityPartialFailureDetail": "失败的轮次标红并写明原因，汇总统计只计入成功的轮次，结束时提示失败次数",
+        "concurrencyFirstToken": "并发测试的「首个 token 等待上限」在浏览器直连下也会生效",
+        "concurrencyFirstTokenDetail": "此前该设置只在服务器代理模式下起作用，直连时被忽略",
+        "concurrencyProgress": "进度按每档已完成的请求数推进，并显示已等待时间"
+      },
       "v0_10_7": {
         "autoCompleteSwitch": "额外设置新增「自动补全 API 地址」开关",
         "autoCompleteSwitchDetail": "关闭后地址按填入原样使用：不补 http(s):// 前缀、不剥离粘贴的端点、也不自动追加 /v1",

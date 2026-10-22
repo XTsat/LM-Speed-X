@@ -18,6 +18,32 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.11.0',
+      date: '2026-10-22',
+      types: ['feature', 'improvement', 'fix'],
+      tag: 'v0.11.0',
+      changes: [
+        {
+          text: t('entries.v0_11_0.sharedConnection'),
+          sub: [
+            t('entries.v0_11_0.sharedConnectionDetail'),
+            t('entries.v0_11_0.sharedConnectionTimeout'),
+          ],
+        },
+        {
+          text: t('entries.v0_11_0.stabilityPartialFailure'),
+          sub: [t('entries.v0_11_0.stabilityPartialFailureDetail')],
+        },
+        {
+          text: t('entries.v0_11_0.concurrencyFirstToken'),
+          sub: [
+            t('entries.v0_11_0.concurrencyFirstTokenDetail'),
+            t('entries.v0_11_0.concurrencyProgress'),
+          ],
+        },
+      ],
+    },
+    {
       version: '0.10.7',
       date: '2026-10-22',
       types: ['feature'],
