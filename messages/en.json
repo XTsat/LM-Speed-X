@@ -80,6 +80,7 @@
     },
     "summary": {
       "title": "Stability Test Summary",
+      "saveImage": "Save summary as image",
       "iterations": "Iterations",
       "prompt": "Output Length",
       "metric": "Metric",
@@ -163,6 +164,7 @@
     },
     "summary": {
       "title": "Concurrency Test Summary",
+      "saveImage": "Save summary as image",
       "levels": "Levels",
       "totalTokens": "Total Tokens",
       "stdDevHint": "Under concurrent load, latency and TPS fluctuate more. Rows are colored by success rate: green >= 95%, yellow >= 80%, red < 80%. A sharp drop in RPS or success rate as concurrency rises signals the API has hit its throughput ceiling or rate limit."
@@ -263,8 +265,6 @@
       "customModelPlaceholder": "Separate multiple models with commas",
       "noFramework": "No framework found.",
       "extraSettings": "Extra Settings",
-      "downloadSummary": "Download Summary Report",
-      "downloadFullReport": "Download Full Test Report",
       "modelStatus": {
         "validationFailed": "Invalid",
         "unreachable": "Unreachable"
@@ -292,6 +292,7 @@
       },
       "summary": {
         "title": "Speed Test Summary",
+        "saveImage": "Save summary as image",
         "avgFirstTokenLatency": "Average First Token Latency",
         "maxFirstTokenLatency": "Maximum First Token Latency",
         "minFirstTokenLatency": "Minimum First Token Latency",

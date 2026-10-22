@@ -17,11 +17,9 @@ interface Props {
     [key: number]: string;
   };
   onToggle?: (index: number) => void;
-  /** 导出整份报告图片时需要临时展开所有请求，否则截图里只有折叠条 */
-  forceExpanded?: boolean;
 }
 
-export function ResultsList({ results, expandedIndex, streamContents, onToggle, forceExpanded = false }: Props) {
+export function ResultsList({ results, expandedIndex, streamContents, onToggle }: Props) {
   const t = useTranslations("SpeedTest");
   const tRank = useTranslations("rank");
   // 明细默认展开、每条请求默认折叠：请求数固定为 5，折叠到单行后页面才不至于过长
@@ -29,7 +27,7 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle, 
 
   return (
     <CollapsiblePanel
-      open={forceExpanded || detailsOpen}
+      open={detailsOpen}
       onToggle={() => setDetailsOpen(!detailsOpen)}
       headerClassName={COLLAPSE_BAR_CLASS}
       header={
@@ -45,7 +43,7 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle, 
       <div className="space-y-6">
         {results.map((result, index) => {
           // 正在跑的请求由表单侧自动展开（expandedIndex），收起后仍可再点开
-          const open = forceExpanded || expandedIndex === index;
+          const open = expandedIndex === index;
           const itemClass =
             result.status === "pending"
               ? "p-4 rounded-lg bg-gray-100 border border-gray-200"

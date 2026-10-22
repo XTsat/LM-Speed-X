@@ -4,8 +4,9 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, BarChart3, TrendingUp, Zap, ChevronDown } from 'lucide-react'
+import { Loader2, BarChart3, TrendingUp, Zap, ChevronDown, Save } from 'lucide-react'
 import { RequestTimeoutError, runBrowserStreamedChat } from '@/lib/browser-llm'
+import { handleToImage } from '@/lib/tool'
 import {
   REQUEST_TIMEOUT_MS,
   directRequestOptions,
@@ -114,6 +115,7 @@ const tRank = useTranslations('rank')
   const [activeLevelRequests, setActiveLevelRequests] = useState<RequestStatus[]>([])
   // 总览面板、过程中的明细同样可折叠：测试跑起来后结果会长到屏幕以外
   const [summaryOpen, setSummaryOpen] = useState(true)
+  const [savingSummary, setSavingSummary] = useState(false)
   const [liveOpen, setLiveOpen] = useState(true)
   const [liveLevelOpen, setLiveLevelOpen] = useState(true)
   // 已完成的单次请求 / 进行中的单次请求各自记录展开状态，两者 key 空间不同
@@ -509,6 +511,21 @@ const response = await fetch('/api/speed/concurrency', {
     }
   }, [prompt, concurrencyLevelsText, t, parseLevels, maxFirstTokenLatency, failureMessage])
 
+  // 汇总收起时截图会丢内容：先展开再拍，拍完恢复原状
+  const saveSummaryImage = async () => {
+    const restoreCollapsed = !summaryOpen
+    setSummaryOpen(true)
+    setSavingSummary(true)
+    // 等这次展开提交到 DOM 再截图，否则拍到的是收起态
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    try {
+      await handleToImage('concurrency-summary', 'lm-speed-concurrency-summary')
+    } finally {
+      setSavingSummary(false)
+      if (restoreCollapsed) setSummaryOpen(false)
+    }
+  }
+
   // ── Render ──
 
   return (
@@ -591,16 +608,36 @@ const response = await fetch('/api/speed/concurrency', {
         {results && (
           <div className="mb-8">
             <div id="concurrency-summary" className={cn('group pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
-              <button
-                type="button"
-                onClick={() => setSummaryOpen(!summaryOpen)}
-                aria-expanded={summaryOpen}
-                className="w-full flex items-center gap-2 text-left cursor-pointer"
-              >
-                <BarChart3 className="w-5 h-5 text-white shrink-0" />
-                <span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('summary.title')}</span>
-                <ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100', summaryOpen && 'rotate-180')} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSummaryOpen(!summaryOpen)}
+                  aria-expanded={summaryOpen}
+                  className="flex-1 flex items-center gap-2 text-left cursor-pointer"
+                >
+                  <BarChart3 className="w-5 h-5 text-white shrink-0" />
+                  <span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('summary.title')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={saveSummaryImage}
+                  disabled={savingSummary}
+                  aria-label={t('summary.saveImage')}
+                  title={t('summary.saveImage')}
+                  className={cn('shrink-0 text-gray-500 hover:text-white cursor-pointer opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 disabled:cursor-default', savingSummary && 'invisible')}
+                >
+                  <Save className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-hidden
+                  onClick={() => setSummaryOpen(!summaryOpen)}
+                  className={cn('shrink-0 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100', savingSummary && 'invisible')}
+                >
+                  <ChevronDown className={cn('w-5 h-5 text-gray-500 transition-transform', summaryOpen && 'rotate-180')} />
+                </button>
+              </div>
               <div className={summaryOpen ? undefined : 'hidden'}>
 
               {/* Basic info row — Model + Base URL fixed at positions 1/2 */}

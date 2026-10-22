@@ -80,6 +80,7 @@
     },
     "summary": {
       "title": "稳定性测试汇总",
+      "saveImage": "保存汇总为图片",
       "iterations": "测试次数",
       "prompt": "输出长度",
       "metric": "指标",
@@ -163,6 +164,7 @@
     },
     "summary": {
       "title": "并发测试汇总",
+      "saveImage": "保存汇总为图片",
       "levels": "档位数",
       "totalTokens": "总生成 Token 数",
       "stdDevHint": "高并发下延迟和速度波动更大。表格行按成功率着色：绿色≥95%，黄色≥80%，红色<80%。当并发数上升而 RPS 或成功率出现明显下降，说明 API 已达吞吐上限或触发限流。"
@@ -263,8 +265,6 @@
       "customModelPlaceholder": "多个模型用逗号分隔",
       "noFramework": "未找到",
       "extraSettings": "额外设置",
-      "downloadSummary": "下载汇总报告",
-      "downloadFullReport": "下载完整测试报告",
       "modelStatus": {
         "validationFailed": "验证失败",
         "unreachable": "不可达"
@@ -292,6 +292,7 @@
       },
       "summary": {
         "title": "速度测试汇总",
+        "saveImage": "保存汇总为图片",
         "avgFirstTokenLatency": "平均首字延迟",
         "maxFirstTokenLatency": "最长首字延迟",
         "minFirstTokenLatency": "最短首字延迟",

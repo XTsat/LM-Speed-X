@@ -15,7 +15,7 @@ import { ResultsList } from './results-list'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Input } from './ui/input'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command'
-import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, SlidersHorizontal, Trash2, Zap } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, Save, SlidersHorizontal, Trash2, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
 import { isLocalUrl, hasExplicitPort, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
@@ -52,9 +52,9 @@ export function SpeedTestForm() {
 	const [progress, setProgress] = useState<number>(0)
 	const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 	// 导出图片只能截到当前可见内容，截图前临时展开所有折叠区块
-	const [captureExpand, setCaptureExpand] = useState(false)
 	// 汇总面板可折叠：测完页面要短，需要时再展开看细节
 	const [summaryOpen, setSummaryOpen] = useState(true)
+	const [savingSummary, setSavingSummary] = useState(false)
 	const [streamContents, setStreamContents] = useState<{
 		[key: number]: string
 	}>({})
@@ -832,15 +832,18 @@ export function SpeedTestForm() {
 		}
 	}, [baseUrlOpen])
 
-	const captureReport = async (id: 'summary' | 'result') => {
-		setCaptureExpand(true)
-		// 等 React 把折叠区块真正渲染出来再截图，否则截到的仍是折叠状态
-		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+	// 汇总收起时截图会丢内容：先展开再拍，拍完恢复原状
+	const saveSummaryImage = async () => {
+		const restoreCollapsed = !summaryOpen
+		setSummaryOpen(true)
+		setSavingSummary(true)
+		// 等这次展开提交到 DOM 再截图，否则拍到的是收起态
+		await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 		try {
-			await handleToImage(id)
+			await handleToImage('summary', 'lm-speed-summary')
 		} finally {
-			setCaptureExpand(false)
+			setSavingSummary(false)
+			if (restoreCollapsed) setSummaryOpen(false)
 		}
 	}
 
@@ -1300,32 +1303,40 @@ export function SpeedTestForm() {
 			<div className="px-4 sm:px-6">
 				{results && (
 					<>
-						<div className="flex justify-center gap-4 mt-8">
-							<Button className="rounded-full" onClick={() => captureReport('summary')}>
-								{t('form.downloadSummary')}
-							</Button>
-							<Button
-								variant="outline"
-								className="rounded-full"
-								onClick={() => captureReport('result')}
-							>
-								{t('form.downloadFullReport')}
-							</Button>
-						</div>
-						<div id="result" className="my-8">
+						<div className="my-8">
 							{results.every((result) => result.status === 'completed') && (
-								<div id="summary" className={cn('group pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', captureExpand || summaryOpen ? 'pb-2' : 'pb-6')}>
-									<button
-										type="button"
-										onClick={() => setSummaryOpen(!summaryOpen)}
-										aria-expanded={captureExpand || summaryOpen}
-										className="w-full flex items-center gap-2 text-left cursor-pointer"
-									>
-										<Zap className="w-5 h-5 text-white shrink-0" />
-										<span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('results.summary.title')}</span>
-										<ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100', (captureExpand || summaryOpen) && 'rotate-180')} />
-									</button>
-									<div className={captureExpand || summaryOpen ? undefined : 'hidden'}>
+								<div id="summary" className={cn('group pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
+									<div className="flex items-center gap-2">
+										<button
+											type="button"
+											onClick={() => setSummaryOpen(!summaryOpen)}
+											aria-expanded={summaryOpen}
+											className="flex-1 flex items-center gap-2 text-left cursor-pointer"
+										>
+											<Zap className="w-5 h-5 text-white shrink-0" />
+											<span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('results.summary.title')}</span>
+										</button>
+										<button
+											type="button"
+											onClick={saveSummaryImage}
+											disabled={savingSummary}
+											aria-label={t('results.summary.saveImage')}
+											title={t('results.summary.saveImage')}
+											className={cn('shrink-0 text-gray-500 hover:text-white cursor-pointer opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 disabled:cursor-default', savingSummary && 'invisible')}
+										>
+											<Save className="w-5 h-5" />
+										</button>
+										<button
+											type="button"
+											tabIndex={-1}
+											aria-hidden
+											onClick={() => setSummaryOpen(!summaryOpen)}
+											className={cn('shrink-0 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100', savingSummary && 'invisible')}
+										>
+											<ChevronDown className={cn('w-5 h-5 text-gray-500 transition-transform', summaryOpen && 'rotate-180')} />
+										</button>
+									</div>
+									<div className={summaryOpen ? undefined : 'hidden'}>
 									<div className="text-sm font-normal mb-4">
 										<span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
 										<span className="text-white mr-8">{results[0].model}</span>
@@ -1448,7 +1459,6 @@ export function SpeedTestForm() {
 							results={results}
 							streamContents={streamContents}
 							expandedIndex={expandedIndex}
-							forceExpanded={captureExpand}
 							onToggle={(index) => setExpandedIndex(expandedIndex === index ? null : index)}
 						/>
 					</div>
