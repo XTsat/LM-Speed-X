@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { copyToClipboard } from "@/lib/clipboard";
 import { COLLAPSE_BAR_CLASS, COLLAPSE_ITEM_CLASS, CollapsiblePanel } from "./collapsible-panel";
+import { ResultBody } from "./result-body";
 
 type SpeedTestResultCard = SpeedTestResult & {
   status?: "pending" | "running" | "completed";
@@ -94,74 +95,19 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle, 
               </div>
             }
           >
-            <div className="flex flex-row gap-12">
-              <div>
-                <p className="text-gray-600 text-sm">
-                  {t("results.metrics.firstTokenLatency")}
-                </p>
-                <p className="text-gray-700">
-                  {result.status === "completed"
-                    ? `${(result.firstTokenLatency / 1000).toFixed(2)} s`
-                    : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">
-                  {t("results.metrics.totalTime")}
-                </p>
-                <p className="text-gray-700">
-                  {result.status === "completed"
-                    ? `${(result.totalTime / 1000).toFixed(2)} s`
-                    : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">
-                  {tRank("table.avgTokens")}
-                </p>
-                <p className="text-gray-700">
-                  {result.status !== "pending"
-                    ? `${result.tokensPerSecond.toFixed(2)} t/s`
-                    : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">
-                  {t("results.metrics.outputToken")}
-                </p>
-                <p className="text-gray-700">
-                  {result.status !== "pending"
-                    ? `${result.outputToken} (${(result.outputTime / 1000).toFixed(2)}s)`
-                    : "-"}
-                </p>
-              </div>
-            </div>
-
-            <div
-              id={`content-${index}`}
-              className="max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="text-gray-700 font-medium">
-                  tSpeed("results.output.title"):
-                </h4>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const text = streamContents[index]; if (text) copyToClipboard(text)
-                  }}
-                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
-                >
-                  tSpeed("results.output.copy")
-                </button>
-              </div>
-              <div className="whitespace-pre-wrap font-mono text-sm">
-                streamContents[index] ||
-                  (result.status === "pending"
-                    ? t("results.output.waiting")
-                    : t("results.output.loading"))
-              </div>
-            </div>
+            <ResultBody
+              metrics={[
+                { label: t("results.metrics.firstTokenLatency"), value: result.status === "completed" ? `${(result.firstTokenLatency / 1000).toFixed(2)} s` : "-" },
+                { label: t("results.metrics.totalTime"), value: result.status === "completed" ? `${(result.totalTime / 1000).toFixed(2)} s` : "-" },
+                { label: tRank("table.avgTokens"), value: result.status !== "pending" ? `${result.tokensPerSecond.toFixed(2)} t/s` : "-" },
+                { label: t("results.metrics.outputToken"), value: result.status !== "pending" ? `${result.outputToken} (${(result.outputTime / 1000).toFixed(2)}s)` : "-" },
+              ]}
+              outputTitle={`${t("results.output.title")}:`}
+              copyLabel={t("results.output.copy")}
+              contentId={`content-${index}`}
+              onCopy={() => { const text = streamContents[index]; if (text) copyToClipboard(text) }}
+              content={streamContents[index] || (result.status === "pending" ? t("results.output.waiting") : t("results.output.loading"))}
+            />
           </CollapsiblePanel>
           );
         })}

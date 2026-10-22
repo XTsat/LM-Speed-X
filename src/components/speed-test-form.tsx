@@ -1297,162 +1297,164 @@ export function SpeedTestForm() {
 				</form>
 			</div>
 
-			{results && (
-				<>
-					<div className="flex justify-center gap-4 mt-8">
-						<Button className="rounded-full" onClick={() => captureReport('summary')}>
-							{t('form.downloadSummary')}
-						</Button>
-						<Button
-							variant="outline"
-							className="rounded-full"
-							onClick={() => captureReport('result')}
-						>
-							{t('form.downloadFullReport')}
-						</Button>
+			<div className="px-4 sm:px-6">
+				{results && (
+					<>
+						<div className="flex justify-center gap-4 mt-8">
+							<Button className="rounded-full" onClick={() => captureReport('summary')}>
+								{t('form.downloadSummary')}
+							</Button>
+							<Button
+								variant="outline"
+								className="rounded-full"
+								onClick={() => captureReport('result')}
+							>
+								{t('form.downloadFullReport')}
+							</Button>
+						</div>
+						<div id="result" className="my-8">
+							{results.every((result) => result.status === 'completed') && (
+								<div id="summary" className={cn('pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', captureExpand || summaryOpen ? 'pb-2' : 'pb-6')}>
+									<button
+										type="button"
+										onClick={() => setSummaryOpen(!summaryOpen)}
+										aria-expanded={captureExpand || summaryOpen}
+										className="w-full flex items-center gap-2 text-left cursor-pointer"
+									>
+										<Zap className="w-5 h-5 text-white shrink-0" />
+										<span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('results.summary.title')}</span>
+										<ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', (captureExpand || summaryOpen) && 'rotate-180')} />
+									</button>
+									<div className={captureExpand || summaryOpen ? undefined : 'hidden'}>
+									<div className="text-sm font-normal mb-4">
+										<span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
+										<span className="text-white mr-8">{results[0].model}</span>
+										<span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
+										<span className="text-white">{(() => {
+											try {
+												return new URL(getValues('baseUrl')).host
+											} catch {
+												return getValues('baseUrl')
+											}
+										})()}</span>
+									</div>
+									<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+										<div>
+											<p className="text-sm text-gray-400">{tRank('table.avgLatency')}</p>
+											<p className="text-2xl font-medium text-white">
+												{(
+													results.reduce((acc, cur) => acc + cur.firstTokenLatency, 0) /
+													results.length /
+													1000
+												).toFixed(2)}
+												s
+											</p>
+											<div className="mt-4">
+												<p className="text-sm text-gray-400">
+													{t('results.summary.maxFirstTokenLatency')}
+												</p>
+												<p className="text-base text-white">
+													{(
+														Math.max(...results.map((r) => r.firstTokenLatency)) /
+														1000
+													).toFixed(2)}
+													s
+												</p>
+											</div>
+											<div className="mt-2">
+												<p className="text-sm text-gray-400">
+													{t('results.summary.minFirstTokenLatency')}
+												</p>
+												<p className="text-base text-white">
+													{(
+														Math.min(...results.map((r) => r.firstTokenLatency)) /
+														1000
+													).toFixed(2)}
+													s
+												</p>
+											</div>
+										</div>
+										<div>
+											<p className="text-sm text-gray-400">{tRank('table.avgTotalTime')}</p>
+											<p className="text-2xl font-medium text-white">
+												{(
+													results.reduce((acc, cur) => acc + cur.totalTime, 0) /
+													results.length /
+													1000
+												).toFixed(2)}
+												s
+											</p>
+											<div className="mt-4">
+												<p className="text-sm text-gray-400">
+													{t('results.summary.maxTotalTime')}
+												</p>
+												<p className="text-base text-white">
+													{(
+														Math.max(...results.map((r) => r.totalTime)) / 1000
+													).toFixed(2)}
+													s
+												</p>
+											</div>
+											<div className="mt-2">
+												<p className="text-sm text-gray-400">
+													{t('results.summary.minTotalTime')}
+												</p>
+												<p className="text-base text-white">
+													{(
+														Math.min(...results.map((r) => r.totalTime)) / 1000
+													).toFixed(2)}
+													s
+												</p>
+											</div>
+										</div>
+										<div>
+											<p className="text-sm text-gray-400">{tRank('table.avgTokens')}</p>
+											<p className="text-2xl font-medium text-white">
+												{(
+													results.reduce((acc, cur) => acc + cur.tokensPerSecond, 0) /
+													results.length
+												).toFixed(2)}{' '}
+												t/s
+											</p>
+											<div className="mt-4">
+												<p className="text-sm text-gray-400">
+													{t('results.summary.maxTokensPerSecond')}
+												</p>
+												<p className="text-base text-white">
+													{Math.max(...results.map((r) => r.tokensPerSecond)).toFixed(
+														2
+													)}{' '}
+													t/s
+												</p>
+											</div>
+											<div className="mt-2">
+												<p className="text-sm text-gray-400">
+													{t('results.summary.minTokensPerSecond')}
+												</p>
+												<p className="text-base text-white">
+													{Math.min(...results.map((r) => r.tokensPerSecond)).toFixed(
+														2
+													)}{' '}
+													t/s
+												</p>
+											</div>
+										</div>
+									</div>
+										<a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="block mt-1 text-right text-xs text-gray-600 hover:text-gray-400 transition-colors">lm-speed-x.xtsat.cc.cd</a>
+									</div>
+								</div>
+							)}
+						<ResultsList
+							results={results}
+							streamContents={streamContents}
+							expandedIndex={expandedIndex}
+							forceExpanded={captureExpand}
+							onToggle={(index) => setExpandedIndex(expandedIndex === index ? null : index)}
+						/>
 					</div>
-					<div id="result" className="my-8">
-						{results.every((result) => result.status === 'completed') && (
-							<div id="summary" className={cn('pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', captureExpand || summaryOpen ? 'pb-2' : 'pb-6')}>
-								<button
-									type="button"
-									onClick={() => setSummaryOpen(!summaryOpen)}
-									aria-expanded={captureExpand || summaryOpen}
-									className="w-full flex items-center gap-2 text-left cursor-pointer"
-								>
-									<Zap className="w-5 h-5 text-white shrink-0" />
-									<span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('results.summary.title')}</span>
-									<ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', (captureExpand || summaryOpen) && 'rotate-180')} />
-								</button>
-								<div className={captureExpand || summaryOpen ? undefined : 'hidden'}>
-								<div className="text-sm font-normal mb-4">
-									<span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
-									<span className="text-white mr-8">{results[0].model}</span>
-									<span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
-									<span className="text-white">{(() => {
-										try {
-											return new URL(getValues('baseUrl')).host
-										} catch {
-											return getValues('baseUrl')
-										}
-									})()}</span>
-								</div>
-								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-									<div>
-										<p className="text-sm text-gray-400">{tRank('table.avgLatency')}</p>
-										<p className="text-2xl font-medium text-white">
-											{(
-												results.reduce((acc, cur) => acc + cur.firstTokenLatency, 0) /
-												results.length /
-												1000
-											).toFixed(2)}
-											s
-										</p>
-										<div className="mt-4">
-											<p className="text-sm text-gray-400">
-												{t('results.summary.maxFirstTokenLatency')}
-											</p>
-											<p className="text-base text-white">
-												{(
-													Math.max(...results.map((r) => r.firstTokenLatency)) /
-													1000
-												).toFixed(2)}
-												s
-											</p>
-										</div>
-										<div className="mt-2">
-											<p className="text-sm text-gray-400">
-												{t('results.summary.minFirstTokenLatency')}
-											</p>
-											<p className="text-base text-white">
-												{(
-													Math.min(...results.map((r) => r.firstTokenLatency)) /
-													1000
-												).toFixed(2)}
-												s
-											</p>
-										</div>
-									</div>
-									<div>
-										<p className="text-sm text-gray-400">{tRank('table.avgTotalTime')}</p>
-										<p className="text-2xl font-medium text-white">
-											{(
-												results.reduce((acc, cur) => acc + cur.totalTime, 0) /
-												results.length /
-												1000
-											).toFixed(2)}
-											s
-										</p>
-										<div className="mt-4">
-											<p className="text-sm text-gray-400">
-												{t('results.summary.maxTotalTime')}
-											</p>
-											<p className="text-base text-white">
-												{(
-													Math.max(...results.map((r) => r.totalTime)) / 1000
-												).toFixed(2)}
-												s
-											</p>
-										</div>
-										<div className="mt-2">
-											<p className="text-sm text-gray-400">
-												{t('results.summary.minTotalTime')}
-											</p>
-											<p className="text-base text-white">
-												{(
-													Math.min(...results.map((r) => r.totalTime)) / 1000
-												).toFixed(2)}
-												s
-											</p>
-										</div>
-									</div>
-									<div>
-										<p className="text-sm text-gray-400">{tRank('table.avgTokens')}</p>
-										<p className="text-2xl font-medium text-white">
-											{(
-												results.reduce((acc, cur) => acc + cur.tokensPerSecond, 0) /
-												results.length
-											).toFixed(2)}{' '}
-											t/s
-										</p>
-										<div className="mt-4">
-											<p className="text-sm text-gray-400">
-												{t('results.summary.maxTokensPerSecond')}
-											</p>
-											<p className="text-base text-white">
-												{Math.max(...results.map((r) => r.tokensPerSecond)).toFixed(
-													2
-												)}{' '}
-												t/s
-											</p>
-										</div>
-										<div className="mt-2">
-											<p className="text-sm text-gray-400">
-												{t('results.summary.minTokensPerSecond')}
-											</p>
-											<p className="text-base text-white">
-												{Math.min(...results.map((r) => r.tokensPerSecond)).toFixed(
-													2
-												)}{' '}
-												t/s
-											</p>
-										</div>
-									</div>
-								</div>
-									<a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="block mt-1 text-right text-xs text-gray-600 hover:text-gray-400 transition-colors">lm-speed-x.xtsat.cc.cd</a>
-								</div>
-							</div>
-						)}
-					<ResultsList
-						results={results}
-						streamContents={streamContents}
-						expandedIndex={expandedIndex}
-						forceExpanded={captureExpand}
-						onToggle={(index) => setExpandedIndex(expandedIndex === index ? null : index)}
-					/>
-				</div>
-			</>
-		)}
+				</>
+			)}
+			</div>
 			<CloudflareBypassDialog
 				open={cloudflareDialogOpen}
 				onOpenChange={setCloudflareDialogOpen}

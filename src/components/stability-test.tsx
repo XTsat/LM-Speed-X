@@ -8,6 +8,7 @@ import { Loader2, TrendingUp, Activity, ChevronDown } from 'lucide-react'
 import { RequestTimeoutError, runBrowserStreamedChat } from '@/lib/browser-llm'
 import { copyToClipboard } from '@/lib/clipboard'
 import { COLLAPSE_BAR_CLASS, COLLAPSE_ITEM_CLASS, CollapsiblePanel } from './collapsible-panel'
+import { ResultBody } from './result-body'
 import { cn } from '@/lib/utils'
 import {
   REQUEST_TIMEOUT_MS,
@@ -469,316 +470,253 @@ const tRank = useTranslations('rank')
       </div>
 
       {/* ── Summary (shown on top after completion) ── */}
-      {results && (
-        <div className="mb-8">
-          <div id="stability-summary" className={cn('pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
-            <button
-              type="button"
-              onClick={() => setSummaryOpen(!summaryOpen)}
-              aria-expanded={summaryOpen}
-              className="w-full flex items-center gap-2 text-left cursor-pointer"
-            >
-              <Activity className="w-5 h-5 text-white shrink-0" />
-              <span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('summary.title')}</span>
-              <ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', summaryOpen && 'rotate-180')} />
-            </button>
-            <div className={summaryOpen ? undefined : 'hidden'}>
-            <div className="text-sm font-normal mb-4">
-              <span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
-              <span className="text-white mr-8">{modelId}</span>
-              <span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
-              <span className="text-white mr-8">{(() => { try { return new URL(baseUrl).host } catch { return baseUrl || '-' } })()}</span>
-              <span className="text-gray-400 mr-2">{t('summary.iterations')}:</span>
-              <span className="text-white mr-8">{results.results.length}</span>
-              <span className="text-gray-400 mr-2">{t('summary.prompt')}:</span>
-              <span className="text-white">{results.results[0]?.content.length ?? 0} chars</span>
-            </div>
+      <div className="px-4 sm:px-6">
+        {results && (
+          <div className="mb-8">
+            <div id="stability-summary" className={cn('pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(!summaryOpen)}
+                aria-expanded={summaryOpen}
+                className="w-full flex items-center gap-2 text-left cursor-pointer"
+              >
+                <Activity className="w-5 h-5 text-white shrink-0" />
+                <span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('summary.title')}</span>
+                <ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', summaryOpen && 'rotate-180')} />
+              </button>
+              <div className={summaryOpen ? undefined : 'hidden'}>
+              <div className="text-sm font-normal mb-4">
+                <span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
+                <span className="text-white mr-8">{modelId}</span>
+                <span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
+                <span className="text-white mr-8">{(() => { try { return new URL(baseUrl).host } catch { return baseUrl || '-' } })()}</span>
+                <span className="text-gray-400 mr-2">{t('summary.iterations')}:</span>
+                <span className="text-white mr-8">{results.results.length}</span>
+                <span className="text-gray-400 mr-2">{t('summary.prompt')}:</span>
+                <span className="text-white">{results.results[0]?.content.length ?? 0} chars</span>
+              </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="text-left py-2 px-3 text-gray-400 font-medium">{t('summary.metric')}</th>
-                    <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.avg')}</th>
-                    <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.stdDev')}</th>
-                    <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.min')}</th>
-                    <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.max')}</th>
-                    <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.median')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {([
-                    { label: t('summary.firstTokenLatency'), key: 'firstTokenLatency' as const, fmt: formatMs },
-                    { label: t('summary.tokensPerSecond'), key: 'tokensPerSecond' as const, fmt: formatTps },
-                    { label: t('summary.totalTime'), key: 'totalTime' as const, fmt: formatMs },
-                    { label: t('summary.outputToken'), key: 'outputToken' as const, fmt: (v: number) => v.toFixed(0) },
-                  ]).map(({ label, key, fmt }, i) => {
-                    const s = results.stats[key]
-                    return (
-                      <tr key={key} className={i < 3 ? 'border-b border-gray-800' : ''}>
-                        <td className="py-3 px-3 text-gray-300">{label}</td>
-                        <td className="text-right py-3 px-3 text-white font-mono">{fmt(s.mean)}</td>
-                        <td className="text-right py-3 px-3 text-gray-300 font-mono">±{fmt(s.stdDev)}</td>
-                        <td className="text-right py-3 px-3 font-mono text-red-400">{fmt(s.min)}</td>
-                        <td className="text-right py-3 px-3 font-mono text-green-400">{fmt(s.max)}</td>
-                        <td className="text-right py-3 px-3 text-gray-300 font-mono">{fmt(s.median)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left py-2 px-3 text-gray-400 font-medium">{t('summary.metric')}</th>
+                      <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.avg')}</th>
+                      <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.stdDev')}</th>
+                      <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.min')}</th>
+                      <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.max')}</th>
+                      <th className="text-right py-2 px-3 text-gray-400 font-medium">{t('summary.median')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {([
+                      { label: t('summary.firstTokenLatency'), key: 'firstTokenLatency' as const, fmt: formatMs },
+                      { label: t('summary.tokensPerSecond'), key: 'tokensPerSecond' as const, fmt: formatTps },
+                      { label: t('summary.totalTime'), key: 'totalTime' as const, fmt: formatMs },
+                      { label: t('summary.outputToken'), key: 'outputToken' as const, fmt: (v: number) => v.toFixed(0) },
+                    ]).map(({ label, key, fmt }, i) => {
+                      const s = results.stats[key]
+                      return (
+                        <tr key={key} className={i < 3 ? 'border-b border-gray-800' : ''}>
+                          <td className="py-3 px-3 text-gray-300">{label}</td>
+                          <td className="text-right py-3 px-3 text-white font-mono">{fmt(s.mean)}</td>
+                          <td className="text-right py-3 px-3 text-gray-300 font-mono">±{fmt(s.stdDev)}</td>
+                          <td className="text-right py-3 px-3 font-mono text-red-400">{fmt(s.min)}</td>
+                          <td className="text-right py-3 px-3 font-mono text-green-400">{fmt(s.max)}</td>
+                          <td className="text-right py-3 px-3 text-gray-300 font-mono">{fmt(s.median)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-            <div className="mt-4 flex items-start gap-2 text-xs text-gray-400">
-              <TrendingUp className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <p className="flex-1 pb-2">{t('summary.stdDevHint')}</p>
-              <a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0">lm-speed-x.xtsat.cc.cd</a>
+              <div className="mt-4 flex items-start gap-2 text-xs text-gray-400">
+                <TrendingUp className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <p className="flex-1 pb-2">{t('summary.stdDevHint')}</p>
+                <a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0">lm-speed-x.xtsat.cc.cd</a>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Results list (matching SpeedTest ResultsList style exactly) */}
-          {results.results.length > 0 && (
+            {/* Results list (matching SpeedTest ResultsList style exactly) */}
+            {results.results.length > 0 && (
+              <CollapsiblePanel
+                open={detailsOpen}
+                onToggle={() => setDetailsOpen(!detailsOpen)}
+                className="mt-8"
+                headerClassName={COLLAPSE_BAR_CLASS}
+                header={
+                  <span>
+                    {tSpeed('results.title')}
+                    <span className="ml-2 text-sm font-normal text-gray-500">({results.results.length})</span>
+                  </span>
+                }
+                bodyClassName="mt-4"
+              >
+                <div className="space-y-6">
+                {results.results.map((r) => {
+                  const open = !!openIterations[r.iteration]
+                  return (
+                  <CollapsiblePanel
+                    key={r.iteration}
+                    open={open}
+                    onToggle={() => setOpenIterations((prev) => ({ ...prev, [r.iteration]: !prev[r.iteration] }))}
+                    headerClassName={COLLAPSE_ITEM_CLASS}
+                    bodyClassName="mt-4"
+                    header={
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1">
+                          <p className="text-gray-700 font-medium">
+                            {t('details.iteration')} {r.iteration}
+                          </p>
+                          <p className="text-gray-600 text-sm mt-1">
+                            {t('connection.modelId')}: {modelId}
+                          </p>
+                        </div>
+                        <div className="ml-4">
+                          <span className="text-green-400">{t('status.completed')}</span>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <ResultBody
+                      metrics={[
+                        { label: t('details.firstTokenLatency'), value: `${(r.firstTokenLatency / 1000).toFixed(2)} s` },
+                        { label: t('details.totalTime'), value: `${(r.totalTime / 1000).toFixed(2)} s` },
+                        { label: tRank('table.avgTokens'), value: `${r.tokensPerSecond.toFixed(2)} t/s` },
+                        { label: tSpeed('results.metrics.outputToken'), value: `${r.outputToken} (${(r.outputTime / 1000).toFixed(2)}s)` },
+                      ]}
+                      outputTitle={`${tSpeed('results.output.title')}:`}
+                      copyLabel={tSpeed('results.output.copy')}
+                      onCopy={() => { if (r.content) copyToClipboard(r.content) }}
+                      content={r.content || '-'}
+                    />
+                  </CollapsiblePanel>
+                  )
+                })}
+              </div>
+              </CollapsiblePanel>
+            )}
+          {results.failures && results.failures.length > 0 && (
             <CollapsiblePanel
-              open={detailsOpen}
-              onToggle={() => setDetailsOpen(!detailsOpen)}
-              className="mt-8"
+              open={failuresOpen}
+              onToggle={() => setFailuresOpen(!failuresOpen)}
+              className="mt-4"
               headerClassName={COLLAPSE_BAR_CLASS}
               header={
                 <span>
-                  {tSpeed('results.title')}
-                  <span className="ml-2 text-sm font-normal text-gray-500">({results.results.length})</span>
+                  {t('details.failures')}
+                  <span className="ml-2 text-sm font-normal text-gray-500">({results.failures.length})</span>
                 </span>
               }
               bodyClassName="mt-4"
             >
-              <div className="space-y-6">
-              {results.results.map((r) => {
-                const open = !!openIterations[r.iteration]
-                return (
+              <div className="space-y-2">
+                {results.failures.map((f) => (
+                  <div key={f.iteration} className="px-4 py-3 rounded-lg bg-gray-200">
+                    <p className="text-sm font-medium text-gray-700">
+                      {t('details.iteration')} {f.iteration}
+                    </p>
+                    <p className="mt-1 break-all text-xs text-red-500">{f.error}</p>
+                  </div>
+                ))}
+              </div>
+            </CollapsiblePanel>
+          )}
+        </div>
+      )}
+
+      </div>
+      {/* Iteration cards during run: 与结果页共用同一套折叠条，跑起来后长列表也能收起 */}
+      <div className="px-4 sm:px-6">
+        {iterations.length > 0 && !results && (
+          <CollapsiblePanel
+            open={liveOpen}
+            onToggle={() => setLiveOpen(!liveOpen)}
+            className="mt-8"
+            headerClassName={COLLAPSE_BAR_CLASS}
+            header={
+              <span>
+                {tSpeed('results.title')}
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  ({iterations.filter((it) => it.status === 'completed').length}/{iterations.length})
+                </span>
+                {loading && waitedSeconds > 0 && (
+                  <span className="ml-2 text-xs font-normal text-gray-400">{t('details.waitingSeconds', { seconds: waitedSeconds })}</span>
+                )}
+            </span>
+          }
+          bodyClassName="mt-4"
+        >
+          <div className="space-y-4">
+            {iterations.map((it, idx) => {
+              const itemClass =
+                it.status === 'pending'
+                  ? 'p-4 rounded-lg bg-gray-100 border border-gray-200'
+                  : it.status === 'running'
+                    ? 'p-4 rounded-lg bg-blue-50 dark:bg-blue-500/15'
+                    : it.status === 'failed'
+                      ? 'p-4 rounded-lg bg-red-50 dark:bg-red-500/10'
+                      : COLLAPSE_ITEM_CLASS
+              return (
                 <CollapsiblePanel
-                  key={r.iteration}
-                  open={open}
-                  onToggle={() => setOpenIterations((prev) => ({ ...prev, [r.iteration]: !prev[r.iteration] }))}
-                  headerClassName={COLLAPSE_ITEM_CLASS}
+                  key={idx}
+                  open={!!openLive[idx]}
+                  disabled={it.status === 'pending'}
+                  onToggle={() => setOpenLive((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                  headerClassName={itemClass}
                   bodyClassName="mt-4"
                   header={
                     <div className="flex justify-between items-center">
-                      <div className="flex-1">
-                        <p className="text-gray-700 font-medium">
-                          {t('details.iteration')} {r.iteration}
-                        </p>
-                        <p className="text-gray-600 text-sm mt-1">
-                          {t('connection.modelId')}: {modelId}
-                        </p>
-                      </div>
-                      <div className="ml-4">
-                        <span className="text-green-400">{t('status.completed')}</span>
+                      <p className="text-gray-600 text-sm">
+                        {t('details.iteration')} {it.iteration}
+                      </p>
+                      <div className="flex items-center gap-3 pr-2">
+                        {it.status !== 'pending' && it.outputToken > 0 && (
+                          <span className="text-gray-500 text-xs font-mono">
+                            {it.outputToken} · {it.tokensPerSecond.toFixed(2)} t/s
+                          </span>
+                        )}
+                        {it.status === 'pending' && (
+                          <span className="text-gray-500">{t('status.pending')}</span>
+                        )}
+                        {it.status === 'running' && (
+                          <span className="text-blue-400 flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            {t('status.running')}
+                          </span>
+                        )}
+                        {it.status === 'completed' && (
+                          <span className="text-green-400">{t('status.completed')}</span>
+                        )}
+                        {it.status === 'failed' && (
+                          <span className="text-red-400">{t('status.failed')}</span>
+                        )}
                       </div>
                     </div>
                   }
                 >
-                  <div className="flex flex-row gap-12">
-                    <div>
-                      <p className="text-gray-600 text-sm">{t('details.firstTokenLatency')}</p>
-                      <p className="text-gray-700">{(r.firstTokenLatency / 1000).toFixed(2)} s</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600 text-sm">{t('details.totalTime')}</p>
-                      <p className="text-gray-700">{(r.totalTime / 1000).toFixed(2)} s</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600 text-sm">{tRank('table.avgTokens')}</p>
-                      <p className="text-gray-700">{r.tokensPerSecond.toFixed(2)} t/s</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600 text-sm">{tSpeed('results.metrics.outputToken')}</p>
-                      <p className="text-gray-700">{r.outputToken} ({(r.outputTime / 1000).toFixed(2)}s)</p>
-                    </div>
-                  </div>
-
-                  <div
-                    className="max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-gray-700 font-medium">
-                        tSpeed('results.output.title'):
-                      </h4>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (r.content) copyToClipboard(r.content)
-                        }}
-                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
-                      >
-                        tSpeed('results.output.copy')
-                      </button>
-                    </div>
-                    <div className="whitespace-pre-wrap font-mono text-sm">
-                      r.content || '-'
-                    </div>
-                  </div>
+                  <ResultBody
+                    metrics={[
+                      { label: t('details.firstTokenLatency'), value: it.firstTokenLatency > 0 ? `${(it.firstTokenLatency / 1000).toFixed(2)} s` : '-' },
+                      { label: t('details.totalTime'), value: it.totalTime > 0 ? `${(it.totalTime / 1000).toFixed(2)} s` : '-' },
+                      { label: tRank('table.avgTokens'), value: it.tokensPerSecond > 0 ? `${it.tokensPerSecond.toFixed(2)} t/s` : '-' },
+                      { label: tSpeed('results.metrics.outputToken'), value: it.outputToken > 0 ? `${it.outputToken} (${(it.outputTime / 1000).toFixed(2)}s)` : '-' },
+                    ]}
+                    outputTitle={`${tSpeed('results.output.title')}:`}
+                    copyLabel={tSpeed('results.output.copy')}
+                    error={it.status === 'failed' ? it.error : undefined}
+                    onCopy={() => { const text = streamContents[idx]; if (text) copyToClipboard(text) }}
+                    content={streamContents[idx] || '-'}
+                  />
                 </CollapsiblePanel>
-                )
-              })}
-            </div>
-            </CollapsiblePanel>
-          )}
-        {results.failures && results.failures.length > 0 && (
-          <CollapsiblePanel
-            open={failuresOpen}
-            onToggle={() => setFailuresOpen(!failuresOpen)}
-            className="mt-4"
-            headerClassName={COLLAPSE_BAR_CLASS}
-            header={
-              <span>
-                {t('details.failures')}
-                <span className="ml-2 text-sm font-normal text-gray-500">({results.failures.length})</span>
-              </span>
-            }
-            bodyClassName="mt-4"
-          >
-            <div className="space-y-2">
-              {results.failures.map((f) => (
-                <div key={f.iteration} className="px-4 py-3 rounded-lg bg-gray-200">
-                  <p className="text-sm font-medium text-gray-700">
-                    {t('details.iteration')} {f.iteration}
-                  </p>
-                  <p className="mt-1 break-all text-xs text-red-500">{f.error}</p>
-                </div>
-              ))}
-            </div>
-          </CollapsiblePanel>
-        )}
+              )
+            })}
+          </div>
+        </CollapsiblePanel>
+      )}
       </div>
-    )}
-
-      {/* Iteration cards during run: 与结果页共用同一套折叠条，跑起来后长列表也能收起 */}
-      {iterations.length > 0 && !results && (
-        <CollapsiblePanel
-          open={liveOpen}
-          onToggle={() => setLiveOpen(!liveOpen)}
-          className="mt-8"
-          headerClassName={COLLAPSE_BAR_CLASS}
-          header={
-            <span>
-              {tSpeed('results.title')}
-              <span className="ml-2 text-sm font-normal text-gray-500">
-                ({iterations.filter((it) => it.status === 'completed').length}/{iterations.length})
-              </span>
-              {loading && waitedSeconds > 0 && (
-                <span className="ml-2 text-xs font-normal text-gray-400">{t('details.waitingSeconds', { seconds: waitedSeconds })}</span>
-              )}
-          </span>
-        }
-        bodyClassName="mt-4"
-      >
-        <div className="space-y-4">
-          {iterations.map((it, idx) => {
-            const itemClass =
-              it.status === 'pending'
-                ? 'p-4 rounded-lg bg-gray-100 border border-gray-200'
-                : it.status === 'running'
-                  ? 'p-4 rounded-lg bg-blue-50 dark:bg-blue-500/15'
-                  : it.status === 'failed'
-                    ? 'p-4 rounded-lg bg-red-50 dark:bg-red-500/10'
-                    : COLLAPSE_ITEM_CLASS
-            return (
-              <CollapsiblePanel
-                key={idx}
-                open={!!openLive[idx]}
-                disabled={it.status === 'pending'}
-                onToggle={() => setOpenLive((prev) => ({ ...prev, [idx]: !prev[idx] }))}
-                headerClassName={itemClass}
-                bodyClassName="mt-4"
-                header={
-                  <div className="flex justify-between items-center">
-                    <p className="text-gray-600 text-sm">
-                      {t('details.iteration')} {it.iteration}
-                    </p>
-                    <div className="flex items-center gap-3 pr-2">
-                      {it.status !== 'pending' && it.outputToken > 0 && (
-                        <span className="text-gray-500 text-xs font-mono">
-                          {it.outputToken} · {it.tokensPerSecond.toFixed(2)} t/s
-                        </span>
-                      )}
-                      {it.status === 'pending' && (
-                        <span className="text-gray-500">{t('status.pending')}</span>
-                      )}
-                      {it.status === 'running' && (
-                        <span className="text-blue-400 flex items-center gap-1">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          {t('status.running')}
-                        </span>
-                      )}
-                      {it.status === 'completed' && (
-                        <span className="text-green-400">{t('status.completed')}</span>
-                      )}
-                      {it.status === 'failed' && (
-                        <span className="text-red-400">{t('status.failed')}</span>
-                      )}
-                    </div>
-                  </div>
-                }
-              >
-                <div className="flex flex-row gap-12">
-                  <div>
-                    <p className="text-gray-600 text-sm">{t('details.firstTokenLatency')}</p>
-                    <p className="text-gray-700">
-                      {it.firstTokenLatency > 0 ? `${(it.firstTokenLatency / 1000).toFixed(2)} s` : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">{t('details.totalTime')}</p>
-                    <p className="text-gray-700">
-                      {it.totalTime > 0 ? `${(it.totalTime / 1000).toFixed(2)} s` : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">{tRank('table.avgTokens')}</p>
-                    <p className="text-gray-700">
-                      {it.tokensPerSecond > 0 ? `${it.tokensPerSecond.toFixed(2)} t/s` : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">{tSpeed('results.metrics.outputToken')}</p>
-                    <p className="text-gray-700">
-                      {it.outputToken > 0 ? `${it.outputToken} (${(it.outputTime / 1000).toFixed(2)}s)` : '-'}
-                    </p>
-                  </div>
-                </div>
-
-                {it.status === 'failed' && it.error && (
-                  <p className="mt-2 text-xs text-red-400 break-all">{it.error}</p>
-                )}
-
-                <div
-                  className="max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg"
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-gray-700 font-medium">
-                      tSpeed('results.output.title'):
-                    </h4>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const text = streamContents[idx]; if (text) copyToClipboard(text)
-                      }}
-                      className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
-                    >
-                      tSpeed('results.output.copy')
-                    </button>
-                  </div>
-                  <div className="whitespace-pre-wrap font-mono text-sm">
-                    streamContents[idx] || '-'
-                  </div>
-                </div>
-              </CollapsiblePanel>
-            )
-          })}
-        </div>
-      </CollapsiblePanel>
-    )}
     </div>
   )
 }
