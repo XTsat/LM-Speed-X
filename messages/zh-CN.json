@@ -101,7 +101,6 @@
       "failed": "已失败"
     },
     "details": {
-      "title": "详细运行记录",
       "iteration": "第",
       "firstTokenLatency": "首字延迟",
       "tokensPerSecond": "速度 (t/s)",
@@ -174,7 +173,7 @@
       "failed": "已失败"
     },
     "details": {
-      "title": "详细测试结果",
+      "title": "测试结果",
       "level": "档位",
       "request": "请求",
       "firstTokenLatency": "首字延迟",

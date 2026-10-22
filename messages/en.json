@@ -101,7 +101,6 @@
       "failed": "Failed"
     },
     "details": {
-      "title": "Individual Runs",
       "firstTokenLatency": "First Token",
       "tokensPerSecond": "Speed (t/s)",
       "totalTime": "Total Time",
@@ -174,7 +173,7 @@
       "failed": "Failed"
     },
     "details": {
-      "title": "Detailed Results",
+      "title": "Test Results",
       "level": "Level",
       "request": "Request",
       "firstTokenLatency": "First Token",

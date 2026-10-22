@@ -4,7 +4,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, BarChart3, TrendingUp, Zap } from 'lucide-react'
+import { Loader2, BarChart3, TrendingUp, Zap, ChevronDown } from 'lucide-react'
 import { RequestTimeoutError, runBrowserStreamedChat } from '@/lib/browser-llm'
 import {
   REQUEST_TIMEOUT_MS,
@@ -16,6 +16,8 @@ import {
   writeConnection,
 } from '@/lib/test-connection'
 import { copyToClipboard } from '@/lib/clipboard'
+import { COLLAPSE_BAR_CLASS, COLLAPSE_ITEM_CLASS, CollapsiblePanel } from './collapsible-panel'
+import { cn } from '@/lib/utils'
 
 // ── Types ──
 
@@ -104,9 +106,18 @@ const tRank = useTranslations('rank')
   const [waitedSeconds, setWaitedSeconds] = useState(0)
 
   // Live per-level request status cards
+  // 结果明细默认展开、每个档位默认折叠：档位内请求数随并发数增长，全部展开页面会很长
+  const [detailsOpen, setDetailsOpen] = useState(true)
+  const [openLevels, setOpenLevels] = useState<{ [key: number]: boolean }>({})
   const [activeLevel, setActiveLevel] = useState<number | null>(null)
   const [activeLevelRequests, setActiveLevelRequests] = useState<RequestStatus[]>([])
-  const [expandedRequest, setExpandedRequest] = useState<string | null>(null)
+  // 总览面板、过程中的明细同样可折叠：测试跑起来后结果会长到屏幕以外
+  const [summaryOpen, setSummaryOpen] = useState(true)
+  const [liveOpen, setLiveOpen] = useState(true)
+  const [liveLevelOpen, setLiveLevelOpen] = useState(true)
+  // 已完成的单次请求 / 进行中的单次请求各自记录展开状态，两者 key 空间不同
+  const [openRequests, setOpenRequests] = useState<{ [key: string]: boolean }>({})
+  const [openActive, setOpenActive] = useState<{ [key: number]: boolean }>({})
   const [streamContents, setStreamContents] = useState<{ [key: number]: string }>({})
   const contentRef = useRef<{ [key: number]: string }>({})
 
@@ -174,12 +185,16 @@ const tRank = useTranslations('rank')
       setLoading(true)
       setProgress(0)
       setResults(null)
+      setDetailsOpen(true)
+      setOpenLevels({})
       contentRef.current = {}
 
       // Clear live cards
       setActiveLevel(null)
       setActiveLevelRequests([])
-      setExpandedRequest(null)
+      setOpenActive({})
+      setOpenRequests({})
+      setLiveLevelOpen(true)
       setStreamContents({})
 
       if (live.browserDirect) {
@@ -211,8 +226,9 @@ const tRank = useTranslations('rank')
             setActiveLevelRequests(init)
             contentRef.current = {}
             setStreamContents({})
-            setExpandedRequest(null)
-
+            setOpenActive({})
+            setOpenRequests({})
+            setLiveLevelOpen(true)
             const levelStartTime = performance.now()
             const tasks = Array.from({ length: level }, (_, i) =>
               runBrowserStreamedChat(live.baseUrl, live.apiKey, live.modelId,
@@ -424,7 +440,9 @@ const response = await fetch('/api/speed/concurrency', {
                   setActiveLevelRequests(init)
                   contentRef.current = {}
                   setStreamContents({})
-                  setExpandedRequest(null)
+                  setOpenActive({})
+                  setOpenRequests({})
+                  setLiveLevelOpen(true)
                   break
                 }
                 case 'content': {
@@ -570,11 +588,18 @@ const response = await fetch('/api/speed/concurrency', {
       {/* ── Summary (shown on top after completion) - llm-benchmark style comparison table ── */}
       {results && (
         <div className="mb-8">
-          <div id="concurrency-summary" className="pin-light-gray pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
-            <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              <span>LM Speed X {t('summary.title')}</span>
-            </h3>
+          <div id="concurrency-summary" className={cn('pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
+            <button
+              type="button"
+              onClick={() => setSummaryOpen(!summaryOpen)}
+              aria-expanded={summaryOpen}
+              className="w-full flex items-center gap-2 text-left cursor-pointer"
+            >
+              <BarChart3 className="w-5 h-5 text-white shrink-0" />
+              <span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('summary.title')}</span>
+              <ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', summaryOpen && 'rotate-180')} />
+            </button>
+            <div className={summaryOpen ? undefined : 'hidden'}>
 
             {/* Basic info row — Model + Base URL fixed at positions 1/2 */}
             <div className="text-sm font-normal mb-4 space-x-6 flex flex-wrap">
@@ -655,19 +680,36 @@ const response = await fetch('/api/speed/concurrency', {
               </div>
             </div>
             <a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="block mt-1 text-right text-xs text-gray-600 hover:text-gray-400 transition-colors">lm-speed-x.xtsat.cc.cd</a>
+            </div>
           </div>
 
           {/* Per-level details (matching SpeedTest ResultsList style) */}
           {results.summaries.length > 0 && (
-            <>
-              <h2 className="w-full text-xl text-center font-bold mt-8 mb-4">{t('details.title')}</h2>
+            <CollapsiblePanel
+              open={detailsOpen}
+              onToggle={() => setDetailsOpen(!detailsOpen)}
+              className="mt-8"
+              headerClassName={COLLAPSE_BAR_CLASS}
+              header={
+                <span>
+                  {t('details.title')}
+                  <span className="ml-2 text-sm font-normal text-gray-500">({results.summaries.length} {t('summary.levels')})</span>
+                </span>
+              }
+              bodyClassName="mt-4"
+            >
               <div className="space-y-8">
                 {results.summaries.map((s, li) => {
                   const levelResults = results.details[li] || []
-                  const levelKey = (rid: number) => `${li}-${rid - 1}`
                   return (
-                    <div key={s.level} className="space-y-4">
-                      <div className="p-4 rounded-lg bg-gray-100 border-l-4 border-cyan-400">
+                    <CollapsiblePanel
+                      key={s.level}
+                      open={!!openLevels[s.level]}
+                      onToggle={() => setOpenLevels((prev) => ({ ...prev, [s.level]: !prev[s.level] }))}
+                      className="space-y-4"
+                      headerClassName="p-4 rounded-lg bg-gray-100 border-l-4 border-cyan-400"
+                      bodyClassName="mt-4 space-y-4"
+                      header={
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="text-gray-700 font-medium">
@@ -678,132 +720,175 @@ const response = await fetch('/api/speed/concurrency', {
                               {t('connection.modelId')}: {modelId}
                             </p>
                           </div>
-                          <div className="text-right text-sm">
+                          <div className="text-right text-sm pr-2">
                             <p className={rowColorClass(s.successRate)}>{s.successRate.toFixed(1)}% {t('benchmark.successRate')}</p>
                             <p className="text-gray-500">{formatRps(s.rps)} req/s</p>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Single-request cards inside this level */}
-                      <div className="space-y-6">
-                        {levelResults.map((r) => (
-                          <div
-                            key={`${s.level}-${r.requestId}`}
-                            onClick={() => setExpandedRequest(expandedRequest === levelKey(r.requestId) ? null : levelKey(r.requestId))}
-                            className="p-4 rounded-lg bg-gray-200 cursor-pointer"
-                          >
-                            <div className="flex justify-between items-center">
-                              <div className="flex-1">
-                                <p className="text-gray-600 text-sm mb-2">
+                      }
+                    >
+                      {/* 单次请求：与测试过程中使用同一套折叠条 */}
+                      {levelResults.map((r) => {
+                        const reqKey = `${s.level}-${r.requestId}`
+                        return (
+                          <CollapsiblePanel
+                            key={reqKey}
+                            open={!!openRequests[reqKey]}
+                            onToggle={() => setOpenRequests((prev) => ({ ...prev, [reqKey]: !prev[reqKey] }))}
+                            headerClassName={COLLAPSE_ITEM_CLASS}
+                            bodyClassName="mt-4"
+                            header={
+                              <div className="flex justify-between items-center">
+                                <p className="text-gray-600 text-sm">
                                   {t('details.request')} {r.requestId}
                                 </p>
-                              </div>
-                              <div className="ml-4">
-                                {r.success ? (
-                                  <span className="text-green-400">{t('status.completed')}</span>
-                                ) : (
-                                  <span className="text-red-400">{t('status.failed')}</span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex flex-row gap-12">
-                              <div>
-                                <p className="text-gray-600 text-sm">{t('details.firstTokenLatency')}</p>
-                                <p className="text-gray-700">{(r.firstTokenLatency / 1000).toFixed(2)} s</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600 text-sm">{t('details.totalTime')}</p>
-                                <p className="text-gray-700">{(r.totalTime / 1000).toFixed(2)} s</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600 text-sm">{tRank('table.avgTokens')}</p>
-                                <p className="text-gray-700">{r.tokensPerSecond.toFixed(2)} t/s</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600 text-sm">{tSpeed('results.metrics.outputToken')}</p>
-                                <p className="text-gray-700">{r.outputToken} ({(r.outputTime / 1000).toFixed(2)}s)</p>
+                                <div className="pr-2">
+                                  {r.success ? (
+                                    <span className="text-green-400">{t('status.completed')}</span>
+                                  ) : (
+                                    <span className="text-red-400">{t('status.failed')}</span>
+                                  )}
                               </div>
                             </div>
-
-                            <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${expandedRequest === levelKey(r.requestId) ? 'block' : 'hidden'}`}>
-                              <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
-                                <button onClick={(e) => { e.stopPropagation(); if (r.content) copyToClipboard(r.content) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
-                              </div>
-                              <div className="whitespace-pre-wrap font-mono text-sm">
-                                {r.content || (r.error ? `${t('status.failed')}: ${r.error}` : '-')}
-                              </div>
+                          }
+                        >
+                          <div className="flex flex-row gap-12">
+                            <div>
+                              <p className="text-gray-600 text-sm">{t('details.firstTokenLatency')}</p>
+                              <p className="text-gray-700">{(r.firstTokenLatency / 1000).toFixed(2)} s</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600 text-sm">{t('details.totalTime')}</p>
+                              <p className="text-gray-700">{(r.totalTime / 1000).toFixed(2)} s</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600 text-sm">{tRank('table.avgTokens')}</p>
+                              <p className="text-gray-700">{r.tokensPerSecond.toFixed(2)} t/s</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600 text-sm">{tSpeed('results.metrics.outputToken')}</p>
+                              <p className="text-gray-700">{r.outputToken} ({(r.outputTime / 1000).toFixed(2)}s)</p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
-      {/* ── Active Level Request Cards (only visible during run, hidden after completion) ── */}
+                          <div
+                            className="max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg"
+                          >
+                            <div className="flex justify-between items-center mb-2">
+                              <h4 className="text-gray-700 font-medium">
+                                tSpeed('results.output.title'):
+                              </h4>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (r.content) copyToClipboard(r.content)
+                                }}
+                                className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                              >
+                                tSpeed('results.output.copy')
+                              </button>
+                            </div>
+                            <div className="whitespace-pre-wrap font-mono text-sm">
+                              r.content || (r.error ? `${t('status.failed')}: ${r.error}` : '-')
+                            </div>
+                          </div>
+                        </CollapsiblePanel>
+                      )
+                    })}
+                  </CollapsiblePanel>
+                )
+              })}
+            </div>
+          </CollapsiblePanel>
+        )}
+      </div>
+    )}
+
+      {/* ── Live level cards (only during run): 与完成后同一套折叠条，测试中也能收起 ── */}
       {activeLevel !== null && !results && activeLevelRequests.length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-xl text-center font-bold mb-4">
-            {t('details.title')} — {t('details.level')} {activeLevel}
-            <span className="ml-3 text-gray-500 text-base">({progress.toFixed(0)}%)</span>
-            {loading && waitedSeconds > 0 && (
-              <span className="ml-3 text-gray-400 text-sm font-normal">{t('details.waitingSeconds', { seconds: waitedSeconds })}</span>
-            )}
-          </h3>
-          <div className="space-y-4">
-            {activeLevelRequests.map((it, idx) => {
-              const activeKey = `active-${idx}`
-              return (
-              <div
+        <CollapsiblePanel
+          open={liveOpen}
+          onToggle={() => setLiveOpen(!liveOpen)}
+          className="mt-8"
+          headerClassName={COLLAPSE_BAR_CLASS}
+          header={
+            <span>
+              {t('details.title')}
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({t('details.level')} {activeLevel} · {progress.toFixed(0)}%)
+              </span>
+            </span>
+          }
+          bodyClassName="mt-4"
+        >
+          <CollapsiblePanel
+            open={liveLevelOpen}
+            onToggle={() => setLiveLevelOpen(!liveLevelOpen)}
+            headerClassName="p-4 rounded-lg bg-gray-100 border-l-4 border-cyan-400"
+            bodyClassName="mt-4 space-y-4"
+            header={
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-gray-700 font-medium">
+                    {t('details.level')} {activeLevel}
+                    <span className="ml-3 text-gray-500 text-sm">
+                      ({activeLevelRequests.filter((it) => it.status === 'completed').length}/{activeLevelRequests.length})
+                    </span>
+                  </p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    {t('connection.modelId')}: {modelId}
+                  </p>
+                </div>
+                <div className="text-right text-sm pr-2">
+                  <p className="text-gray-500">{progress.toFixed(0)}%</p>
+                  {loading && waitedSeconds > 0 && (
+                    <p className="text-gray-400 text-xs mt-1">{t('details.waitingSeconds', { seconds: waitedSeconds })}</p>
+                  )}
+              </div>
+            </div>
+          }
+        >
+          {activeLevelRequests.map((it, idx) => {
+            const itemClass =
+              it.status === 'pending'
+                ? 'p-4 rounded-lg bg-gray-100 border border-gray-200'
+                : it.status === 'running'
+                  ? 'p-4 rounded-lg bg-blue-50 dark:bg-blue-500/15'
+                  : it.status === 'failed'
+                    ? 'p-4 rounded-lg bg-red-50 dark:bg-red-500/15'
+                    : COLLAPSE_ITEM_CLASS
+            return (
+              <CollapsiblePanel
                 key={idx}
-                onClick={() => {
-                  if (it.status !== 'pending') {
-                    setExpandedRequest(expandedRequest === activeKey ? null : activeKey)
-                  }
-                }}
-                className={`p-4 rounded-lg cursor-pointer ${
-                  it.status === 'pending'
-                    ? 'bg-gray-100 cursor-default'
-                    : it.status === 'running'
-                    ? 'bg-blue-50 dark:bg-blue-500/15'
-                    : it.status === 'failed'
-                    ? 'bg-red-50 dark:bg-red-500/15'
-                    : 'bg-gray-200'
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <div className="flex-1">
-                    <p className="text-gray-600 text-sm mb-2">
+                open={!!openActive[idx]}
+                disabled={it.status === 'pending'}
+                onToggle={() => setOpenActive((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                headerClassName={itemClass}
+                bodyClassName="mt-4"
+                header={
+                  <div className="flex justify-between items-center">
+                    <p className="text-gray-600 text-sm">
                       {t('details.request')} {it.requestId}
                     </p>
+                    <div className="flex items-center gap-3 pr-2">
+                      {it.status !== 'pending' && it.outputToken > 0 && (
+                        <span className="text-gray-500 text-xs font-mono">
+                          {it.outputToken} · {it.tokensPerSecond.toFixed(2)} t/s
+                        </span>
+                      )}
+                      {it.status === 'pending' && <span className="text-gray-500">{t('status.pending')}</span>}
+                      {it.status === 'running' && (
+                        <span className="text-blue-400 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          {t('status.running')}
+                        </span>
+                      )}
+                      {it.status === 'completed' && <span className="text-green-400">{t('status.completed')}</span>}
+                      {it.status === 'failed' && <span className="text-red-400">{t('status.failed')}</span>}
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    {it.status === 'pending' && (
-                      <span className="text-gray-500">{t('status.pending')}</span>
-                    )}
-                    {it.status === 'running' && (
-                      <span className="text-blue-400 flex items-center gap-1">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        {t('status.running')}
-                      </span>
-                    )}
-                    {it.status === 'completed' && (
-                      <span className="text-green-400">{t('status.completed')}</span>
-                    )}
-                    {it.status === 'failed' && (
-                      <span className="text-red-400">{t('status.failed')}</span>
-                    )}
-                  </div>
-                </div>
-
+                }
+              >
                 <div className="flex flex-row gap-12">
                   <div>
                     <p className="text-gray-600 text-sm">{t('details.firstTokenLatency')}</p>
@@ -817,39 +902,51 @@ const response = await fetch('/api/speed/concurrency', {
                       {it.totalTime > 0 ? `${(it.totalTime / 1000).toFixed(2)} s` : '-'}
                     </p>
                   </div>
-                    <div>
-                      <p className="text-gray-600 text-sm">{tRank('table.avgTokens')}</p>
-                      <p className="text-gray-700">
-                        {it.tokensPerSecond > 0 ? `${it.tokensPerSecond.toFixed(2)} t/s` : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600 text-sm">{tSpeed('results.metrics.outputToken')}</p>
-                      <p className="text-gray-700">
-                        {it.outputToken > 0 ? `${it.outputToken} (${(it.outputTime / 1000).toFixed(2)}s)` : '-'}
-                      </p>
-                    </div>
+                  <div>
+                    <p className="text-gray-600 text-sm">{tRank('table.avgTokens')}</p>
+                    <p className="text-gray-700">
+                      {it.tokensPerSecond > 0 ? `${it.tokensPerSecond.toFixed(2)} t/s` : '-'}
+                    </p>
                   </div>
+                  <div>
+                    <p className="text-gray-600 text-sm">{tSpeed('results.metrics.outputToken')}</p>
+                    <p className="text-gray-700">
+                      {it.outputToken > 0 ? `${it.outputToken} (${(it.outputTime / 1000).toFixed(2)}s)` : '-'}
+                    </p>
+                  </div>
+                </div>
 
                 {it.status === 'failed' && it.error && (
                   <p className="mt-2 text-xs text-red-400 break-all">{it.error}</p>
                 )}
 
-                <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${expandedRequest === activeKey ? 'block' : 'hidden'}`}>
+                <div
+                  className="max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg"
+                >
                   <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
-                    <button onClick={(e) => { e.stopPropagation(); const text = streamContents[idx]; if (text) copyToClipboard(text) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
+                    <h4 className="text-gray-700 font-medium">
+                      tSpeed('results.output.title'):
+                    </h4>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const text = streamContents[idx]; if (text) copyToClipboard(text)
+                      }}
+                      className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                    >
+                      tSpeed('results.output.copy')
+                    </button>
                   </div>
                   <div className="whitespace-pre-wrap font-mono text-sm">
-                    {streamContents[idx] || '-'}
+                    streamContents[idx] || '-'
                   </div>
                 </div>
-              </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+              </CollapsiblePanel>
+            )
+          })}
+        </CollapsiblePanel>
+      </CollapsiblePanel>
+    )}
     </div>
   )
 }

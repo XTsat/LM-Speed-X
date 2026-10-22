@@ -4,9 +4,11 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, TrendingUp, Activity } from 'lucide-react'
+import { Loader2, TrendingUp, Activity, ChevronDown } from 'lucide-react'
 import { RequestTimeoutError, runBrowserStreamedChat } from '@/lib/browser-llm'
 import { copyToClipboard } from '@/lib/clipboard'
+import { COLLAPSE_BAR_CLASS, COLLAPSE_ITEM_CLASS, CollapsiblePanel } from './collapsible-panel'
+import { cn } from '@/lib/utils'
 import {
   REQUEST_TIMEOUT_MS,
   directRequestOptions,
@@ -75,7 +77,14 @@ const tRank = useTranslations('rank')
 
   // Live iteration status cards
   const [iterations, setIterations] = useState<IterationStatus[]>([])
-  const [expandedIteration, setExpandedIteration] = useState<number | null>(null)
+  // 总览面板与过程中的轮次卡片同样可折叠，跑起来后结果会长到屏幕外
+  const [summaryOpen, setSummaryOpen] = useState(true)
+  const [liveOpen, setLiveOpen] = useState(true)
+  // 每轮展开状态按索引记录：测试中与结果页用同一套点击折叠
+  const [openLive, setOpenLive] = useState<{ [key: number]: boolean }>({})
+  // 结果明细默认展开、每轮记录默认折叠：轮数最多 50，全部展开会把页面拉得很长
+  const [detailsOpen, setDetailsOpen] = useState(true)
+  const [openIterations, setOpenIterations] = useState<{ [key: number]: boolean }>({})
   const [streamContents, setStreamContents] = useState<{ [key: number]: string }>({})
   const contentRef = useRef<{ [key: number]: string }>({})
 
@@ -128,6 +137,7 @@ const tRank = useTranslations('rank')
 
     if (live.browserDirect) {
       setLoading(true); setProgress(0); setResults(null)
+      setDetailsOpen(true); setOpenIterations({})
       contentRef.current = {}
 
       const initIterations: IterationStatus[] = Array.from({ length: count }, (_, i) => ({
@@ -147,7 +157,6 @@ const tRank = useTranslations('rank')
           // 进度按「已完成 + 在飞」推进：开跑先吃掉半格，整轮等待就不会看起来卡在 0%
           setProgress(((i + 0.5) / count) * 100)
           setIterations(prev => { const next = [...prev]; if (next[i]) next[i] = { ...next[i], status: 'running' as const }; return next })
-          setExpandedIteration(i)
           contentRef.current[i] = ''
 
           try {
@@ -190,7 +199,6 @@ const tRank = useTranslations('rank')
               if (next[i]) next[i] = { ...iterResult, status: 'completed' as const }
               return next
             })
-            setTimeout(() => setExpandedIteration(null), 800)
           } catch (error) {
             // 单次失败不中断整轮：稳定性测的就是抖动，失败率本身也是结论
             failedCount += 1
@@ -200,7 +208,6 @@ const tRank = useTranslations('rank')
               if (next[i]) next[i] = { ...next[i], status: 'failed' as const, error: message }
               return next
             })
-            setExpandedIteration(null)
           }
 
           setProgress(((i + 1) / count) * 100)
@@ -249,6 +256,7 @@ const tRank = useTranslations('rank')
       setLoading(true)
       setProgress(0)
       setResults(null)
+      setDetailsOpen(true); setOpenIterations({})
       contentRef.current = {}
 
       // Init iteration status cards
@@ -321,7 +329,6 @@ const tRank = useTranslations('rank')
                     if (next[idx]) next[idx] = { ...next[idx], status: 'running' }
                     return next
                   })
-                  setExpandedIteration(idx)
                   contentRef.current[idx] = ''
                   break
                 }
@@ -357,8 +364,15 @@ const tRank = useTranslations('rank')
                     }
                     return next
                   })
-                  // Auto-collapse completed iterations after a short delay
-                  setTimeout(() => setExpandedIteration(null), 800)
+                  break
+                }
+                case 'iterationError': {
+                  const ei = message.data.iteration - 1
+                  setIterations(prev => {
+                    const next = [...prev]
+                    if (next[ei]) next[ei] = { ...next[ei], status: 'failed', error: message.data.error }
+                    return next
+                  })
                   break
                 }
                 case 'complete':
@@ -448,11 +462,18 @@ const tRank = useTranslations('rank')
       {/* ── Summary (shown on top after completion) ── */}
       {results && (
         <div className="mb-8">
-          <div id="stability-summary" className="pin-light-gray pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
-            <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
-              <Activity className="w-5 h-5" />
-              <span>LM Speed X {t('summary.title')}</span>
-            </h3>
+          <div id="stability-summary" className={cn('pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
+            <button
+              type="button"
+              onClick={() => setSummaryOpen(!summaryOpen)}
+              aria-expanded={summaryOpen}
+              className="w-full flex items-center gap-2 text-left cursor-pointer"
+            >
+              <Activity className="w-5 h-5 text-white shrink-0" />
+              <span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('summary.title')}</span>
+              <ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', summaryOpen && 'rotate-180')} />
+            </button>
+            <div className={summaryOpen ? undefined : 'hidden'}>
             <div className="text-sm font-normal mb-4">
               <span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
               <span className="text-white mr-8">{modelId}</span>
@@ -503,31 +524,51 @@ const tRank = useTranslations('rank')
               <TrendingUp className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <p className="flex-1 pb-2">{t('summary.stdDevHint')}</p>
               <a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0">lm-speed-x.xtsat.cc.cd</a>
+              </div>
             </div>
           </div>
 
           {/* Results list (matching SpeedTest ResultsList style exactly) */}
           {results.results.length > 0 && (
-            <>
-              <h2 className="w-full text-xl text-center font-bold mt-8 mb-4">{tSpeed('results.title')}</h2>
+            <CollapsiblePanel
+              open={detailsOpen}
+              onToggle={() => setDetailsOpen(!detailsOpen)}
+              className="mt-8"
+              headerClassName={COLLAPSE_BAR_CLASS}
+              header={
+                <span>
+                  {tSpeed('results.title')}
+                  <span className="ml-2 text-sm font-normal text-gray-500">({results.results.length})</span>
+                </span>
+              }
+              bodyClassName="mt-4"
+            >
               <div className="space-y-6">
-              {results.results.map((r) => (
-                <div
+              {results.results.map((r) => {
+                const open = !!openIterations[r.iteration]
+                return (
+                <CollapsiblePanel
                   key={r.iteration}
-                  onClick={() => setExpandedIteration(expandedIteration === r.iteration - 1 ? null : r.iteration - 1)}
-                  className="p-4 rounded-lg bg-gray-200 cursor-pointer"
+                  open={open}
+                  onToggle={() => setOpenIterations((prev) => ({ ...prev, [r.iteration]: !prev[r.iteration] }))}
+                  headerClassName={COLLAPSE_ITEM_CLASS}
+                  bodyClassName="mt-4"
+                  header={
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <p className="text-gray-700 font-medium">
+                          {t('details.iteration')} {r.iteration}
+                        </p>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {t('connection.modelId')}: {modelId}
+                        </p>
+                      </div>
+                      <div className="ml-4">
+                        <span className="text-green-400">{t('status.completed')}</span>
+                      </div>
+                    </div>
+                  }
                 >
-                  <div className="flex justify-between items-center">
-                    <div className="flex-1">
-                      <p className="text-gray-600 text-sm mb-2">
-                        {t('connection.modelId')}: {modelId}
-                      </p>
-                    </div>
-                    <div className="ml-4">
-                      <span className="text-green-400">{t('status.completed')}</span>
-                    </div>
-                  </div>
-
                   <div className="flex flex-row gap-12">
                     <div>
                       <p className="text-gray-600 text-sm">{t('details.firstTokenLatency')}</p>
@@ -547,76 +588,104 @@ const tRank = useTranslations('rank')
                     </div>
                   </div>
 
-                  <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${expandedIteration === r.iteration - 1 ? 'block' : 'hidden'}`}>
+                  <div
+                    className="max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg"
+                  >
                     <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
-                      <button onClick={(e) => { e.stopPropagation(); if (r.content) copyToClipboard(r.content) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
+                      <h4 className="text-gray-700 font-medium">
+                        tSpeed('results.output.title'):
+                      </h4>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (r.content) copyToClipboard(r.content)
+                        }}
+                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                      >
+                        tSpeed('results.output.copy')
+                      </button>
                     </div>
                     <div className="whitespace-pre-wrap font-mono text-sm">
-                      {r.content || '-'}
+                      r.content || '-'
                     </div>
                   </div>
-                </div>
-              ))}
+                </CollapsiblePanel>
+                )
+              })}
             </div>
-            </>
+            </CollapsiblePanel>
           )}
-        </div>
-      )}
+      </div>
+    )}
 
-      {/* ── Iteration Cards (only visible during run, hidden after completion) ── */}
+      {/* Iteration cards during run: 与结果页共用同一套折叠条，跑起来后长列表也能收起 */}
       {iterations.length > 0 && !results && (
-        <div className="mt-8">
-          <h3 className="text-xl text-center font-bold mb-4">
-            {t('details.title')}
-            {loading && waitedSeconds > 0 && (
-              <span className="ml-2 text-sm font-normal text-gray-400">{t('details.waitingSeconds', { seconds: waitedSeconds })}</span>
-            )}
-          </h3>
-          <div className="space-y-4">
-            {iterations.map((it, idx) => (
-              <div
+        <CollapsiblePanel
+          open={liveOpen}
+          onToggle={() => setLiveOpen(!liveOpen)}
+          className="mt-8"
+          headerClassName={COLLAPSE_BAR_CLASS}
+          header={
+            <span>
+              {tSpeed('results.title')}
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({iterations.filter((it) => it.status === 'completed').length}/{iterations.length})
+              </span>
+              {loading && waitedSeconds > 0 && (
+                <span className="ml-2 text-xs font-normal text-gray-400">{t('details.waitingSeconds', { seconds: waitedSeconds })}</span>
+              )}
+          </span>
+        }
+        bodyClassName="mt-4"
+      >
+        <div className="space-y-4">
+          {iterations.map((it, idx) => {
+            const itemClass =
+              it.status === 'pending'
+                ? 'p-4 rounded-lg bg-gray-100 border border-gray-200'
+                : it.status === 'running'
+                  ? 'p-4 rounded-lg bg-blue-50 dark:bg-blue-500/15'
+                  : it.status === 'failed'
+                    ? 'p-4 rounded-lg bg-red-50 dark:bg-red-500/10'
+                    : COLLAPSE_ITEM_CLASS
+            return (
+              <CollapsiblePanel
                 key={idx}
-                onClick={() => {
-                  if (it.status !== 'pending') {
-                    setExpandedIteration(expandedIteration === idx ? null : idx)
-                  }
-                }}
-                className={`p-4 rounded-lg cursor-pointer ${
-                  it.status === 'pending'
-                    ? 'bg-gray-100 cursor-default'
-                    : it.status === 'running'
-                    ? 'bg-blue-50 dark:bg-blue-500/15'
-                    : it.status === 'failed'
-                    ? 'bg-red-50 dark:bg-red-500/10'
-                    : 'bg-gray-200'
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <div className="flex-1">
-                    <p className="text-gray-600 text-sm mb-2">
+                open={!!openLive[idx]}
+                disabled={it.status === 'pending'}
+                onToggle={() => setOpenLive((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                headerClassName={itemClass}
+                bodyClassName="mt-4"
+                header={
+                  <div className="flex justify-between items-center">
+                    <p className="text-gray-600 text-sm">
                       {t('details.iteration')} {it.iteration}
                     </p>
+                    <div className="flex items-center gap-3 pr-2">
+                      {it.status !== 'pending' && it.outputToken > 0 && (
+                        <span className="text-gray-500 text-xs font-mono">
+                          {it.outputToken} · {it.tokensPerSecond.toFixed(2)} t/s
+                        </span>
+                      )}
+                      {it.status === 'pending' && (
+                        <span className="text-gray-500">{t('status.pending')}</span>
+                      )}
+                      {it.status === 'running' && (
+                        <span className="text-blue-400 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          {t('status.running')}
+                        </span>
+                      )}
+                      {it.status === 'completed' && (
+                        <span className="text-green-400">{t('status.completed')}</span>
+                      )}
+                      {it.status === 'failed' && (
+                        <span className="text-red-400">{t('status.failed')}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    {it.status === 'pending' && (
-                      <span className="text-gray-500">{t('status.pending')}</span>
-                    )}
-                    {it.status === 'running' && (
-                      <span className="text-blue-400 flex items-center gap-1">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        {t('status.running')}
-                      </span>
-                    )}
-                    {it.status === 'completed' && (
-                      <span className="text-green-400">{t('status.completed')}</span>
-                    )}
-                    {it.status === 'failed' && (
-                      <span className="text-red-400">{t('status.failed')}</span>
-                    )}
-                  </div>
-                </div>
-
+                }
+              >
                 <div className="flex flex-row gap-12">
                   <div>
                     <p className="text-gray-600 text-sm">{t('details.firstTokenLatency')}</p>
@@ -630,38 +699,51 @@ const tRank = useTranslations('rank')
                       {it.totalTime > 0 ? `${(it.totalTime / 1000).toFixed(2)} s` : '-'}
                     </p>
                   </div>
-                    <div>
-                      <p className="text-gray-600 text-sm">{tRank('table.avgTokens')}</p>
-                      <p className="text-gray-700">
-                        {it.tokensPerSecond > 0 ? `${it.tokensPerSecond.toFixed(2)} t/s` : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600 text-sm">{tSpeed('results.metrics.outputToken')}</p>
-                      <p className="text-gray-700">
-                        {it.outputToken > 0 ? `${it.outputToken} (${(it.outputTime / 1000).toFixed(2)}s)` : '-'}
-                      </p>
-                    </div>
+                  <div>
+                    <p className="text-gray-600 text-sm">{tRank('table.avgTokens')}</p>
+                    <p className="text-gray-700">
+                      {it.tokensPerSecond > 0 ? `${it.tokensPerSecond.toFixed(2)} t/s` : '-'}
+                    </p>
                   </div>
+                  <div>
+                    <p className="text-gray-600 text-sm">{tSpeed('results.metrics.outputToken')}</p>
+                    <p className="text-gray-700">
+                      {it.outputToken > 0 ? `${it.outputToken} (${(it.outputTime / 1000).toFixed(2)}s)` : '-'}
+                    </p>
+                  </div>
+                </div>
 
                 {it.status === 'failed' && it.error && (
                   <p className="mt-2 text-xs text-red-400 break-all">{it.error}</p>
                 )}
 
-                <div className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${expandedIteration === idx ? 'block' : 'hidden'}`}>
+                <div
+                  className="max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg"
+                >
                   <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-gray-700 font-medium">{tSpeed('results.output.title')}:</h4>
-                    <button onClick={(e) => { e.stopPropagation(); const text = streamContents[idx]; if (text) copyToClipboard(text) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">{tSpeed('results.output.copy')}</button>
+                    <h4 className="text-gray-700 font-medium">
+                      tSpeed('results.output.title'):
+                    </h4>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const text = streamContents[idx]; if (text) copyToClipboard(text)
+                      }}
+                      className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                    >
+                      tSpeed('results.output.copy')
+                    </button>
                   </div>
                   <div className="whitespace-pre-wrap font-mono text-sm">
-                    {streamContents[idx] || '-'}
+                    streamContents[idx] || '-'
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              </CollapsiblePanel>
+            )
+          })}
         </div>
-      )}
+      </CollapsiblePanel>
+    )}
     </div>
   )
 }

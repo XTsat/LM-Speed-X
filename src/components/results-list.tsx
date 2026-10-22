@@ -1,7 +1,9 @@
 "use client";
 import { type SpeedTestResult } from "@/lib/types";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { copyToClipboard } from "@/lib/clipboard";
+import { COLLAPSE_BAR_CLASS, COLLAPSE_ITEM_CLASS, CollapsiblePanel } from "./collapsible-panel";
 
 type SpeedTestResultCard = SpeedTestResult & {
   status?: "pending" | "running" | "completed";
@@ -14,64 +16,84 @@ interface Props {
     [key: number]: string;
   };
   onToggle?: (index: number) => void;
+  /** 导出整份报告图片时需要临时展开所有请求，否则截图里只有折叠条 */
+  forceExpanded?: boolean;
 }
 
-export function ResultsList({ results, expandedIndex, streamContents, onToggle }: Props) {
+export function ResultsList({ results, expandedIndex, streamContents, onToggle, forceExpanded = false }: Props) {
   const t = useTranslations("SpeedTest");
   const tRank = useTranslations("rank");
+  // 明细默认展开、每条请求默认折叠：请求数固定为 5，折叠到单行后页面才不至于过长
+  const [detailsOpen, setDetailsOpen] = useState(true);
 
   return (
-    <>
-      <h2 className="w-full text-xl text-center font-bold mb-4">
-        {t("results.title")}
-      </h2>
+    <CollapsiblePanel
+      open={forceExpanded || detailsOpen}
+      onToggle={() => setDetailsOpen(!detailsOpen)}
+      headerClassName={COLLAPSE_BAR_CLASS}
+      header={
+        <span>
+          {t("results.title")}
+          <span className="ml-2 text-sm font-normal text-gray-500">
+            ({results.length})
+          </span>
+        </span>
+      }
+      bodyClassName="mt-4"
+    >
       <div className="space-y-6">
-        {results.map((result, index) => (
-          <div
+        {results.map((result, index) => {
+          // 正在跑的请求由表单侧自动展开（expandedIndex），收起后仍可再点开
+          const open = forceExpanded || expandedIndex === index;
+          const itemClass =
+            result.status === "pending"
+              ? "p-4 rounded-lg bg-gray-100 border border-gray-200"
+              : result.status === "running"
+                ? "p-4 rounded-lg bg-blue-50 dark:bg-blue-500/15"
+                : COLLAPSE_ITEM_CLASS;
+          return (
+          <CollapsiblePanel
             key={index}
-            onClick={() => {
-              if (result.status !== 'pending' && onToggle) {
-                onToggle(index)
-              }
-            }}
-            className={`p-4 rounded-lg ${
-              result.status === "pending"
-                ? "bg-gray-100"
-                : "cursor-pointer " + (
-                    result.status === "running"
-                      ? "bg-blue-50 dark:bg-blue-500/15"
-                      : "bg-gray-200"
-                  )
-            }`}
+            open={open}
+            disabled={result.status === "pending"}
+            onToggle={() => onToggle?.(index)}
+            headerClassName={itemClass}
+            bodyClassName="mt-4"
+            header={
+              <div className="flex justify-between items-center">
+                <div className="flex-1">
+                  <h3 className="text-gray-700 font-medium mb-1">
+                    {t("results.prompt")}: {result.prompt}
+                  </h3>
+                  <p className="text-gray-600 text-sm">
+                    {t("results.model")}: {result.model}
+                  </p>
+                </div>
+                <div className="ml-4 flex items-center gap-3">
+                  {result.status === "completed" && result.outputToken > 0 && (
+                    <span className="text-gray-500 text-xs font-mono">
+                      {result.outputToken} · {result.tokensPerSecond.toFixed(2)} t/s
+                    </span>
+                  )}
+                  {result.status === "pending" && (
+                    <span className="text-gray-500">
+                      {t("results.status.pending")}
+                    </span>
+                  )}
+                  {result.status === "running" && (
+                    <span className="text-blue-400">
+                      {t("results.status.running")}
+                    </span>
+                  )}
+                  {result.status === "completed" && (
+                    <span className="text-green-400">
+                      {t("results.status.completed")}
+                    </span>
+                  )}
+                </div>
+              </div>
+            }
           >
-            <div className="flex justify-between items-center">
-              <div className="flex-1">
-                <h3 className="text-gray-700 font-medium mb-1">
-                  {t("results.prompt")}: {result.prompt}
-                </h3>
-                <p className="text-gray-600 text-sm mb-2">
-                  {t("results.model")}: {result.model}
-                </p>
-              </div>
-              <div className="ml-4">
-                {result.status === "pending" && (
-                  <span className="text-gray-500">
-                    {t("results.status.pending")}
-                  </span>
-                )}
-                {result.status === "running" && (
-                  <span className="text-blue-400">
-                    {t("results.status.running")}
-                  </span>
-                )}
-                {result.status === "completed" && (
-                  <span className="text-green-400">
-                    {t("results.status.completed")}
-                  </span>
-                )}
-              </div>
-            </div>
-
             <div className="flex flex-row gap-12">
               <div>
                 <p className="text-gray-600 text-sm">
@@ -117,35 +139,33 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle }
 
             <div
               id={`content-${index}`}
-              className={`max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg ${
-                expandedIndex === index ? "block" : "hidden"
-              }`}
+              className="max-h-96 overflow-y-auto mt-4 p-4 bg-white dark:bg-gray-100 rounded-lg"
             >
               <div className="flex justify-between items-center mb-2">
                 <h4 className="text-gray-700 font-medium">
-                  {t("results.output.title")}:
+                  tSpeed("results.output.title"):
                 </h4>
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    const text = streamContents[index]
-                    if (text) copyToClipboard(text)
+                    const text = streamContents[index]; if (text) copyToClipboard(text)
                   }}
                   className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
                 >
-                  {t("results.output.copy")}
+                  tSpeed("results.output.copy")
                 </button>
               </div>
               <div className="whitespace-pre-wrap font-mono text-sm">
-                {streamContents[index] ||
+                streamContents[index] ||
                   (result.status === "pending"
                     ? t("results.output.waiting")
-                    : t("results.output.loading"))}
+                    : t("results.output.loading"))
               </div>
             </div>
-          </div>
-        ))}
+          </CollapsiblePanel>
+          );
+        })}
       </div>
-    </>
+    </CollapsiblePanel>
   );
 }

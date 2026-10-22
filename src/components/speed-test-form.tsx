@@ -51,6 +51,10 @@ export function SpeedTestForm() {
 	const [results, setResults] = useState<SpeedTestResultCard[] | null>(null)
 	const [progress, setProgress] = useState<number>(0)
 	const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+	// 导出图片只能截到当前可见内容，截图前临时展开所有折叠区块
+	const [captureExpand, setCaptureExpand] = useState(false)
+	// 汇总面板可折叠：测完页面要短，需要时再展开看细节
+	const [summaryOpen, setSummaryOpen] = useState(true)
 	const [streamContents, setStreamContents] = useState<{
 		[key: number]: string
 	}>({})
@@ -415,6 +419,7 @@ export function SpeedTestForm() {
 			setResults(initialResults)
 			setProgress(0)
 			setStreamContents({})
+			setExpandedIndex(null)
 		data.baseUrl = data.baseUrl.trim()
 		// 输入归一化：无协议补全 http(s)、剥离完整端点；与输入框不一致时回填显示
 		const rawBaseUrl = getValues('baseUrl')
@@ -469,7 +474,6 @@ export function SpeedTestForm() {
 							newResults[i] = { ...newResults[i], status: 'running' as const }
 							return newResults
 						})
-						setExpandedIndex(i)
 						contentRef.current[i] = ''
 						setTimeout(() => {
 							document.querySelector(`#content-${i}`)?.scrollIntoView({
@@ -535,7 +539,6 @@ export function SpeedTestForm() {
 					saveTestResult(testResultToSave)
 					toast.success(t('form.resultSaved'))
 					window.dispatchEvent(new Event('lm-speed-test-completed'))
-					setTimeout(() => setExpandedIndex(null), 1000)
 					setTimeout(() => {
 						document.querySelector('#summary')?.scrollIntoView({
 							behavior: 'smooth', block: 'center',
@@ -611,7 +614,6 @@ export function SpeedTestForm() {
 										}
 										return newResults
 									})
-									setExpandedIndex(message.data.index)
 									contentRef.current[message.data.index] = ''
 									console.log(
 										`#content-${message.data.index}`,
@@ -685,8 +687,7 @@ export function SpeedTestForm() {
 										// 发送自定义事件通知其他页面更新数据
 										window.dispatchEvent(new Event('lm-speed-test-completed'))
 									}
-									setTimeout(() => setExpandedIndex(null), 1000)
-									setTimeout(() => {
+													setTimeout(() => {
 										document.querySelector(`#summary`)?.scrollIntoView({
 											behavior: 'smooth',
 											block: 'center',
@@ -830,6 +831,18 @@ export function SpeedTestForm() {
 			}
 		}
 	}, [baseUrlOpen])
+
+	const captureReport = async (id: 'summary' | 'result') => {
+		setCaptureExpand(true)
+		// 等 React 把折叠区块真正渲染出来再截图，否则截到的仍是折叠状态
+		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+		try {
+			await handleToImage(id)
+		} finally {
+			setCaptureExpand(false)
+		}
+	}
 
 	return (
 		<div className="container mx-auto px-4 sm:px-0">
@@ -1287,24 +1300,31 @@ export function SpeedTestForm() {
 			{results && (
 				<>
 					<div className="flex justify-center gap-4 mt-8">
-						<Button className="rounded-full" onClick={() => handleToImage('summary')}>
+						<Button className="rounded-full" onClick={() => captureReport('summary')}>
 							{t('form.downloadSummary')}
 						</Button>
 						<Button
 							variant="outline"
 							className="rounded-full"
-							onClick={() => handleToImage('result')}
+							onClick={() => captureReport('result')}
 						>
 							{t('form.downloadFullReport')}
 						</Button>
 					</div>
 					<div id="result" className="my-8">
 						{results.every((result) => result.status === 'completed') && (
-							<div id="summary" className="pin-light-gray mb-8 pt-6 px-6 pb-2 bg-[#17181C] rounded-lg">
-								<h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
-									<Zap className="w-5 h-5" />
-									<span>LM Speed X {t('results.summary.title')}</span>
-								</h3>
+							<div id="summary" className={cn('pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', captureExpand || summaryOpen ? 'pb-2' : 'pb-6')}>
+								<button
+									type="button"
+									onClick={() => setSummaryOpen(!summaryOpen)}
+									aria-expanded={captureExpand || summaryOpen}
+									className="w-full flex items-center gap-2 text-left cursor-pointer"
+								>
+									<Zap className="w-5 h-5 text-white shrink-0" />
+									<span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('results.summary.title')}</span>
+									<ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', (captureExpand || summaryOpen) && 'rotate-180')} />
+								</button>
+								<div className={captureExpand || summaryOpen ? undefined : 'hidden'}>
 								<div className="text-sm font-normal mb-4">
 									<span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
 									<span className="text-white mr-8">{results[0].model}</span>
@@ -1419,18 +1439,20 @@ export function SpeedTestForm() {
 										</div>
 									</div>
 								</div>
-								<a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="block mt-1 text-right text-xs text-gray-600 hover:text-gray-400 transition-colors">lm-speed-x.xtsat.cc.cd</a>
+									<a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="block mt-1 text-right text-xs text-gray-600 hover:text-gray-400 transition-colors">lm-speed-x.xtsat.cc.cd</a>
+								</div>
 							</div>
 						)}
-						<ResultsList
-							results={results}
-							streamContents={streamContents}
-							expandedIndex={expandedIndex}
-							onToggle={(index) => setExpandedIndex(expandedIndex === index ? null : index)}
-						/>
-					</div>
-				</>
-			)}
+					<ResultsList
+						results={results}
+						streamContents={streamContents}
+						expandedIndex={expandedIndex}
+						forceExpanded={captureExpand}
+						onToggle={(index) => setExpandedIndex(expandedIndex === index ? null : index)}
+					/>
+				</div>
+			</>
+		)}
 			<CloudflareBypassDialog
 				open={cloudflareDialogOpen}
 				onOpenChange={setCloudflareDialogOpen}
