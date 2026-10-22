@@ -840,7 +840,7 @@ export function SpeedTestForm() {
 		// 等这次展开提交到 DOM 再截图，否则拍到的是收起态
 		await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 		try {
-			await handleToImage('summary', 'lm-speed-summary')
+			await handleToImage('summary', 'lm-speed-x-summary')
 		} finally {
 			setSavingSummary(false)
 			if (restoreCollapsed) setSummaryOpen(false)

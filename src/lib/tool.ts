@@ -42,7 +42,7 @@ const readRadius = (node: HTMLElement): number => {
   );
 };
 
-export const handleToImage = async (id: string, name = "lm-speed-test"): Promise<void> => {
+export const handleToImage = async (id: string, name = "lm-speed-x"): Promise<void> => {
   const node = document.getElementById(id);
   if (!node) {
     toast.error("Please wait for the test to complete");

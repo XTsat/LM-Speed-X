@@ -475,7 +475,7 @@ const tRank = useTranslations('rank')
     // 等这次展开提交到 DOM 再截图，否则拍到的是收起态
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     try {
-      await handleToImage('stability-summary', 'lm-speed-stability-summary')
+      await handleToImage('stability-summary', 'lm-speed-x-stability-summary')
     } finally {
       setSavingSummary(false)
       if (restoreCollapsed) setSummaryOpen(false)

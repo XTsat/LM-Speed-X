@@ -537,7 +537,7 @@ const response = await fetch('/api/speed/concurrency', {
     // 等这次展开提交到 DOM 再截图，否则拍到的是收起态
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     try {
-      await handleToImage('concurrency-summary', 'lm-speed-concurrency-summary')
+      await handleToImage('concurrency-summary', 'lm-speed-x-concurrency-summary')
     } finally {
       setSavingSummary(false)
       if (restoreCollapsed) setSummaryOpen(false)
