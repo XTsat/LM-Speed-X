@@ -107,6 +107,11 @@ const tRank = useTranslations('rank')
     return () => clearInterval(timer)
   }, [loading])
 
+  // 运行时汇总数字一直在变，默认收起避免干扰；全部跑完再自动展开，省掉一次手动点击
+  useEffect(() => {
+    setSummaryOpen(!loading)
+  }, [loading])
+
   /** 单次请求失败原因：超时类给出本地化文案，其它沿用原始 message */
   const failureMessage = useCallback((error: unknown): string => {
     if (error instanceof RequestTimeoutError) {
