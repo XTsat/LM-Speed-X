@@ -12,6 +12,7 @@ import { COLLAPSE_BAR_CLASS, COLLAPSE_ITEM_CLASS, CollapsiblePanel } from './col
 import { ResultBody } from './result-body'
 import { cn } from '@/lib/utils'
 import { calculateStats } from '@/lib/stats'
+import { TEST_PARAM_KEYS, readStoredText, writeStoredText } from '@/lib/test-params'
 import {
   REQUEST_TIMEOUT_MS,
   directRequestOptions,
@@ -72,7 +73,13 @@ const tRank = useTranslations('rank')
   const [progress, setProgress] = useState(0)
   const [results, setResults] = useState<StabilityResults | null>(null)
   const [prompt, setPrompt] = useState('Explain the concept of quantum computing in simple terms.')
-  const [count, setCount] = useState(10)
+  // 输入框保留用户原始文本：清空时不能当成“1 次”，否则刷新会把默认的 10 次顶掉
+  const [countText, setCountText] = useState('10')
+  const count = useMemo(() => {
+    const parsed = Number.parseInt(countText, 10)
+    if (!Number.isFinite(parsed)) return 1
+    return Math.max(1, Math.min(10000, parsed))
+  }, [countText])
   // 连接配置与测速表单共用一份（含直连开关、自定义请求头、自动补全开关）
   const stored = useStoredConnection()
   const connection = useMemo(() => resolveConnection({ stored }), [stored])
@@ -94,6 +101,27 @@ const tRank = useTranslations('rank')
   const [openIterations, setOpenIterations] = useState<{ [key: number]: boolean }>({})
   const [streamContents, setStreamContents] = useState<{ [key: number]: string }>({})
   const contentRef = useRef<{ [key: number]: string }>({})
+
+  // 提示词和次数是每次都要重填的输入，刷新后按上次的值恢复（首次进入用默认值）
+  useEffect(() => {
+    const storedPrompt = readStoredText(TEST_PARAM_KEYS.stabilityPrompt)
+    if (storedPrompt) setPrompt(storedPrompt)
+    const storedCount = readStoredText(TEST_PARAM_KEYS.stabilityCount)
+    if (/^\d+$/.test(storedCount)) setCountText(storedCount)
+  }, [])
+
+  useEffect(() => {
+    // 清空即视为“回到默认”，删掉存储项，刷新后自然回落到默认提示词
+    writeStoredText(TEST_PARAM_KEYS.stabilityPrompt, prompt.trim() ? prompt : '')
+  }, [prompt])
+
+  useEffect(() => {
+    const parsed = Number.parseInt(countText, 10)
+    writeStoredText(
+      TEST_PARAM_KEYS.stabilityCount,
+      Number.isFinite(parsed) && parsed > 0 ? String(parsed) : ''
+    )
+  }, [countText])
 
   useEffect(() => {
     if (!loading) {
@@ -481,8 +509,8 @@ const tRank = useTranslations('rank')
             <label className="text-sm text-gray-600">{t('count.label')}</label>
             <Input
               type="number" min={1} max={10000}
-              value={count}
-              onChange={(e) => setCount(Math.max(1, Math.min(10000, parseInt(e.target.value) || 1)))}
+              value={countText}
+              onChange={(e) => setCountText(e.target.value)}
               className="w-full p-2 border-2 rounded-md bg-transparent text-gray-700"
             />
             <p className="text-xs text-gray-400">{t('count.hint')}</p>

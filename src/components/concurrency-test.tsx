@@ -20,6 +20,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { COLLAPSE_BAR_CLASS, COLLAPSE_ITEM_CLASS, CollapsiblePanel } from './collapsible-panel'
 import { ResultBody } from './result-body'
 import { cn } from '@/lib/utils'
+import { TEST_PARAM_KEYS, readStoredText, writeStoredText } from '@/lib/test-params'
 
 // ── Types ──
 
@@ -99,6 +100,23 @@ const tRank = useTranslations('rank')
   const [prompt, setPrompt] = useState('Explain the concept of quantum computing in simple terms.')
   // Multi-level concurrency input: free-text comma separated, parsed to a sorted unique integer list
   const [concurrencyLevelsText, setConcurrencyLevelsText] = useState('1, 5, 10, 20')
+
+  // 提示词和档位是每次都要重填的输入，刷新后按上次的值恢复（首次进入用默认值）
+  useEffect(() => {
+    const storedPrompt = readStoredText(TEST_PARAM_KEYS.concurrencyPrompt)
+    if (storedPrompt) setPrompt(storedPrompt)
+    const storedLevels = readStoredText(TEST_PARAM_KEYS.concurrencyLevels)
+    if (storedLevels) setConcurrencyLevelsText(storedLevels)
+  }, [])
+
+  useEffect(() => {
+    // 清空即视为“回到默认”，删掉存储项，刷新后自然回落到默认提示词
+    writeStoredText(TEST_PARAM_KEYS.concurrencyPrompt, prompt.trim() ? prompt : '')
+  }, [prompt])
+
+  useEffect(() => {
+    writeStoredText(TEST_PARAM_KEYS.concurrencyLevels, concurrencyLevelsText.trim() ? concurrencyLevelsText : '')
+  }, [concurrencyLevelsText])
   const [maxFirstTokenLatency, setMaxFirstTokenLatency] = useState<number | ''>('')
   // 连接配置与测速表单共用一份（含直连开关、自定义请求头、自动补全开关）
   const stored = useStoredConnection()
