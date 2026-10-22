@@ -63,12 +63,9 @@ export function ResultsList({ results, expandedIndex, streamContents, onToggle, 
             header={
               <div className="flex justify-between items-center">
                 <div className="flex-1">
-                  <h3 className="text-gray-700 font-medium mb-1">
+                  <h3 className="text-gray-700 font-medium">
                     {t("results.prompt")}: {result.prompt}
                   </h3>
-                  <p className="text-gray-600 text-sm">
-                    {t("results.model")}: {result.model}
-                  </p>
                 </div>
                 <div className="ml-4 flex items-center gap-3">
                   {result.status === "completed" && result.outputToken > 0 && (

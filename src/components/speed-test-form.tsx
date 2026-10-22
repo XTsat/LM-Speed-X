@@ -1314,7 +1314,7 @@ export function SpeedTestForm() {
 						</div>
 						<div id="result" className="my-8">
 							{results.every((result) => result.status === 'completed') && (
-								<div id="summary" className={cn('pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', captureExpand || summaryOpen ? 'pb-2' : 'pb-6')}>
+								<div id="summary" className={cn('group pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', captureExpand || summaryOpen ? 'pb-2' : 'pb-6')}>
 									<button
 										type="button"
 										onClick={() => setSummaryOpen(!summaryOpen)}
@@ -1323,7 +1323,7 @@ export function SpeedTestForm() {
 									>
 										<Zap className="w-5 h-5 text-white shrink-0" />
 										<span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('results.summary.title')}</span>
-										<ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', (captureExpand || summaryOpen) && 'rotate-180')} />
+										<ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100', (captureExpand || summaryOpen) && 'rotate-180')} />
 									</button>
 									<div className={captureExpand || summaryOpen ? undefined : 'hidden'}>
 									<div className="text-sm font-normal mb-4">

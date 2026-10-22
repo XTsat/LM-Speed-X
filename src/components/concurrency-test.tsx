@@ -590,7 +590,7 @@ const response = await fetch('/api/speed/concurrency', {
       <div className="px-4 sm:px-6">
         {results && (
           <div className="mb-8">
-            <div id="concurrency-summary" className={cn('pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
+            <div id="concurrency-summary" className={cn('group pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
               <button
                 type="button"
                 onClick={() => setSummaryOpen(!summaryOpen)}
@@ -599,7 +599,7 @@ const response = await fetch('/api/speed/concurrency', {
               >
                 <BarChart3 className="w-5 h-5 text-white shrink-0" />
                 <span className="flex-1 text-lg font-semibold text-white">LM Speed X {t('summary.title')}</span>
-                <ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-transform', summaryOpen && 'rotate-180')} />
+                <ChevronDown className={cn('w-5 h-5 shrink-0 text-gray-500 transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100', summaryOpen && 'rotate-180')} />
               </button>
               <div className={summaryOpen ? undefined : 'hidden'}>
 
@@ -718,9 +718,6 @@ const response = await fetch('/api/speed/concurrency', {
                                 {t('details.level')} {s.level}
                                 <span className="ml-3 text-gray-500 text-sm">({s.successCount}/{s.totalRequests} {t('status.completed')})</span>
                               </p>
-                              <p className="text-gray-500 text-xs mt-1">
-                                {t('connection.modelId')}: {modelId}
-                              </p>
                             </div>
                             <div className="text-right text-sm pr-2">
                               <p className={rowColorClass(s.successRate)}>{s.successRate.toFixed(1)}% {t('benchmark.successRate')}</p>
@@ -810,9 +807,6 @@ const response = await fetch('/api/speed/concurrency', {
                       <span className="ml-3 text-gray-500 text-sm">
                         ({activeLevelRequests.filter((it) => it.status === 'completed').length}/{activeLevelRequests.length})
                       </span>
-                    </p>
-                    <p className="text-gray-500 text-xs mt-1">
-                      {t('connection.modelId')}: {modelId}
                     </p>
                   </div>
                   <div className="text-right text-sm pr-2">
