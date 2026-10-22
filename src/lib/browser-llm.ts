@@ -28,8 +28,24 @@ export function isLocalUrl(url: string): boolean {
       hostname === '::1' ||
       hostname.startsWith('192.168.') ||
       hostname.startsWith('10.') ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+      // CGNAT 100.64.0.0/10 — tailnet/overlay addresses an upstream server can
+      // never reach, so they need the same browser-direct treatment as RFC1918.
+      // Keep this in sync with normalizeScheme() in api-path.ts.
+      /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(hostname)
     )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether the address carries an explicit port. URLs drop the scheme default
+ * (:80/:443), so this reports only ports a user actually typed.
+ */
+export function hasExplicitPort(url: string): boolean {
+  try {
+    return new URL(url).port !== ''
   } catch {
     return false
   }

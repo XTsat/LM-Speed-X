@@ -223,7 +223,10 @@
       "add": "添加",
       "browserDirect": {
         "label": "浏览器直连模式（本地/内网 API）",
-        "description": "当 API 地址为本地或内网 IP 时自动启用，浏览器直接连接 API 绕过服务器代理"
+        "description": "当 API 地址为本地或内网 IP 时自动启用，浏览器直接连接 API 绕过服务器代理",
+        "autoOn": "检测到内网地址，已自动切换到浏览器直连",
+        "portHint": "该地址带自定义端口，若它是内网或隧道地址，请开启浏览器直连",
+        "enable": "开启直连"
       },
       "autoCompleteBaseUrl": {
         "label": "自动补全 API 地址",

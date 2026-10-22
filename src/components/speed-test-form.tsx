@@ -18,8 +18,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronDown, ChevronsUpDown, ClipboardPaste, Copy, Link, Plus, SlidersHorizontal, Trash2, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { saveTestResult } from '@/lib/local-storage'
-import { isLocalUrl, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
-import { normalizeApiBaseUrl, resolveApiBaseUrl } from '@/lib/api-path'
+import { isLocalUrl, hasExplicitPort, fetchModelsDirect, runBrowserStreamedChat } from '@/lib/browser-llm'
+import { normalizeApiBaseUrl, normalizeScheme, resolveApiBaseUrl } from '@/lib/api-path'
 import { readAutoCompleteBaseUrl, writeAutoCompleteBaseUrl } from '@/lib/api-completion'
 import { isCloudflareError } from '@/lib/cloudflare'
 import { COMMON_PROVIDERS } from '@/lib/providers'
@@ -61,6 +61,8 @@ export function SpeedTestForm() {
 	// 剪贴板权限不可用时的兜底弹窗：copy=导出内容手动复制；input=手动粘贴导入
 	const [clipboardDialog, setClipboardDialog] = useState<{ mode: 'copy' | 'input'; content?: string } | null>(null)
 	const forceBrowserDirectRef = useRef(false)
+	// 只有用户自己选/填的地址才弹直连提示；恢复 localStorage 或链接参数时保持安静
+	const baseUrlPickedByUserRef = useRef(false)
 	const [commonBaseUrls, setCommonBaseUrls] = useState(() => [...COMMON_PROVIDERS])
 
 	const contentRef = useRef<{ [key: number]: string }>({})
@@ -784,12 +786,31 @@ export function SpeedTestForm() {
 
 		// Auto-detect local/private IP base URLs and enable browser-direct mode
 		useEffect(() => {
-			if (watchBaseUrl) {
-				setUseBrowserDirect(isLocalUrl(watchBaseUrl))
-			} else {
+			if (!watchBaseUrl) {
 				setUseBrowserDirect(false)
+				return
 			}
-		}, [watchBaseUrl])
+			const local = isLocalUrl(watchBaseUrl)
+			setUseBrowserDirect(local)
+
+			// 只在用户刚选/填地址时提示，避免刷新页面重复打扰
+			const pickedByUser = baseUrlPickedByUserRef.current
+			baseUrlPickedByUserRef.current = false
+			if (!pickedByUser) return
+
+			if (local) {
+				toast.success(t('form.browserDirect.autoOn'))
+			} else if (hasExplicitPort(normalizeScheme(watchBaseUrl))) {
+				// 带自定义端口的多是自建/隧道网关，服务端代理到不了的场景由用户自己判断是否开直连
+				toast(t('form.browserDirect.portHint'), {
+					duration: 8000,
+					action: {
+						label: t('form.browserDirect.enable'),
+						onClick: () => setUseBrowserDirect(true),
+					},
+				})
+			}
+		}, [watchBaseUrl, t])
 
 	const [open, setOpen] = useState(false)
 	const [modelSearch, setModelSearch] = useState('')
@@ -846,6 +867,7 @@ export function SpeedTestForm() {
 																if (!commonBaseUrls.some(url => url.id === customUrl)) {
 																	setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
 																}
+																baseUrlPickedByUserRef.current = true
 																setValue('baseUrl', customUrl)
 																setBaseUrlSearch('')
 															}
@@ -864,6 +886,7 @@ export function SpeedTestForm() {
 															if (!commonBaseUrls.some(url => url.id === customUrl)) {
 																setCommonBaseUrls(prev => [...prev, { id: customUrl, name: customUrl }])
 															}
+															baseUrlPickedByUserRef.current = true
 															setValue('baseUrl', customUrl)
 															setBaseUrlSearch('')
 														}
@@ -882,6 +905,7 @@ export function SpeedTestForm() {
 															onSelect={(currentValue) => {
 																// Extract the URL from the combined value
 																const selectedUrl = currentValue.split(' ').pop() || currentValue
+																baseUrlPickedByUserRef.current = true
 																setValue('baseUrl', selectedUrl)
 																setBaseUrlOpen(false)
 																// Save to localStorage when a URL is selected

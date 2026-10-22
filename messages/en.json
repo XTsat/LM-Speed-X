@@ -223,7 +223,10 @@
       "add": "Add",
       "browserDirect": {
         "label": "Browser Direct Mode (Local/Intranet API)",
-        "description": "Auto-enabled when the API address is a local or intranet IP. The browser connects directly, bypassing the server proxy."
+        "description": "Auto-enabled when the API address is a local or intranet IP. The browser connects directly, bypassing the server proxy.",
+        "autoOn": "Intranet address detected — switched to browser direct mode",
+        "portHint": "This address uses a custom port. If it is an intranet or tunnel address, enable browser direct mode.",
+        "enable": "Enable"
       },
       "autoCompleteBaseUrl": {
         "label": "Auto-complete API URL",
