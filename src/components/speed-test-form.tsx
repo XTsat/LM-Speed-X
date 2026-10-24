@@ -44,13 +44,23 @@ type SpeedTestResultCard = SpeedTestResult & {
 	status?: 'pending' | 'running' | 'completed'
 }
 
+// 汇总面板从开跑那一刻就在（运行中默认收起），此时还没有已完成样本：
+// 用一行 0 兜底，避免 0/0 算出 NaN、Math.max() 算出 -Infinity
+type SummarySample = Pick<SpeedTestResultCard, 'firstTokenLatency' | 'totalTime' | 'tokensPerSecond'>
+const ZERO_SAMPLE: SummarySample = { firstTokenLatency: 0, totalTime: 0, tokensPerSecond: 0 }
+
 export function SpeedTestForm() {
 	const t = useTranslations('SpeedTest')
 	const tRank = useTranslations('rank')
 	const [loading, setLoading] = useState(false)
 	const [results, setResults] = useState<SpeedTestResultCard[] | null>(null)
 	// 运行中也算一份实时汇总：中途失败时已完成的轮次不该白跑
-	const liveResults = useMemo(() => (results ?? []).filter((r) => r.status === 'completed'), [results])
+	const completedCount = results ? results.filter((r) => r.status === 'completed').length : 0
+	// 面板从开跑那一刻就在（运行中默认收起），0 条样本时拿兜底行替代空数组
+	const liveResults: SummarySample[] = useMemo(() => {
+		const completed = (results ?? []).filter((r) => r.status === 'completed')
+		return completed.length > 0 ? completed : [ZERO_SAMPLE]
+	}, [results])
 	const [progress, setProgress] = useState<number>(0)
 	const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 	// 导出图片只能截到当前可见内容，截图前临时展开所有折叠区块
@@ -405,6 +415,8 @@ export function SpeedTestForm() {
 	const onSubmit = async (data: SpeedTestInput) => {
 		try {
 			setLoading(true)
+			// 与 loading 同一次渲染内收起，否则面板会先以展开态闪一帧
+			setSummaryOpen(false)
 			contentRef.current = {}
 
 			const initialResults = TEST_PROMPTS.map((prompt) => ({
@@ -1311,7 +1323,7 @@ export function SpeedTestForm() {
 				{results && (
 					<>
 						<div className="my-8">
-							{liveResults.length > 0 && (
+							{(loading || completedCount > 0) && (
 								<div id="summary" className={cn('group pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
 									<div className="flex items-center gap-2">
 										<button
@@ -1357,7 +1369,7 @@ export function SpeedTestForm() {
 										})()}</span>
 										<span className="text-gray-400 mr-2">{t('results.summary.completedCount')}:</span>
 										<span className="text-white">
-											{loading ? `${liveResults.length}/${results.length}` : liveResults.length}
+											{loading ? `${completedCount}/${results.length}` : completedCount}
 										</span>
 									</div>
 									<div className="grid grid-cols-1 md:grid-cols-3 gap-6">

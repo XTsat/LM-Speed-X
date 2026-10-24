@@ -230,6 +230,8 @@ const tRank = useTranslations('rank')
 
     try {
       setLoading(true)
+      // 与 loading 同一次渲染内收起，否则面板会先以展开态闪一帧
+      setSummaryOpen(false)
       setProgress(0)
       setResults(null)
       setLiveSummaries([])
@@ -564,9 +566,9 @@ const response = await fetch('/api/speed/concurrency', {
     // 该档已结算成正式行（等下一档 level_start 才会换 activeLevel），此时不再补运行中行。
     // 按记录的 levelIndex 判断而不是数组长度：丢了帧时长度比较会一直错位、运行中行再不出现
     if (liveSummaries.some((s) => s.levelIndex === activeLevelIndex)) return liveSummaries
-    // 已结算样本：分母也用它们，运行中才不会因为还没出结果的请求显示成低成功率红色行
+    // 档位一开始跑就出一行（首个请求还没结算时是 0/0），汇总面板才能从第一条就在；
+    // 分母仍用已结算样本，免得没出结果的请求把成功率压成红色低分
     const settled = activeLevelRequests.filter((it) => it.status === 'completed' || it.status === 'failed')
-    if (settled.length === 0) return liveSummaries
     const successResults = settled.filter((it) => it.success)
     const successCount = successResults.length
     const totalRequests = settled.length
@@ -600,17 +602,19 @@ const response = await fetch('/api/speed/concurrency', {
 
   const bestConfig = useMemo<BestConfig | null>(() => {
     if (results) return results.best
-    if (summaryRows.length === 0) return null
+    // 刚开跑的行还没有样本，指标全 0 会被误判成「延迟最佳」，评奖范围先把它排除
+    const ranked = summaryRows.filter((s) => s.totalRequests > 0)
+    if (ranked.length === 0) return null
     let bestRpsIdx = 0, bestLatencyIdx = 0, bestTpsIdx = 0
-    for (let i = 1; i < summaryRows.length; i++) {
-      if (summaryRows[i].rps > summaryRows[bestRpsIdx].rps) bestRpsIdx = i
-      if (summaryRows[i].avgLatencySec < summaryRows[bestLatencyIdx].avgLatencySec) bestLatencyIdx = i
-      if (summaryRows[i].avgTps > summaryRows[bestTpsIdx].avgTps) bestTpsIdx = i
+    for (let i = 1; i < ranked.length; i++) {
+      if (ranked[i].rps > ranked[bestRpsIdx].rps) bestRpsIdx = i
+      if (ranked[i].avgLatencySec < ranked[bestLatencyIdx].avgLatencySec) bestLatencyIdx = i
+      if (ranked[i].avgTps > ranked[bestTpsIdx].avgTps) bestTpsIdx = i
     }
     return {
-      bestRps: { level: summaryRows[bestRpsIdx].level, value: summaryRows[bestRpsIdx].rps },
-      bestLatency: { level: summaryRows[bestLatencyIdx].level, value: summaryRows[bestLatencyIdx].avgLatencySec },
-      bestTps: { level: summaryRows[bestTpsIdx].level, value: summaryRows[bestTpsIdx].avgTps },
+      bestRps: { level: ranked[bestRpsIdx].level, value: ranked[bestRpsIdx].rps },
+      bestLatency: { level: ranked[bestLatencyIdx].level, value: ranked[bestLatencyIdx].avgLatencySec },
+      bestTps: { level: ranked[bestTpsIdx].level, value: ranked[bestTpsIdx].avgTps },
     }
   }, [results, summaryRows])
 
@@ -708,7 +712,7 @@ const response = await fetch('/api/speed/concurrency', {
 
       {/* ── Summary (on top; accumulates one row per finished level while running) - llm-benchmark style comparison table ── */}
       <div className="px-4 sm:px-6">
-        {summaryRows.length > 0 && (
+        {(loading || summaryRows.length > 0) && (
           <div className="mb-8">
             <div id="concurrency-summary" className={cn('group pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
               <div className="flex items-center gap-2">
@@ -771,7 +775,7 @@ const response = await fetch('/api/speed/concurrency', {
                   </thead>
                   <tbody>
                     {summaryRows.map((s) => (
-                      <tr key={s.level} className={`border-b border-gray-800 ${rowBgClass(s.successRate)}`}>
+                      <tr key={s.level} className={`border-b border-gray-800 ${s.running ? 'bg-gray-800/30' : rowBgClass(s.successRate)}`}>
                         <td className="text-center py-3 px-3 text-cyan-300 font-mono">
                           <span className="inline-flex items-center justify-center gap-1.5">
                             {s.level}
@@ -783,7 +787,7 @@ const response = await fetch('/api/speed/concurrency', {
                         <td className="text-center py-3 px-3 text-white font-mono">{formatRps(s.rps)}</td>
                         <td className="text-center py-3 px-3 text-gray-200 font-mono">{formatTps(s.avgTps)}</td>
                         <td className="text-center py-3 px-3 text-gray-200 font-mono">{s.successCount}/{s.totalRequests}</td>
-                        <td className={`text-center py-3 px-3 font-mono ${rowColorClass(s.successRate)}`}>{s.successRate.toFixed(2)}%</td>
+                        <td className={`text-center py-3 px-3 font-mono ${s.totalRequests > 0 ? rowColorClass(s.successRate) : 'text-gray-400'}`}>{s.totalRequests > 0 ? `${s.successRate.toFixed(2)}%` : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
