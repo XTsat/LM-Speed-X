@@ -440,6 +440,10 @@
     "basedOn": "Based on original",
     "noDetails": "No details available",
     "entries": {
+      "v0_12_1": {
+        "liveSummaryBothTests": "Watch the concurrency and speed summaries while they run",
+        "liveSummaryBothTestsDetail": "The summary bar appears the moment a test starts, gains a row for every finished concurrency level or speed round, and expands to the full statistics when the run ends"
+      },
       "v0_12_0": {
         "resultsCollapsible": "Test results fold level by level",
         "resultsCollapsibleDetail": "The whole result block, each concurrency level, run and request collapse on their own, so long result lists show a one-line summary instead of scrolling forever",

@@ -440,6 +440,10 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_12_1": {
+        "liveSummaryBothTests": "并发测试与速度测试进行中也能看到汇总",
+        "liveSummaryBothTestsDetail": "汇总条从点击开始的那一刻就出现，并发每跑完一档、速度测试每跑完一轮就补一行结果，跑完自动展开完整统计"
+      },
       "v0_12_0": {
         "resultsCollapsible": "测试结果可以逐级折叠",
         "resultsCollapsibleDetail": "整份结果、每个档位、每一轮和每条请求都能单独收起，默认只显示一行状态摘要，长列表不用再一路往下滚",
