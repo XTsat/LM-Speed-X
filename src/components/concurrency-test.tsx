@@ -88,6 +88,19 @@ function rowBgClass(successRate: number): string {
   return 'bg-red-900/20'
 }
 
+// 实时行和最终结果是同一套口径算出来的，放模块作用域避免两处公式各自漂移
+function calcStats(vals: number[]) {
+  if (vals.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0, variance: 0, median: 0, p99: 0 }
+  const sorted = [...vals].sort((a, b) => a - b)
+  const sum = sorted.reduce((a, v) => a + v, 0)
+  const mean = sum / vals.length
+  const median = vals.length % 2 === 0 ? (sorted[vals.length / 2 - 1] + sorted[vals.length / 2]) / 2 : sorted[Math.floor(vals.length / 2)]
+  const variance = sorted.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length
+  const stdDev = Math.sqrt(variance)
+  const p99 = vals.length >= 2 ? sorted[Math.min(vals.length - 1, Math.max(0, Math.ceil(0.99 * vals.length) - 1))] : sorted[vals.length - 1]
+  return { mean, stdDev, min: sorted[0], max: sorted[vals.length - 1], variance, median, p99 }
+}
+
 // ── Component ──
 
 export function ConcurrencyTest() {
@@ -130,7 +143,15 @@ const tRank = useTranslations('rank')
   const [detailsOpen, setDetailsOpen] = useState(true)
   const [openLevels, setOpenLevels] = useState<{ [key: number]: boolean }>({})
   const [activeLevel, setActiveLevel] = useState<number | null>(null)
+  // 档位序号：结算行写进 liveSummaries 后仍要等下一档的 level_start 才换 activeLevel，
+  // 靠它判断「运行中行」是否已被结算行取代，避免这段间隙里同一档位出现两行
+  const [activeLevelIndex, setActiveLevelIndex] = useState<number | null>(null)
   const [activeLevelRequests, setActiveLevelRequests] = useState<RequestStatus[]>([])
+  // 运行中行的 rps 要跟结算行同口径（该档从起跑到现在的墙钟时长），
+  // 否则同一档位在结算瞬间会从「最慢单请求」跳到「整档耗时」
+  const levelStartRef = useRef<number | null>(null)
+  // 运行期逐档累积的汇总：全部跑完前 results 还是 null，面板靠它才有行可显示
+  const [liveSummaries, setLiveSummaries] = useState<LevelSummary[]>([])
   // 总览面板、过程中的明细同样可折叠：测试跑起来后结果会长到屏幕以外
   const [summaryOpen, setSummaryOpen] = useState(true)
   const [savingSummary, setSavingSummary] = useState(false)
@@ -152,6 +173,11 @@ const tRank = useTranslations('rank')
       setWaitedSeconds(Math.round((Date.now() - startedAt) / 1000))
     }, 1000)
     return () => clearInterval(timer)
+  }, [loading])
+
+  // 运行时汇总数字一直在变，默认收起避免干扰；全部跑完再自动展开，省掉一次手动点击
+  useEffect(() => {
+    setSummaryOpen(!loading)
   }, [loading])
 
   /** 单次请求失败原因：超时类给出本地化文案，其它沿用原始 message */
@@ -206,13 +232,16 @@ const tRank = useTranslations('rank')
       setLoading(true)
       setProgress(0)
       setResults(null)
+      setLiveSummaries([])
       setDetailsOpen(true)
       setOpenLevels({})
       contentRef.current = {}
 
       // Clear live cards
       setActiveLevel(null)
+      setActiveLevelIndex(null)
       setActiveLevelRequests([])
+      levelStartRef.current = null
       setOpenActive({})
       setOpenRequests({})
       setLiveLevelOpen(true)
@@ -232,6 +261,7 @@ const tRank = useTranslations('rank')
           for (let li = 0; li < levels.length; li++) {
             const level = levels[li]
             setActiveLevel(level)
+            setActiveLevelIndex(li)
             // 进度按「本档已完成请求数」推进：整档并发要全部完成才出结果，否则进度条长时间不动
             setProgress((li / levels.length) * 100)
             let settled = 0
@@ -251,6 +281,7 @@ const tRank = useTranslations('rank')
             setOpenRequests({})
             setLiveLevelOpen(true)
             const levelStartTime = performance.now()
+            levelStartRef.current = levelStartTime
             const tasks = Array.from({ length: level }, (_, i) =>
               runBrowserStreamedChat(live.baseUrl, live.apiKey, live.modelId,
                 [{ role: 'user' as const, content: prompt }], i, prompt,
@@ -326,18 +357,6 @@ const tRank = useTranslations('rank')
             const successRate = level > 0 ? (successCount / level) * 100 : 0
             const rps = levelTotalTimeSec > 0 ? successCount / levelTotalTimeSec : 0
 
-            function calcStats(vals: number[]) {
-              if (vals.length === 0) return { mean: 0, stdDev: 0, min: 0, max: 0, variance: 0, median: 0, p99: 0 }
-              const sorted = [...vals].sort((a, b) => a - b)
-              const sum = sorted.reduce((a, v) => a + v, 0)
-              const mean = sum / vals.length
-              const median = vals.length % 2 === 0 ? (sorted[vals.length / 2 - 1] + sorted[vals.length / 2]) / 2 : sorted[Math.floor(vals.length / 2)]
-              const variance = sorted.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length
-              const stdDev = Math.sqrt(variance)
-              const p99 = vals.length >= 2 ? sorted[Math.min(vals.length - 1, Math.max(0, Math.ceil(0.99 * vals.length) - 1))] : sorted[vals.length - 1]
-              return { mean, stdDev, min: sorted[0], max: sorted[vals.length - 1], variance, median, p99 }
-            }
-
             const latenciesMs = successResults.map(r => r.totalTime)
             const tpsVals = successResults.map(r => r.tokensPerSecond)
             const ttftsMs = successResults.map(r => r.firstTokenLatency)
@@ -353,6 +372,7 @@ const tRank = useTranslations('rank')
               levelTotalTimeSec, totalOutputTokens: successResults.reduce((a, r) => a + r.outputToken, 0),
             }
             allSummaries.push(summary)
+            setLiveSummaries([...allSummaries])
             setProgress(((li + 1) / levels.length) * 100)
           }
 
@@ -372,6 +392,7 @@ const tRank = useTranslations('rank')
           setResults({ summaries: allSummaries, details: allDetails, best })
           setProgress(100)
           setActiveLevel(null)
+          setActiveLevelIndex(null)
           toast.success(t('complete'))
         } catch (error) {
           console.error('Browser direct concurrency error:', error)
@@ -444,7 +465,9 @@ const response = await fetch('/api/speed/concurrency', {
                 case 'level_start': {
                   const li: number = message.data.levelIndex
                   const lvl: number = message.data.level
+                  levelStartRef.current = performance.now()
                   setActiveLevel(lvl)
+                  setActiveLevelIndex(li)
                   // Init request cards for this level all to 'running'
                   const init: RequestStatus[] = Array.from({ length: lvl }, (_, i): RequestStatus => ({
                     requestId: i + 1,
@@ -497,6 +520,7 @@ const response = await fetch('/api/speed/concurrency', {
                       status: fresh.success === false ? 'failed' as const : 'completed' as const,
                     }
                   }))
+                  setLiveSummaries((prev) => [...prev, message.data.summary as LevelSummary])
                   setProgress(((li + 1) / totalLevels) * 100)
                   break
                 }
@@ -504,6 +528,7 @@ const response = await fetch('/api/speed/concurrency', {
                   setResults(message.data)
                   setProgress(100)
                   setActiveLevel(null)
+                  setActiveLevelIndex(null)
                   toast.success(t('complete'))
                   break
                 case 'error':
@@ -528,6 +553,66 @@ const response = await fetch('/api/speed/concurrency', {
       setLoading(false)
     }
   }, [prompt, concurrencyLevelsText, t, parseLevels, maxFirstTokenLatency, failureMessage])
+
+  // 运行中用「已完成/计划」当档位数：完成后仍回落成实际行数
+  const plannedLevelCount = useMemo(() => parseLevels(concurrencyLevelsText).length, [parseLevels, concurrencyLevelsText])
+
+  /** 运行中也算一份汇总：测试中途中断时，已跑完的档位不该白跑 */
+  const summaryRows = useMemo<Array<LevelSummary & { running?: boolean }>>(() => {
+    if (results) return results.summaries
+    if (!loading || activeLevel === null || activeLevelIndex === null) return liveSummaries
+    // 该档已结算成正式行（等下一档 level_start 才会换 activeLevel），此时不再补运行中行。
+    // 按记录的 levelIndex 判断而不是数组长度：丢了帧时长度比较会一直错位、运行中行再不出现
+    if (liveSummaries.some((s) => s.levelIndex === activeLevelIndex)) return liveSummaries
+    // 已结算样本：分母也用它们，运行中才不会因为还没出结果的请求显示成低成功率红色行
+    const settled = activeLevelRequests.filter((it) => it.status === 'completed' || it.status === 'failed')
+    if (settled.length === 0) return liveSummaries
+    const successResults = settled.filter((it) => it.success)
+    const successCount = successResults.length
+    const totalRequests = settled.length
+    const levelStart = levelStartRef.current
+    const levelTotalTimeSec = levelStart === null
+      ? Math.max(...settled.map((it) => it.totalTime), 0) / 1000
+      : (performance.now() - levelStart) / 1000
+    const latencyStats = calcStats(successResults.map((it) => it.totalTime))
+    const tpsStats = calcStats(successResults.map((it) => it.tokensPerSecond))
+    const ttftStats = calcStats(successResults.map((it) => it.firstTokenLatency))
+    return [
+      ...liveSummaries,
+      {
+        running: true,
+        level: activeLevel,
+        levelIndex: activeLevelIndex,
+        totalRequests,
+        successCount,
+        failureCount: totalRequests - successCount,
+        successRate: totalRequests > 0 ? (successCount / totalRequests) * 100 : 0,
+        rps: levelTotalTimeSec > 0 ? successCount / levelTotalTimeSec : 0,
+        avgLatencySec: latencyStats.mean / 1000,
+        p99LatencySec: latencyStats.p99 / 1000,
+        avgTps: tpsStats.mean,
+        avgTtftSec: ttftStats.mean / 1000,
+        levelTotalTimeSec,
+        totalOutputTokens: successResults.reduce((a, it) => a + it.outputToken, 0),
+      },
+    ]
+  }, [results, loading, activeLevel, activeLevelIndex, activeLevelRequests, liveSummaries])
+
+  const bestConfig = useMemo<BestConfig | null>(() => {
+    if (results) return results.best
+    if (summaryRows.length === 0) return null
+    let bestRpsIdx = 0, bestLatencyIdx = 0, bestTpsIdx = 0
+    for (let i = 1; i < summaryRows.length; i++) {
+      if (summaryRows[i].rps > summaryRows[bestRpsIdx].rps) bestRpsIdx = i
+      if (summaryRows[i].avgLatencySec < summaryRows[bestLatencyIdx].avgLatencySec) bestLatencyIdx = i
+      if (summaryRows[i].avgTps > summaryRows[bestTpsIdx].avgTps) bestTpsIdx = i
+    }
+    return {
+      bestRps: { level: summaryRows[bestRpsIdx].level, value: summaryRows[bestRpsIdx].rps },
+      bestLatency: { level: summaryRows[bestLatencyIdx].level, value: summaryRows[bestLatencyIdx].avgLatencySec },
+      bestTps: { level: summaryRows[bestTpsIdx].level, value: summaryRows[bestTpsIdx].avgTps },
+    }
+  }, [results, summaryRows])
 
   // 汇总收起时截图会丢内容：先展开再拍，拍完恢复原状
   const saveSummaryImage = async () => {
@@ -621,9 +706,9 @@ const response = await fetch('/api/speed/concurrency', {
         </form>
       </div>
 
-      {/* ── Summary (shown on top after completion) - llm-benchmark style comparison table ── */}
+      {/* ── Summary (on top; accumulates one row per finished level while running) - llm-benchmark style comparison table ── */}
       <div className="px-4 sm:px-6">
-        {results && (
+        {summaryRows.length > 0 && (
           <div className="mb-8">
             <div id="concurrency-summary" className={cn('group pin-light-gray pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
               <div className="flex items-center gap-2">
@@ -665,9 +750,9 @@ const response = await fetch('/api/speed/concurrency', {
                 <span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
                 <span className="text-white mr-8">{(() => { try { return new URL(baseUrl).host } catch { return baseUrl || '-' } })()}</span>
                 <span className="text-gray-400 mr-2">{t('summary.levels')}:</span>
-                <span className="text-white mr-8">{results.summaries.length}</span>
+                <span className="text-white mr-8">{loading ? `${liveSummaries.length}/${plannedLevelCount}` : summaryRows.length}</span>
                 <span className="text-gray-400 mr-2">{t('summary.totalTokens')}:</span>
-                <span className="text-white">{results.summaries.reduce((acc, s) => acc + s.totalOutputTokens, 0).toLocaleString()}</span>
+                <span className="text-white">{summaryRows.reduce((acc, s) => acc + s.totalOutputTokens, 0).toLocaleString()}</span>
               </div>
 
               {/* Comparison table (columns aligned with the requested benchmark format) */}
@@ -685,9 +770,14 @@ const response = await fetch('/api/speed/concurrency', {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.summaries.map((s) => (
+                    {summaryRows.map((s) => (
                       <tr key={s.level} className={`border-b border-gray-800 ${rowBgClass(s.successRate)}`}>
-                        <td className="text-center py-3 px-3 text-cyan-300 font-mono">{s.level}</td>
+                        <td className="text-center py-3 px-3 text-cyan-300 font-mono">
+                          <span className="inline-flex items-center justify-center gap-1.5">
+                            {s.level}
+                            {s.running && <Loader2 className="w-3 h-3 animate-spin" />}
+                          </span>
+                        </td>
                         <td className="text-center py-3 px-3 text-gray-200 font-mono">{formatSec(s.avgTtftSec)}</td>
                         <td className="text-center py-3 px-3 text-gray-200 font-mono">{formatSec(s.avgLatencySec)}</td>
                         <td className="text-center py-3 px-3 text-white font-mono">{formatRps(s.rps)}</td>
@@ -707,41 +797,45 @@ const response = await fetch('/api/speed/concurrency', {
               </div>
 
               {/* Best-config block (mirrors llm-benchmark "性能最佳配置") */}
+              {/* 运行中按已有档位实时评选，跑完仍用服务端/本地最终结果 */}
+              {bestConfig && (
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <h4 className="text-base font-semibold text-white mb-3">{t('best.title')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="p-3 bg-gray-900/40 rounded-md border border-gray-800">
                     <p className="text-gray-400">{t('best.bestRps')}</p>
                     <p className="text-white mt-1">
-                      <span className="text-cyan-300">{t('benchmark.concurrency')} {results.best.bestRps.level}</span>
+                      <span className="text-cyan-300">{t('benchmark.concurrency')} {bestConfig.bestRps.level}</span>
                       <span className="mx-2 text-gray-500">·</span>
-                      <span className="font-mono">{formatRps(results.best.bestRps.value)} req/s</span>
+                      <span className="font-mono">{formatRps(bestConfig.bestRps.value)} req/s</span>
                     </p>
                   </div>
                   <div className="p-3 bg-gray-900/40 rounded-md border border-gray-800">
                     <p className="text-gray-400">{t('best.bestLatency')}</p>
                     <p className="text-white mt-1">
-                      <span className="text-cyan-300">{t('benchmark.concurrency')} {results.best.bestLatency.level}</span>
+                      <span className="text-cyan-300">{t('benchmark.concurrency')} {bestConfig.bestLatency.level}</span>
                       <span className="mx-2 text-gray-500">·</span>
-                      <span className="font-mono">{formatSec(results.best.bestLatency.value)}</span>
+                      <span className="font-mono">{formatSec(bestConfig.bestLatency.value)}</span>
                     </p>
                   </div>
                   <div className="p-3 bg-gray-900/40 rounded-md border border-gray-800">
                     <p className="text-gray-400">{t('best.bestTps')}</p>
                     <p className="text-white mt-1">
-                      <span className="text-cyan-300">{t('benchmark.concurrency')} {results.best.bestTps.level}</span>
+                      <span className="text-cyan-300">{t('benchmark.concurrency')} {bestConfig.bestTps.level}</span>
                       <span className="mx-2 text-gray-500">·</span>
-                      <span className="font-mono">{formatTps(results.best.bestTps.value)}</span>
+                      <span className="font-mono">{formatTps(bestConfig.bestTps.value)}</span>
                     </p>
                   </div>
                 </div>
               </div>
+              )}
               <a href="https://lm-speed-x.xtsat.cc.cd" target="_blank" rel="noopener noreferrer" className="block mt-1 text-right text-xs text-gray-600 hover:text-gray-400 transition-colors">lm-speed-x.xtsat.cc.cd</a>
               </div>
             </div>
 
             {/* Per-level details (matching SpeedTest ResultsList style) */}
-            {results.summaries.length > 0 && (
+            {/* 明细要等整轮结束才有完整的 details，运行中的单档明细走下方实时卡片 */}
+            {results && results.summaries.length > 0 && (
               <CollapsiblePanel
                 open={detailsOpen}
                 onToggle={() => setDetailsOpen(!detailsOpen)}

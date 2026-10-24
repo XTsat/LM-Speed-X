@@ -49,6 +49,8 @@ export function SpeedTestForm() {
 	const tRank = useTranslations('rank')
 	const [loading, setLoading] = useState(false)
 	const [results, setResults] = useState<SpeedTestResultCard[] | null>(null)
+	// 运行中也算一份实时汇总：中途失败时已完成的轮次不该白跑
+	const liveResults = useMemo(() => (results ?? []).filter((r) => r.status === 'completed'), [results])
 	const [progress, setProgress] = useState<number>(0)
 	const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 	// 导出图片只能截到当前可见内容，截图前临时展开所有折叠区块
@@ -832,6 +834,11 @@ export function SpeedTestForm() {
 		}
 	}, [baseUrlOpen])
 
+	// 运行时汇总数字一直在变，默认收起避免干扰；全部跑完再自动展开，省掉一次手动点击
+	useEffect(() => {
+		setSummaryOpen(!loading)
+	}, [loading])
+
 	// 汇总收起时截图会丢内容：先展开再拍，拍完恢复原状
 	const saveSummaryImage = async () => {
 		const restoreCollapsed = !summaryOpen
@@ -1304,7 +1311,7 @@ export function SpeedTestForm() {
 				{results && (
 					<>
 						<div className="my-8">
-							{results.every((result) => result.status === 'completed') && (
+							{liveResults.length > 0 && (
 								<div id="summary" className={cn('group pin-light-gray mb-8 pt-6 px-6 bg-[#17181C] rounded-lg', summaryOpen ? 'pb-2' : 'pb-6')}>
 									<div className="flex items-center gap-2">
 										<button
@@ -1341,21 +1348,25 @@ export function SpeedTestForm() {
 										<span className="text-gray-400 mr-2">{tRank('table.model')}:</span>
 										<span className="text-white mr-8">{results[0].model}</span>
 										<span className="text-gray-400 mr-2">{tRank('table.baseUrl')}:</span>
-										<span className="text-white">{(() => {
+										<span className="text-white mr-8">{(() => {
 											try {
 												return new URL(getValues('baseUrl')).host
 											} catch {
 												return getValues('baseUrl')
 											}
 										})()}</span>
+										<span className="text-gray-400 mr-2">{t('results.summary.completedCount')}:</span>
+										<span className="text-white">
+											{loading ? `${liveResults.length}/${results.length}` : liveResults.length}
+										</span>
 									</div>
 									<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 										<div>
 											<p className="text-sm text-gray-400">{tRank('table.avgLatency')}</p>
 											<p className="text-2xl font-medium text-white">
 												{(
-													results.reduce((acc, cur) => acc + cur.firstTokenLatency, 0) /
-													results.length /
+													liveResults.reduce((acc, cur) => acc + cur.firstTokenLatency, 0) /
+													liveResults.length /
 													1000
 												).toFixed(2)}
 												s
@@ -1366,7 +1377,7 @@ export function SpeedTestForm() {
 												</p>
 												<p className="text-base text-white">
 													{(
-														Math.max(...results.map((r) => r.firstTokenLatency)) /
+														Math.max(...liveResults.map((r) => r.firstTokenLatency)) /
 														1000
 													).toFixed(2)}
 													s
@@ -1378,7 +1389,7 @@ export function SpeedTestForm() {
 												</p>
 												<p className="text-base text-white">
 													{(
-														Math.min(...results.map((r) => r.firstTokenLatency)) /
+														Math.min(...liveResults.map((r) => r.firstTokenLatency)) /
 														1000
 													).toFixed(2)}
 													s
@@ -1389,8 +1400,8 @@ export function SpeedTestForm() {
 											<p className="text-sm text-gray-400">{tRank('table.avgTotalTime')}</p>
 											<p className="text-2xl font-medium text-white">
 												{(
-													results.reduce((acc, cur) => acc + cur.totalTime, 0) /
-													results.length /
+													liveResults.reduce((acc, cur) => acc + cur.totalTime, 0) /
+													liveResults.length /
 													1000
 												).toFixed(2)}
 												s
@@ -1401,7 +1412,7 @@ export function SpeedTestForm() {
 												</p>
 												<p className="text-base text-white">
 													{(
-														Math.max(...results.map((r) => r.totalTime)) / 1000
+														Math.max(...liveResults.map((r) => r.totalTime)) / 1000
 													).toFixed(2)}
 													s
 												</p>
@@ -1412,7 +1423,7 @@ export function SpeedTestForm() {
 												</p>
 												<p className="text-base text-white">
 													{(
-														Math.min(...results.map((r) => r.totalTime)) / 1000
+														Math.min(...liveResults.map((r) => r.totalTime)) / 1000
 													).toFixed(2)}
 													s
 												</p>
@@ -1422,8 +1433,8 @@ export function SpeedTestForm() {
 											<p className="text-sm text-gray-400">{tRank('table.avgTokens')}</p>
 											<p className="text-2xl font-medium text-white">
 												{(
-													results.reduce((acc, cur) => acc + cur.tokensPerSecond, 0) /
-													results.length
+													liveResults.reduce((acc, cur) => acc + cur.tokensPerSecond, 0) /
+													liveResults.length
 												).toFixed(2)}{' '}
 												t/s
 											</p>
@@ -1432,7 +1443,7 @@ export function SpeedTestForm() {
 													{t('results.summary.maxTokensPerSecond')}
 												</p>
 												<p className="text-base text-white">
-													{Math.max(...results.map((r) => r.tokensPerSecond)).toFixed(
+													{Math.max(...liveResults.map((r) => r.tokensPerSecond)).toFixed(
 														2
 													)}{' '}
 													t/s
@@ -1443,7 +1454,7 @@ export function SpeedTestForm() {
 													{t('results.summary.minTokensPerSecond')}
 												</p>
 												<p className="text-base text-white">
-													{Math.min(...results.map((r) => r.tokensPerSecond)).toFixed(
+													{Math.min(...liveResults.map((r) => r.tokensPerSecond)).toFixed(
 														2
 													)}{' '}
 													t/s

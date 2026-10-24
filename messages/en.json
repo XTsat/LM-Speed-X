@@ -293,6 +293,7 @@
       "summary": {
         "title": "Speed Test Summary",
         "saveImage": "Save summary as image",
+        "completedCount": "Completed Rounds",
         "avgFirstTokenLatency": "Average First Token Latency",
         "maxFirstTokenLatency": "Maximum First Token Latency",
         "minFirstTokenLatency": "Minimum First Token Latency",

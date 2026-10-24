@@ -293,6 +293,7 @@
       "summary": {
         "title": "速度测试汇总",
         "saveImage": "保存汇总为图片",
+        "completedCount": "已完成轮次",
         "avgFirstTokenLatency": "平均首字延迟",
         "maxFirstTokenLatency": "最长首字延迟",
         "minFirstTokenLatency": "最短首字延迟",
