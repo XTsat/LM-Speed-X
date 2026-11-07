@@ -29,7 +29,7 @@ export const ResultBody = ({
   error,
 }: ResultBodyProps) => (
   <div className="space-y-3">
-    <div className="grid grid-cols-2 gap-4 rounded-lg border border-gray-200 bg-white p-4 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 rounded-lg border border-gray-200 bg-white p-4 dark:bg-gray-100 sm:grid-cols-4">
       {metrics.map((metric) => (
         <div key={metric.label}>
           <p className="text-xs text-gray-500">{metric.label}</p>
@@ -38,7 +38,7 @@ export const ResultBody = ({
       ))}
     </div>
     {error && <p className="break-all px-1 text-xs text-red-400">{error}</p>}
-    <div id={contentId} className="max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-white p-4">
+    <div id={contentId} className="max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-white p-4 dark:bg-gray-100">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-xs font-medium text-gray-500">{outputTitle}</h4>
         {onCopy && (

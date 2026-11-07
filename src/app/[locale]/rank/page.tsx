@@ -495,7 +495,7 @@ export default function RankPage() {
 				</div>
 
 				<div id="ranking" className="overflow-x-auto border rounded-md relative">
-					<div className="fixed inset-0 pointer-events-none select-none z-10 overflow-hidden">
+					<div className="fixed inset-0 pointer-events-none select-none -z-10 overflow-hidden">
 						<div className="absolute inset-0 flex items-center justify-center opacity-[0.03] -rotate-12">
 							<div className="whitespace-nowrap text-4xl font-bold">
 								{Array(5).fill('LM Speed X').join('     ')}
