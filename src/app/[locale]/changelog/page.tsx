@@ -18,6 +18,20 @@ export default function ChangelogPage() {
 
 const entries: ChangelogEntry[] = [
     {
+      version: '0.12.2',
+      date: '2026-11-08',
+      types: ['fix'],
+      tag: 'v0.12.2',
+      changes: [
+        {
+          text: t('entries.v0_12_2.darkResultCards'),
+        },
+        {
+          text: t('entries.v0_12_2.rankWatermark'),
+        },
+      ],
+    },
+    {
       version: '0.12.1',
       date: '2026-10-24',
       types: ['feature'],

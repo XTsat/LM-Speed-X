@@ -440,6 +440,10 @@
     "basedOn": "基于原始版本",
     "noDetails": "暂无详细说明",
     "entries": {
+      "v0_12_2": {
+        "darkResultCards": "修复深色模式下测试结果详情文字看不清",
+        "rankWatermark": "排行榜页的 LM Speed X 水印改为页面背景，不再遮挡表格内容"
+      },
       "v0_12_1": {
         "liveSummaryBothTests": "并发测试与速度测试进行中也能看到汇总",
         "liveSummaryBothTestsDetail": "汇总条从点击开始的那一刻就出现，并发每跑完一档、速度测试每跑完一轮就补一行结果，跑完自动展开完整统计"
